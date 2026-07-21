@@ -1,127 +1,130 @@
-// ============ CONFIGURA ESTO ============
-const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
-// =========================================
+</main>
 
-const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
+  <script>
+    // ============ CONFIGURA ESTO ============
+    const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
+    // =========================================
 
-fetch(url)
-  .then(r => r.text())
-  .then(text => {
-    const match = text.match(/setResponse\(([\s\S]*)\);/);
-    if (!match) throw new Error('Formato inesperado del Google Sheet');
-    
-    const json = JSON.parse(match[1]);
-    const DATA = {};
-    
-    json.table.rows.forEach(r => {
-      const tabla = r.c && r.c[0] ? r.c[0].v : null;
-      const jsonStr = r.c && r.c[1] ? r.c[1].v : null;
-      
-      if (tabla) {
-        if (jsonStr) {
-          try { 
-            DATA[tabla] = JSON.parse(jsonStr); 
-          } catch(e) {
-            DATA[tabla] = jsonStr;
+    const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
+
+    fetch(url)
+      .then(r => r.text())
+      .then(text => {
+        const match = text.match(/setResponse\(([\s\S]*)\);/);
+        if (!match) throw new Error('Formato inesperado del Google Sheet');
+        
+        const json = JSON.parse(match[1]);
+        const DATA = {};
+        
+        json.table.rows.forEach(r => {
+          const tabla = r.c && r.c[0] ? r.c[0].v : null;
+          const jsonStr = r.c && r.c[1] ? r.c[1].v : null;
+          
+          if (tabla) {
+            if (jsonStr) {
+              try { 
+                DATA[tabla] = JSON.parse(jsonStr); 
+              } catch(e) {
+                DATA[tabla] = jsonStr;
+              }
+            } else {
+              DATA[tabla] = [];
+            }
           }
-        } else {
-          DATA[tabla] = [];
+        });
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('contenido').style.display = 'block';
+
+        try {
+          render(DATA);
+        } catch(err) {
+          console.error("Error al renderizar componentes:", err);
         }
+      })
+      .catch(err => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        console.error("Error de conexión:", err);
+      });
+
+    function render(DATA) {
+      DATA.sales_daily = Array.isArray(DATA.sales_daily) ? DATA.sales_daily : [];
+      DATA.leads_daily = Array.isArray(DATA.leads_daily) ? DATA.leads_daily : [];
+      DATA.cohort = Array.isArray(DATA.cohort) ? DATA.cohort : [];
+      DATA.leads_by_call = Array.isArray(DATA.leads_by_call) ? DATA.leads_by_call : [];
+      DATA.sales_by_call = Array.isArray(DATA.sales_by_call) ? DATA.sales_by_call : [];
+
+      document.getElementById('estado').textContent = 'Última actualización del Sheet: ' + (DATA.actualizado || '—');
+
+      const meses = [...new Set(DATA.sales_daily.map(r => r.mes))].filter(Boolean).sort();
+      const labels = meses.map(m => String(m).slice(5) + '/' + String(m).slice(2,4));
+
+      // 1. KPIs
+      const ventasTotal = DATA.sales_daily.reduce((s,r) => s + (Number(r.ventas) || 0), 0);
+      const leadsTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.leads) || 0), 0);
+      const convTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.convertidos) || 0), 0);
+      
+      document.getElementById('kVentasTotal').textContent = ventasTotal.toLocaleString();
+      document.getElementById('kLeadsTotal').textContent = leadsTotal.toLocaleString();
+      document.getElementById('kEfectGeneral').textContent = leadsTotal > 0 ? (Math.round(convTotal/leadsTotal*1000)/10)+'%' : '–';
+
+      // 2. Gráfico
+      const ventasPorMes = meses.map(m => DATA.sales_daily.filter(r=>r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0));
+      const canvasElem = document.getElementById('chVentas');
+      if (canvasElem) {
+        new Chart(canvasElem, {
+          type: 'bar',
+          data: { labels, datasets: [{ data: ventasPorMes, backgroundColor: '#1D3A5F', borderRadius: 4 }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+            scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}} } }
+        });
       }
-    });
 
-    // Ocultamos la carga e indicamos éxito ANTES de renderizar
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error').style.display = 'none';
-    document.getElementById('contenido').style.display = 'block';
+      // 3. Tabla Cohorte
+      const tableCohort = document.getElementById('tableCohort');
+      if (tableCohort) {
+        let html = '<thead><tr><th>Mes</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Efectividad</td>';
+        meses.forEach(m => {
+          const r = DATA.cohort.find(x=>x.mes===m);
+          html += '<td>' + (r && r.total>0 ? (Math.round((r.convertidos||0)/(r.total||1)*1000)/10)+'%' : '–') + '</td>';
+        });
+        html += '</tr></tbody>';
+        tableCohort.innerHTML = html;
+      }
 
-    // Ejecutamos el render en un bloque protegido
-    try {
-      render(DATA);
-    } catch(err) {
-      console.error("Error al renderizar los componentes visuales:", err);
+      // 4. Tablas Call
+      const calls = [...new Set(DATA.leads_by_call.map(r=>r.dim))].filter(Boolean);
+      
+      function buildCallTable(elId, valueFn) {
+        const tableEl = document.getElementById(elId);
+        if (!tableEl) return;
+        let h = '<thead><tr><th>Call</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+        calls.forEach(c => {
+          h += '<tr><td>'+c+'</td>' + meses.map(m => '<td>'+valueFn(c,m)+'</td>').join('') + '</tr>';
+        });
+        h += '</tbody>';
+        tableEl.innerHTML = h;
+      }
+
+      buildCallTable('tableCallLeads', (c,m) => {
+        const l = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.leads) || 0),0);
+        return l>0 ? l.toLocaleString() : '–';
+      });
+
+      buildCallTable('tableCallVentas', (c,m) => {
+        const v = DATA.sales_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0);
+        return v>0 ? v.toLocaleString() : '–';
+      });
+
+      buildCallTable('tableCallEfect', (c,m) => {
+        const rows = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m);
+        const l = rows.reduce((s,r)=>s+(Number(r.leads) || 0),0);
+        const conv = rows.reduce((s,r)=>s+(Number(r.convertidos) || 0),0);
+        return l>0 ? (Math.round(conv/l*1000)/10)+'%' : '–';
+      });
     }
-  })
-  .catch(err => {
-    // Esto SOLO se activará si el Sheet no carga en absoluto
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error').style.display = 'block';
-    console.error("Error de conexión con Google Sheet:", err);
-  });
-
-function render(DATA) {
-  DATA.sales_daily = Array.isArray(DATA.sales_daily) ? DATA.sales_daily : [];
-  DATA.leads_daily = Array.isArray(DATA.leads_daily) ? DATA.leads_daily : [];
-  DATA.cohort = Array.isArray(DATA.cohort) ? DATA.cohort : [];
-  DATA.leads_by_call = Array.isArray(DATA.leads_by_call) ? DATA.leads_by_call : [];
-  DATA.sales_by_call = Array.isArray(DATA.sales_by_call) ? DATA.sales_by_call : [];
-
-  document.getElementById('estado').textContent = 'Última actualización del Sheet: ' + (DATA.actualizado || '—');
-
-  const meses = [...new Set(DATA.sales_daily.map(r => r.mes))].filter(Boolean).sort();
-  const labels = meses.map(m => String(m).slice(5) + '/' + String(m).slice(2,4));
-
-  // 1. KPIs
-  const ventasTotal = DATA.sales_daily.reduce((s,r) => s + (Number(r.ventas) || 0), 0);
-  const leadsTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.leads) || 0), 0);
-  const convTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.convertidos) || 0), 0);
-  
-  document.getElementById('kVentasTotal').textContent = ventasTotal.toLocaleString();
-  document.getElementById('kLeadsTotal').textContent = leadsTotal.toLocaleString();
-  document.getElementById('kEfectGeneral').textContent = leadsTotal > 0 ? (Math.round(convTotal/leadsTotal*1000)/10)+'%' : '–';
-
-  // 2. Gráfico de ventas por mes
-  const ventasPorMes = meses.map(m => DATA.sales_daily.filter(r=>r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0));
-  const canvasElem = document.getElementById('chVentas');
-  if (canvasElem) {
-    new Chart(canvasElem, {
-      type: 'bar',
-      data: { labels, datasets: [{ data: ventasPorMes, backgroundColor: '#1D3A5F', borderRadius: 4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}} } }
-    });
-  }
-
-  // 3. Tabla Cohorte
-  const tableCohort = document.getElementById('tableCohort');
-  if (tableCohort) {
-    let html = '<thead><tr><th>Mes</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Efectividad</td>';
-    meses.forEach(m => {
-      const r = DATA.cohort.find(x=>x.mes===m);
-      html += '<td>' + (r && r.total>0 ? (Math.round((r.convertidos||0)/(r.total||1)*1000)/10)+'%' : '–') + '</td>';
-    });
-    html += '</tr></tbody>';
-    tableCohort.innerHTML = html;
-  }
-
-  // 4. Tablas Call
-  const calls = [...new Set(DATA.leads_by_call.map(r=>r.dim))].filter(Boolean);
-  
-  function buildCallTable(elId, valueFn) {
-    const tableEl = document.getElementById(elId);
-    if (!tableEl) return;
-    let h = '<thead><tr><th>Call</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-    calls.forEach(c => {
-      h += '<tr><td>'+c+'</td>' + meses.map(m => '<td>'+valueFn(c,m)+'</td>').join('') + '</tr>';
-    });
-    h += '</tbody>';
-    tableEl.innerHTML = h;
-  }
-
-  buildCallTable('tableCallLeads', (c,m) => {
-    const l = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.leads) || 0),0);
-    return l>0 ? l.toLocaleString() : '–';
-  });
-
-  buildCallTable('tableCallVentas', (c,m) => {
-    const v = DATA.sales_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0);
-    return v>0 ? v.toLocaleString() : '–';
-  });
-
-  buildCallTable('tableCallEfect', (c,m) => {
-    const rows = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m);
-    const l = rows.reduce((s,r)=>s+(Number(r.leads) || 0),0);
-    const conv = rows.reduce((s,r)=>s+(Number(r.convertidos) || 0),0);
-    return l>0 ? (Math.round(conv/l*1000)/10)+'%' : '–';
-  });
-}
+  </script>
+</body>
+</html>
