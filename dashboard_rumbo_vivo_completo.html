@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Rumbo — InterSeguro</title>
+<title>Dashboard Vida — InterSeguro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -17,35 +17,35 @@
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
-  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--amber); }
+  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--teal); }
   header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
   header h1{ margin:0; font-size:26px; font-weight:600; }
   header p.desc{ margin:6px 0 20px; color:#C3D2DE; font-size:14px; }
-  .tabs{ display:flex; gap:4px; flex-wrap:wrap; }
+  .tabs{ display:flex; gap:4px; }
   .tab-btn{ background:transparent; border:none; color:#B7C6D4; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:500;
-    padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; }
-  .tab-btn.active{ color:#fff; border-bottom-color:var(--amber); }
+    padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; }
+  .tab-btn.active{ color:#fff; border-bottom-color:var(--teal); }
   .tab-btn:hover{ color:#fff; }
   main{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
   .tabpanel{ display:none; }
   .tabpanel.active{ display:block; }
   .controls{ display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; flex-wrap:wrap; }
   .controls label{ font-size:13px; color:var(--text-2); font-weight:500; white-space:nowrap;}
-  .controls input[type=range]{ flex:1; min-width:180px; accent-color:var(--amber);}
+  .controls input[type=range]{ flex:1; min-width:180px; accent-color:var(--teal);}
   .controls select{ font-family:'IBM Plex Sans',sans-serif; font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:#fff; color:var(--text); }
   .controls .val{ font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--navy); min-width:130px;}
   .controls .hint{ font-size:12px; color:var(--text-3); }
   section{ margin-bottom:32px; }
   section h2{ font-size:15px; font-weight:600; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em;}
   section .sub{ font-size:13px; color:var(--text-3); margin:0 0 14px; }
-  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; }
   .kpi{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
   .kpi .label{ font-size:12px; color:var(--text-3); margin:0 0 6px; }
   .kpi .value{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--navy); margin:0;}
-  .kpi.accent{ background:#FBF0DE; border-color:#F0DBB0;}
-  .kpi.accent .value{ color:var(--amber);}
-  .kpi.danger{ background:#FBE4E1; border-color:#F0C4BE;}
-  .kpi.danger .value{ color:var(--red);}
+  .kpi.accent{ background:var(--teal-light); border-color:#BFE0D9;}
+  .kpi.accent .value{ color:var(--teal);}
+  .kpi.accent2{ background:#EFEBFA; border-color:#D6CDF0;}
+  .kpi.accent2 .value{ color:var(--violet);}
   .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
   @media (max-width:820px){ .grid-2{ grid-template-columns:1fr; } }
   .chart-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; }
@@ -54,20 +54,24 @@
   .legend span{ display:flex; align-items:center; gap:5px; }
   .dot{ width:9px; height:9px; border-radius:2px; display:inline-block; }
   .note{ font-size:12px; color:var(--text-3); margin-top:12px; line-height:1.55; border-top:1px solid var(--border); padding-top:10px;}
-  .insight-box{ background:#FBF8EF; border:1px solid #E8DCB0; border-left:4px solid var(--red); border-radius:8px; padding:14px 18px; margin-top:14px; font-size:13px; line-height:1.6; color:var(--text); }
-  .insight-box.critical{ border-left-color:var(--red); background:#FDF0EE; }
-  .insight-box strong{ color:var(--navy); }
-  .insight-box ul{ margin:4px 0 0; padding-left:18px; }
-  .insight-box li{ margin-bottom:4px; }
+  .assumptions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .tag{ font-size:11px; font-family:'IBM Plex Mono',monospace; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:4px 8px; color:var(--text-2); }
+  .tag.feriado{ background:#FBEFE3; border-color:#EFD3AE; color:#8B5A1B; }
+  .tag.mundial{ background:#EFEBFA; border-color:#D6CDF0; color:#4A3D8F; }
   table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
   table.data-table th, table.data-table td{ padding:9px 10px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
   table.data-table th:first-child, table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
   table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+  table.data-table thead tr.sub-h th{ background:var(--navy-2); font-size:10.5px; font-weight:400; color:#C3D2DE; }
   table.data-table tbody tr:hover{ background:var(--bg); }
   table.data-table tbody tr:last-child td{ border-bottom:none; }
   .table-wrap{ overflow-x:auto; border-radius:10px; }
   td.up{ background:#DEF2E6; color:#0F6B45; font-weight:600; }
   td.down{ background:#FBE4E1; color:#A32E20; font-weight:600; }
+  .insight-box{ background:#FBF8EF; border:1px solid #E8DCB0; border-left:4px solid var(--amber); border-radius:8px; padding:14px 18px; margin-top:14px; font-size:13px; line-height:1.6; color:var(--text); }
+  .insight-box strong{ color:var(--navy); }
+  .insight-box ul{ margin:4px 0 0; padding-left:18px; }
+  .insight-box li{ margin-bottom:4px; }
   footer{ max-width:1180px; margin:0 auto; padding:0 24px 40px; color:var(--text-3); font-size:12px; line-height:1.6;}
   footer strong{ color:var(--text-2); }
 </style>
@@ -80,12 +84,12 @@
 
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
-  <h1>Dashboard de ventas — Rumbo</h1>
-  <p class="desc">Producto de inversión · enero – julio 2026 · datos reales al 20 de julio</p>
+  <h1>Dashboard de ventas — Vida</h1>
+  <p class="desc">Vida Cash y Endosos · enero – julio 2026 · datos reales al 20 de julio</p>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
-    <button class="tab-btn" data-tab="perfil">Tasa / Prima / Edad / Plazo</button>
+    <button class="tab-btn" data-tab="producto">Por producto</button>
     <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
     <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
@@ -98,36 +102,34 @@
     <label for="corteSlider">Día de corte</label>
     <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
     <span class="val" id="corteVal">Día 20 de julio</span>
-    <span class="hint">Aplica al resumen</span>
+    <span class="hint">Aplica a todas las pestañas</span>
   </div>
 
   <!-- ===== TAB: RESUMEN ===== -->
   <div class="tabpanel active" id="tab-resumen">
 
   <section>
-    <h2>⚠ Diagnóstico: caída de ventas en julio</h2>
-    </section>
-
-  <section>
     <h2>Resumen al corte</h2>
+    <p class="sub">Indicadores de julio, calculados hasta el día seleccionado arriba</p>
     <div class="kpi-grid">
       <div class="kpi"><p class="label">Ventas julio (real)</p><p class="value" id="kVentas">–</p></div>
       <div class="kpi"><p class="label">vs. junio (mismo corte)</p><p class="value" id="kVsJun">–</p></div>
-      <div class="kpi"><p class="label">PNA julio (real)</p><p class="value" id="kPrima">–</p></div>
+      <div class="kpi"><p class="label">Prima julio (real)</p><p class="value" id="kPrima">–</p></div>
       <div class="kpi accent"><p class="label">Proyección cierre — ventas</p><p class="value" id="kProyVentas">–</p></div>
-      <div class="kpi accent"><p class="label">Proyección cierre — PNA</p><p class="value" id="kProyPrima">–</p></div>
-      <div class="kpi accent"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
+      <div class="kpi accent"><p class="label">Proyección cierre — prima</p><p class="value" id="kProyPrima">–</p></div>
+      <div class="kpi accent2"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
     </div>
   </section>
 
   <section>
     <h2>Ventas por mes: completo vs. a la fecha de corte</h2>
+    <p class="sub">Compara peras con peras: cada mes hasta el mismo día</p>
     <div class="legend">
       <span><span class="dot" style="background:#1D3A5F"></span>Mes completo</span>
       <span><span class="dot" style="background:#D98E3B"></span>A la fecha de corte</span>
     </div>
-    <div class="chart-card"><div class="chart-wrap"><canvas id="chVentasCorte"></canvas></div></div>
-  </section>
+    <div class="chart-card"><div class="chart-wrap"><canvas id="chVentasCorte" role="img" aria-label="Ventas por mes, completo vs a la fecha de corte"></canvas></div></div>
+    </section>
 
   <section>
     <h2>Proyección de cierre de julio — ventas</h2>
@@ -136,41 +138,62 @@
       <span><span class="dot" style="background:#1D3A5F"></span>Real a la fecha</span>
       <span><span class="dot" style="background:#0F8B7D"></span>Proyección resto del mes</span>
     </div>
-    <div class="chart-card"><div class="chart-wrap"><canvas id="chProyeccion"></canvas></div></div>
+    <div class="chart-card">
+      <div class="chart-wrap"><canvas id="chProyeccion" role="img" aria-label="Ventas reales de julio a la fecha más la proyección del resto del mes"></canvas></div>
+      <p class="note" id="proyNote"></p>
+      <div class="assumptions">
+        <span class="tag feriado">23, 28, 29 jul — Feriado: ventas ×0.7, leads ×0.8</span>
+        <span class="tag mundial">18 jul 4pm — Tercer puesto: ventas ×0.6, leads ×0.5</span>
+        <span class="tag mundial">19 jul 2pm — Final del Mundial: ventas ×0.3, leads ×0.2</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Proyección de cierre de julio — leads</h2>
+    <div class="legend">
+      <span><span class="dot" style="background:#1D3A5F"></span>Real a la fecha</span>
+      <span><span class="dot" style="background:#6C5CC4"></span>Proyección resto del mes</span>
+    </div>
+    <div class="chart-card"><div class="chart-wrap"><canvas id="chProyeccionLeads" role="img" aria-label="Leads reales de julio a la fecha más la proyección del resto del mes"></canvas></div></div>
   </section>
 
   <div class="grid-2">
     <section>
-      <h2>Composición por rango de tasa</h2>
-      <p class="sub">T1 (≥5%) / T2 (4-5%) / T3 (menor a 4%)</p>
+      <h2>Composición por subproducto</h2>
+      <p class="sub">Vida Cash Plus → Vida Cash Devolución desde abril</p>
       <div class="legend">
-        <span><span class="dot" style="background:#0F8B7D"></span>T1</span>
-        <span><span class="dot" style="background:#D98E3B"></span>T2</span>
-        <span><span class="dot" style="background:#C24B4B"></span>T3</span>
+        <span><span class="dot" style="background:#378ADD"></span>Plus</span>
+        <span><span class="dot" style="background:#D98E3B"></span>Devolución</span>
+        <span><span class="dot" style="background:#0F8B7D"></span>Endoso</span>
       </div>
-      <div class="chart-card"><div class="chart-wrap" style="height:220px;"><canvas id="chCanal"></canvas></div></div>
+      <div class="chart-card"><div class="chart-wrap" style="height:220px;"><canvas id="chCanal" role="img" aria-label="Composición mensual de ventas por subproducto"></canvas></div></div>
     </section>
+
     <section>
       <h2>Evolución de la prima promedio</h2>
-      <div class="chart-card"><div class="chart-wrap" style="height:220px;"><canvas id="chPrimaProm"></canvas></div></div>
+      <p class="sub">Salto de +22.6% en abril, coincide con el cambio de pricing</p>
+      <div class="chart-card"><div class="chart-wrap" style="height:220px;"><canvas id="chPrimaProm" role="img" aria-label="Evolución mensual de la prima promedio por venta"></canvas></div></div>
     </section>
   </div>
 
-  <section>
-    <h2>Efectividad por cohorte de leads</h2>
-    <p class="sub">Leads convertidos ÷ leads del mismo mes (FechaAsignacion)</p>
-    <div class="table-wrap"><table class="data-table" id="tableCohortEfect"></table></div>
-  </section>
+  <div class="grid-2">
+    <section>
+      <h2>Efectividad por cohorte de leads</h2>
+      <p class="sub">Leads convertidos ÷ leads del mismo mes (FechaAsignacion)</p>
+      <div class="table-wrap"><table class="data-table" id="tableCohortEfect"></table></div>
+    </section>
 
-  <section>
-    <h2>Pólizas por cliente</h2>
-    <p class="sub" id="multiSub">—</p>
-    <div class="kpi-grid">
-      <div class="kpi"><p class="label">1 póliza</p><p class="value" id="kMulti1">–</p></div>
-      <div class="kpi"><p class="label">2 pólizas</p><p class="value" id="kMulti2">–</p></div>
-      <div class="kpi"><p class="label">3+ pólizas</p><p class="value" id="kMulti3">–</p></div>
-    </div>
-  </section>
+    <section>
+      <h2>Pólizas por cliente</h2>
+      <p class="sub" id="multiSub">—</p>
+      <div class="kpi-grid">
+        <div class="kpi"><p class="label">1 póliza</p><p class="value" id="kMulti1">–</p></div>
+        <div class="kpi"><p class="label">2 pólizas</p><p class="value" id="kMulti2">–</p></div>
+        <div class="kpi"><p class="label">3+ pólizas</p><p class="value" id="kMulti3">–</p></div>
+      </div>
+    </section>
+  </div>
 
   </div>
 
@@ -178,6 +201,7 @@
   <div class="tabpanel" id="tab-call">
     <section>
       <h2>Leads y % Participación por call — todos los meses</h2>
+      <p class="sub">Filas: call. Columnas: mes. Mes completo (no usa el día de corte).</p>
       <div class="table-wrap"><table class="data-table" id="tableCallLeadsMatrix"></table></div>
     </section>
     <section>
@@ -186,51 +210,46 @@
     </section>
     <section>
       <h2>Venta Colchón — todos los meses</h2>
-      <p class="sub">Ventas con lead de mes anterior</p>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
       <div class="table-wrap"><table class="data-table" id="tableCallColchonMatrix"></table></div>
     </section>
     <section>
       <h2>% Participación Colchón — todos los meses</h2>
+      <p class="sub">Venta Colchón ÷ total de ventas de ese call y mes</p>
       <div class="table-wrap"><table class="data-table" id="tableCallColchonPartMatrix"></table></div>
     </section>
     <section>
       <h2>Efectividad por call — todos los meses</h2>
+      <p class="sub">Leads de ese call que convirtieron en venta ÷ leads de ese call, mismo mes</p>
       <div class="table-wrap"><table class="data-table" id="tableCallEfectMatrix"></table></div>
-      <p class="note">Excluye WhatsApp (sin leads separados por canal) y "Sin call - influencia directa" (artefacto del lead sintético). <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, con participación ≥8%.</p>
+      <p class="note">Excluye WhatsApp (no hay leads separados por canal de gestión) y "Sin call - influencia directa" (siempre ~100%, artefacto del lead sintético). <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span> = subió 15%+ vs. mes anterior, <span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = bajó 15%+ — solo se colorea si ese call/producto/fuente tiene participación relevante de leads (≥8% del mes en promedio); si tiene poco volumen no se resalta aunque cambie mucho, porque no es representativo.</p>
     </section>
   </div>
 
-  <!-- ===== TAB: PERFIL (TASA/PRIMA/EDAD/PLAZO) ===== -->
-  <div class="tabpanel" id="tab-perfil">
+  <!-- ===== TAB: POR PRODUCTO ===== -->
+  <div class="tabpanel" id="tab-producto">
     <section>
-      <h2>Rango de tasa (T1 / T2 / T3)</h2>
-      <p class="sub">T3: menor a 4% · T2: 4% a 5% · T1: 5% o más</p>
-      <p class="sub" style="margin-top:10px;">Leads y % Participación</p>
-      <div class="table-wrap"><table class="data-table" id="tableTasaLeadsMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Ventas</p>
-      <div class="table-wrap"><table class="data-table" id="tableTasaVentasMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Efectividad</p>
-      <div class="table-wrap"><table class="data-table" id="tableTasaEfectMatrix"></table></div>
+      <h2>Leads y % Participación por producto — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableProdLeadsMatrix"></table></div>
     </section>
     <section>
-      <h2>Rango de prima</h2>
-      <p class="sub">Leads y % Participación</p>
-      <div class="table-wrap"><table class="data-table" id="tablePrimaLeadsMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Ventas</p>
-      <div class="table-wrap"><table class="data-table" id="tablePrimaVentasMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Efectividad</p>
-      <div class="table-wrap"><table class="data-table" id="tablePrimaEfectMatrix"></table></div>
+      <h2>Ventas por producto — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableProdVentasMatrix"></table></div>
     </section>
     <section>
-      <h2>Rango de edad</h2>
-      <p class="sub">18-24, luego cada 5 años, hasta 55-60 (edad máxima del producto)</p>
-      <p class="sub" style="margin-top:10px;">Leads y % Participación</p>
-      <div class="table-wrap"><table class="data-table" id="tableEdadLeadsMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Ventas</p>
-      <div class="table-wrap"><table class="data-table" id="tableEdadVentasMatrix"></table></div>
-      <p class="sub" style="margin-top:14px;">Efectividad</p>
-      <div class="table-wrap"><table class="data-table" id="tableEdadEfectMatrix"></table></div>
-      <p class="note">"Sin dato" = no se pudo determinar la edad (fecha de nacimiento inválida en la venta y sin lead con edad para completar).</p>
+      <h2>Venta Colchón — todos los meses</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableProdColchonMatrix"></table></div>
+    </section>
+    <section>
+      <h2>% Participación Colchón — todos los meses</h2>
+      <p class="sub">Venta Colchón ÷ total de ventas de ese producto y mes</p>
+      <div class="table-wrap"><table class="data-table" id="tableProdColchonPartMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad por producto — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableProdEfectMatrix"></table></div>
+      <p class="note">Todas las tablas son de mes completo (no usan el día de corte). Efectividad = convertidos ÷ leads, mismo mes. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
     </section>
   </div>
 
@@ -238,148 +257,130 @@
   <div class="tabpanel" id="tab-fuente">
     <section>
       <h2>Leads y % Participación por fuente — todos los meses</h2>
-      <p class="sub">Solo Google y Facebook se identifican como fuente propia; el resto va agrupado en "Otros"</p>
+      <p class="sub">Solo Google y Facebook se identifican como fuente propia; todo lo demás (Bing, TikTok, orgánico, email, sin campaña, ventas directas, etc.) va agrupado en "Otros"</p>
       <div class="table-wrap"><table class="data-table" id="tableFuenteLeadsMatrix"></table></div>
     </section>
     <section>
-      <h2>Ventas por fuente</h2>
+      <h2>Ventas por fuente — todos los meses</h2>
       <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
     </section>
     <section>
-      <h2>Efectividad por fuente</h2>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
+      <h2>Venta Colchón — por fuente</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonMatrix"></table></div>
     </section>
     <section>
-      <h2>Leads y % Participación por subfuente</h2>
-      <p class="sub">PMax y Paid Search dentro de Google, PSocial dentro de Facebook, resto "Otros"</p>
+      <h2>% Participación Colchón — por fuente</h2>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonPartMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad por fuente — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
+      <p class="note">"Otros" mezcla fuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
+    </section>
+    <section>
+      <h2>Leads y % Participación por subfuente — todos los meses</h2>
+      <p class="sub">PMax y Paid Search dentro de Google, PSocial dentro de Facebook; todo lo demás (incluida cualquier campaña de Google/Facebook que no encaje en esas categorías) va a "Otros"</p>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteLeadsMatrix"></table></div>
     </section>
     <section>
-      <h2>Ventas por subfuente</h2>
+      <h2>Ventas por subfuente — todos los meses</h2>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
     </section>
     <section>
-      <h2>Efectividad por subfuente</h2>
+      <h2>Venta Colchón — por subfuente</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonMatrix"></table></div>
+    </section>
+    <section>
+      <h2>% Participación Colchón — por subfuente</h2>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonPartMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad por subfuente — todos los meses</h2>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteEfectMatrix"></table></div>
+      <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada. Todas las tablas de esta pestaña son de mes completo (no usan el día de corte).</p>
     </section>
-    <section>
-      <h2>Fuente x Rango de tasa - Leads y % Participacion</h2>
-      <p class="sub">Columnas: Ene-Jul, al dia de corte de arriba. Fuente en negrita, rango de tasa como sub-filas.</p>
-      <div class="table-wrap"><table class="data-table" id="tableCFT_Leads"></table></div>
-    </section>
-    <section>
-      <h2>Fuente x Rango de tasa - Ventas</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCFT_Ventas"></table></div>
-    </section>
-    <section>
-      <h2>Fuente x Rango de tasa - Efectividad</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCFT_Efect"></table></div>
-    </section>
-
-    <section>
-      <h2>Fuente x Rango de prima - Leads y % Participacion</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCFP_Leads"></table></div>
-    </section>
-    <section>
-      <h2>Fuente x Rango de prima - Ventas</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCFP_Ventas"></table></div>
-    </section>
-    <section>
-      <h2>Fuente x Rango de prima - Efectividad</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCFP_Efect"></table></div>
-    </section>
-
-    <section>
-      <h2>Subfuente x Rango de tasa - Leads y % Participacion</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCST_Leads"></table></div>
-    </section>
-    <section>
-      <h2>Subfuente x Rango de tasa - Ventas</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCST_Ventas"></table></div>
-    </section>
-    <section>
-      <h2>Subfuente x Rango de tasa - Efectividad</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCST_Efect"></table></div>
-    </section>
-
-    <section>
-      <h2>Subfuente x Rango de prima - Leads y % Participacion</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCSP_Leads"></table></div>
-    </section>
-    <section>
-      <h2>Subfuente x Rango de prima - Ventas</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCSP_Ventas"></table></div>
-    </section>
-    <section>
-      <h2>Subfuente x Rango de prima - Efectividad</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCSP_Efect"></table></div>
-    </section>
-
     <section>
       <h2>Campañas con más leads</h2>
-      <p class="sub">Top 12 campañas por mes (mes completo)</p>
+      <p class="sub">Top 12 campañas por volumen de leads, resto agrupado en "Otras campañas". El top-12 cambia mes a mes, por eso se mantiene con selector.</p>
       <div class="controls" style="margin-bottom:16px;">
         <label for="mesCampana">Mes</label>
         <select id="mesCampana"></select>
       </div>
       <div class="table-wrap"><table class="data-table" id="tableCampana"></table></div>
+      <p class="note">% Participación = leads de esa campaña ÷ leads totales del mes. Efectividad = convertidos ÷ leads de esa campaña. Pasa el cursor sobre el nombre para ver la campaña completa.</p>
     </section>
   </div>
 
-  <!-- ===== TAB: VINTAGE ===== -->
+  <!-- ===== TAB: ANTIGÜEDAD DEL LEAD (VINTAGE) ===== -->
   <div class="tabpanel" id="tab-vintage">
     <section>
       <h2>Composición de la venta — cantidad</h2>
-      <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta.</p>
+      <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta. Mes completo (no usa el día de corte).</p>
       <div class="table-wrap"><table class="data-table" id="tableVintageCant"></table></div>
     </section>
     <section>
       <h2>Composición de la venta — % participación</h2>
+      <p class="sub">Cada celda ÷ el total de ventas de esa columna (ese mes de venta) = 100% por columna</p>
       <div class="table-wrap"><table class="data-table" id="tableVintagePart"></table></div>
     </section>
     <section>
       <h2>Composición de la venta — efectividad</h2>
+      <p class="sub">Cada celda ÷ el total de leads de esa fila (ese mes de asignación del lead)</p>
       <div class="table-wrap"><table class="data-table" id="tableVintageEfect"></table></div>
     </section>
     <section>
       <h2>Composición de los leads</h2>
+      <p class="sub">Leads totales por mes de asignación, y cuántos de ellos convirtieron en venta (en cualquier mes)</p>
       <div class="table-wrap"><table class="data-table" id="tableVintageLeads"></table></div>
+      <p class="note">Las ventas sin ningún lead real encontrado (ni siquiera un call que la haya cerrado) ahora cuentan como lead de su propio mes de venta (fecha de asignación = fecha de venta), igual que las que sí tienen call real — así quedan siempre dentro del cuadro de "mismo mes", sin una categoría aparte.</p>
     </section>
     <section>
       <h2>Días de conversión (de lead a venta)</h2>
+      <p class="sub">¿Cuánto tarda un lead en convertirse en venta? Filas = rango de días, columnas = mes de venta.</p>
       <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
       <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
     </section>
   </div>
 
-  <!-- ===== TAB: CALIDAD Y PNA/PP ===== -->
+  <!-- ===== TAB: CALIDAD DE LEAD Y PNA/PP ===== -->
   <div class="tabpanel" id="tab-calidad">
     <section>
-      <h2>Efectividad por tipo de lead (Caliente / Tibio / Frío)</h2>
+      <h2>Efectividad por tipo de lead (Alto / Medio / Bajo)</h2>
+      <p class="sub">Evolución mensual — un lead "Alto" convierte varias veces más que uno "Bajo" o "No evaluable"</p>
       <div class="table-wrap"><table class="data-table" id="tableTipoLeadEfect"></table></div>
     </section>
     <section>
-      <h2>Prima promedio (PP) por call</h2>
-      <div class="legend" id="legendPPCall"></div>
-      <div class="chart-card"><div class="chart-wrap"><canvas id="chPPCall"></canvas></div></div>
+      <h2>Efectividad por interacción con el cotizador (clics)</h2>
+      <p class="sub">A más clics en el cotizador antes de dejar sus datos, mayor probabilidad de compra</p>
+      <div class="table-wrap"><table class="data-table" id="tableClicsEfect"></table></div>
     </section>
     <section>
-      <h2>PNA total por rango de tasa</h2>
-      <div class="legend" id="legendPNATasa"></div>
-      <div class="chart-card"><div class="chart-wrap"><canvas id="chPNATasa"></canvas></div></div>
+      <h2>Prima promedio (PP) por call center</h2>
+      <p class="sub">Evolución mensual de la prima promedio por venta, según quién la cerró</p>
+      <div class="legend" id="legendPPCall"></div>
+      <div class="chart-card"><div class="chart-wrap"><canvas id="chPPCall" role="img" aria-label="Evolución mensual de la prima promedio por call center"></canvas></div></div>
+      </section>
+    <section>
+      <h2>PNA total por producto</h2>
+      <p class="sub">Prima neta anual vendida cada mes, Vida Cash vs. Endoso</p>
+      <div class="legend" id="legendPNAProd"></div>
+      <div class="chart-card"><div class="chart-wrap"><canvas id="chPNAProd" role="img" aria-label="Evolución mensual de la PNA total por producto"></canvas></div></div>
     </section>
   </div>
 
 </main>
 
 <footer>
-  <p><strong>Notas de metodología:</strong> mismas reglas que el dashboard de Vida (dedup por póliza, cruce por DNI con lead más reciente antes de la venta, ventas sin lead pero con call real se cuentan como lead sintético del mismo mes). La <strong>Tasa</strong> y el <strong>Plazo</strong> de cada venta se completan con la información del lead atribuido cuando la venta no trae ese dato directamente (frecuente por errores de "Fecha inválida" en el archivo de ventas).</p>
-  <p>Generado para el equipo de Productos Digitales — Rumbo. Última actualización de datos: 20 de julio de 2026.</p>
+  <p><strong>Notas de metodología:</strong> se excluyen todos los canales con "IBK". Se cuentan todos los estados de póliza, incluyendo ANULADA. La prima usada es <strong>Prima x Frecuencia</strong>. La fecha de lead usada es <strong>FechaAsignacion</strong>. Los meses recientes aún no maduran del todo, por lo que su efectividad puede subir con el tiempo.</p>
+  <p><strong>Proyección de julio:</strong> promedio histórico (ene-jun) por día de semana, con factores de ajuste editables para feriados (23, 28, 29 jul) y partidos del Mundial (18 y 19 jul) — no calibrados con datos históricos reales de esos eventos.</p>
+  <p>Generado para el equipo de Productos Digitales — Vida. Última actualización de datos: 20 de julio de 2026.</p>
 </footer>
 
 <script>
 let DATA;
-const SHEET_ID = '1oua3ZUSTYu3Rx2CXC8K_4Q0wRMEzd0gHEtuY3ONPqqM';
+const SHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
 fetch(OUTPUT_URL)
@@ -388,11 +389,22 @@ fetch(OUTPUT_URL)
     const match = text.match(/setResponse\(([\s\S]*)\);/);
     if (!match) throw new Error('Formato de respuesta inesperado del Sheet');
     const json = JSON.parse(match[1]);
-    const data = {};
+    // Reensamblar tablas que Google Sheets partio en varios "pedazos" (limite de 50,000
+    // caracteres por celda). Cada fila trae: tabla, pedazo de texto, total de pedazos, numero de pedazo.
+    const pedazosPorTabla = {};
     json.table.rows.forEach(r => {
       const tabla = r.c[0] ? r.c[0].v : null;
-      const jsonStr = r.c[1] ? r.c[1].v : null;
-      if (tabla && jsonStr) { try { data[tabla] = JSON.parse(jsonStr); } catch(e) { console.error('No se pudo parsear la tabla', tabla, e); } }
+      const pedazo = r.c[1] ? r.c[1].v : null;
+      const numPedazo = r.c[3] ? Number(r.c[3].v) : 1;
+      if (!tabla || pedazo === null) return;
+      pedazosPorTabla[tabla] = pedazosPorTabla[tabla] || [];
+      pedazosPorTabla[tabla][numPedazo - 1] = pedazo;
+    });
+    const data = {};
+    Object.keys(pedazosPorTabla).forEach(tabla => {
+      const textoCompleto = pedazosPorTabla[tabla].join('');
+      try { data[tabla] = JSON.parse(textoCompleto); }
+      catch(e) { console.error('No se pudo parsear la tabla', tabla, e); }
     });
     DATA = data;
     document.getElementById('loadingOverlay').style.display = 'none';
@@ -450,12 +462,13 @@ const mesesV = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','202
 const labelsV = ['Ene','Feb','Mar','Abr','May','Jun','Jul'];
 const mesesL = ['2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
 const labelsL = ['Dic','Ene','Feb','Mar','Abr','May','Jun','Jul'];
-const mesEsLabel = {}; mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
 
 function aggMonth(rows, mes, field, maxDia){
-  return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
+  return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia))
+    .reduce((s,r) => s + r[field], 0);
 }
 
+// ---------- TABS ----------
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -465,7 +478,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-let chVentasCorte, chProyeccion;
+let chVentasCorte, chProyeccion, chProyeccionLeads, chEfectividad, chMultiPoliza, chPPCall, chPNAProd;
 let corteActual = 16;
 
 function render(corte){
@@ -474,8 +487,10 @@ function render(corte){
 
   const ventasCompleto = mesesV.map(m => m==='2026-07' ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
   const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-  const julIdx = mesesV.indexOf('2026-07'); const junIdx = mesesV.indexOf('2026-06');
-  const ventasJul = ventasCorte[julIdx]; const ventasJun = ventasCorte[junIdx];
+  const julIdx = mesesV.indexOf('2026-07');
+  const junIdx = mesesV.indexOf('2026-06');
+  const ventasJul = ventasCorte[julIdx];
+  const ventasJun = ventasCorte[junIdx];
   const primaJul = aggMonth(DATA.sales_daily, '2026-07', 'prima', corte);
   const leadsJul = aggMonth(DATA.leads_daily, '2026-07', 'leads', corte);
 
@@ -488,58 +503,122 @@ function render(corte){
 
   if(!chVentasCorte){
     chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
-      type:'bar', data:{ labels:labelsV, datasets:[
+      type:'bar',
+      data:{ labels:labelsV, datasets:[
         {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
         {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
-      ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
         scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
     });
-  } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
+  } else {
+    chVentasCorte.data.datasets[0].data = ventasCompleto;
+    chVentasCorte.data.datasets[1].data = ventasCorte;
+    chVentasCorte.update();
+  }
 
-  let ventasRestante=0, primaRestante=0, leadsRestante=0;
+  let ventasRestante = 0, primaRestante = 0, leadsRestante = 0;
   const diasRestantes = DATA.july_days.filter(d => d.dia > corte);
-  diasRestantes.forEach(d => { ventasRestante+=d.exp_ventas; primaRestante+=d.exp_prima; leadsRestante+=d.exp_leads; });
+  diasRestantes.forEach(d => {
+    ventasRestante += d.exp_ventas; primaRestante += d.exp_prima; leadsRestante += d.exp_leads;
+  });
   const ventasProy = Math.round(ventasJul + ventasRestante);
   const primaProy = primaJul + primaRestante;
   const leadsProy = Math.round(leadsJul + leadsRestante);
+
   document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
   document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
   document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
 
   const ventasCerradosArr = mesesV.slice(0,6).map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-  const proyLabels=[...labelsV.slice(0,6),'Jul'];
-  const proyReal=[...ventasCerradosArr, ventasJul];
-  const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+  const proyLabels = [...labelsV.slice(0,6), 'Jul'];
+  const proyReal = [...ventasCerradosArr, ventasJul];
+  const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+
   if(!chProyeccion){
     chProyeccion = new Chart(document.getElementById('chProyeccion'), {
-      type:'bar', data:{ labels:proyLabels, datasets:[
+      type:'bar',
+      data:{ labels:proyLabels, datasets:[
         {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-        {label:'Proyección resto de julio', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
-      ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+        {label:'Proyección resto de julio', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
         scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
     });
-  } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
-  renderAllCrossTabs(corte);
+  } else {
+    chProyeccion.data.datasets[0].data = proyReal;
+    chProyeccion.data.datasets[1].data = proyRestoArr;
+    chProyeccion.update();
+  }
+
+  const nFeriados = diasRestantes.filter(d=>d.etiqueta==='Feriado').length;
+  const nMundial = diasRestantes.filter(d=>d.etiqueta && d.etiqueta.startsWith('Mundial')).length;
+  document.getElementById('proyNote').textContent =
+    'De los ' + diasRestantes.length + ' días que quedan tras el día ' + corte + ', ' + nFeriados + ' son feriados y ' + nMundial + ' tiene partido decisivo del Mundial.';
+
+  const leadsCerradosArr = mesesL.slice(1,7).map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
+  const proyLeadsLabels = [...labelsL.slice(1,7), 'Jul'];
+  const proyLeadsReal = [...leadsCerradosArr, leadsJul];
+  const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
+
+  if(!chProyeccionLeads){
+    chProyeccionLeads = new Chart(document.getElementById('chProyeccionLeads'), {
+      type:'bar',
+      data:{ labels:proyLeadsLabels, datasets:[
+        {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+        {label:'Proyección resto de julio', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+        scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+    });
+  } else {
+    chProyeccionLeads.data.datasets[0].data = proyLeadsReal;
+    chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
+    chProyeccionLeads.update();
+  }
+
+  renderVintageTable(corte);
+  renderCampanaTable();
   renderAllMatrixSets(corte);
   renderCanalYPrimaProm(corte);
   renderCohortTable(corte);
-  renderVintageTable(corte);
-  renderDiasConversion(corte);
   renderTipoLeadTable(corte);
+  renderClicsTable(corte);
   renderPPyPNA(corte);
+  renderDiasConversion(corte);
 }
 
+// Canal composition (ahora corte-aware)
 let chCanal, chPrimaProm;
 function aggDimDay(rows, dim, mes, field, corte){
   return rows.filter(r => r[0]===mes && r[2]===dim && r[1]<=corte).reduce((s,r)=>s+r[field], 0);
 }
 function renderCanalYPrimaProm(corte){
-  const tasas = ['T1','T2','T3','Sin dato'];
-  const colores = {'T1':'#0F8B7D','T2':'#D98E3B','T3':'#C24B4B','Sin dato':'#8B8880'};
-  const datasets = tasas.map(t => ({
-    label:t, backgroundColor:colores[t], stack:'s',
-    data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 3, corte))
-  })).filter(ds => ds.data.some(v=>v>0));
+  const subs = ['VIDA_CASH_PLUS','VIDA_CASH_DEVOLUCION','ENDOSOS'];
+  const nombres = {'VIDA_CASH_PLUS':'Plus','VIDA_CASH_DEVOLUCION':'Devolución','ENDOSOS':'Endoso'};
+  const colores = {'VIDA_CASH_PLUS':'#378ADD','VIDA_CASH_DEVOLUCION':'#D98E3B','ENDOSOS':'#0F8B7D'};
+  // sales_by_subproducto usa 'grupo' (Vida Cash / Endoso), no el Canal detallado; usamos sales_daily+canal_mes solo para el desglose fijo Plus/Devolucion/Endoso via canal_mes original (mes completo) como referencia de que meses tuvo cada uno
+  const datasets = subs.map(s => ({
+    label: nombres[s], backgroundColor: colores[s], stack:'s',
+    data: mesesV.map(m => {
+      // Buscar en sales_by_subproducto no aplica (esta por grupo Vida Cash/Endoso). Usamos DATA.canal_mes como proporcion fija dentro del grupo Vida Cash y aplicamos corte via sales_by_subproducto 'Vida Cash'.
+      return null; // se sobreescribe abajo
+    })
+  }));
+  // Como el detalle Plus/Devolucion/Endoso no tiene granularidad diaria propia, usamos sales_daily total del grupo (Vida Cash) para escalar proporcionalmente el mix fijo de canal_mes (mes completo) al corte actual.
+  const vidaCashTotalCorte = mesesV.map(m => aggDimDay(DATA.sales_by_subproducto, 'Vida Cash', m, 3, corte));
+  const endosoTotalCorte = mesesV.map(m => aggDimDay(DATA.sales_by_subproducto, 'Endoso', m, 3, corte));
+  const canalRow = {};
+  DATA.canal_mes.forEach(r => { canalRow[r.mes_venta] = r; });
+  mesesV.forEach((m,i) => {
+    const row = canalRow[m] || {VIDA_CASH_PLUS:0, VIDA_CASH_DEVOLUCION:0, ENDOSOS:0};
+    const vidaCashMesCompleto = (row.VIDA_CASH_PLUS||0) + (row.VIDA_CASH_DEVOLUCION||0);
+    const plusShare = vidaCashMesCompleto>0 ? (row.VIDA_CASH_PLUS||0)/vidaCashMesCompleto : 0;
+    const devShare = vidaCashMesCompleto>0 ? (row.VIDA_CASH_DEVOLUCION||0)/vidaCashMesCompleto : (vidaCashMesCompleto===0?1:0);
+    datasets[0].data[i] = Math.round(vidaCashTotalCorte[i]*plusShare);
+    datasets[1].data[i] = Math.round(vidaCashTotalCorte[i]*devShare);
+    datasets[2].data[i] = endosoTotalCorte[i];
+  });
 
   if(!chCanal){
     chCanal = new Chart(document.getElementById('chCanal'), {
@@ -552,6 +631,7 @@ function renderCanalYPrimaProm(corte){
     chCanal.update();
   }
 
+  // Prima promedio: derivado de sales_daily con corte
   const primaProm = mesesV.map(m => {
     const ventas = aggMonth(DATA.sales_daily, m, 'ventas', corte);
     const prima = aggMonth(DATA.sales_daily, m, 'prima', corte);
@@ -571,6 +651,16 @@ function renderCanalYPrimaProm(corte){
     chPrimaProm.update();
   }
 }
+
+(function(){
+  const md = DATA.multi_dist;
+  const total = md['1 póliza'] + md['2 pólizas'] + md['3+ pólizas'];
+  document.getElementById('kMulti1').textContent = md['1 póliza'].toLocaleString();
+  document.getElementById('kMulti2').textContent = md['2 pólizas'].toLocaleString();
+  document.getElementById('kMulti3').textContent = md['3+ pólizas'].toLocaleString();
+  const pct1 = total>0 ? Math.round((md['1 póliza']/total)*1000)/10 : 0;
+  document.getElementById('multiSub').textContent = pct1 + '% de los clientes compra una sola vez';
+})();
 
 function renderCohortTable(corte){
   const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte));
@@ -593,328 +683,15 @@ function renderCohortTable(corte){
   document.getElementById('tableCohortEfect').innerHTML = html;
 }
 
-(function(){
-  const md = DATA.multi_dist;
-  const total = md['1 póliza'] + md['2 pólizas'] + md['3+ pólizas'];
-  document.getElementById('kMulti1').textContent = md['1 póliza'].toLocaleString();
-  document.getElementById('kMulti2').textContent = md['2 pólizas'].toLocaleString();
-  document.getElementById('kMulti3').textContent = md['3+ pólizas'].toLocaleString();
-  const pct1 = total>0 ? Math.round((md['1 póliza']/total)*1000)/10 : 0;
-  document.getElementById('multiSub').textContent = pct1 + '% de los clientes compra una sola vez';
-})();
-
-// ---------- MATRICES POR DIMENSION ----------
-function esCatchAll(d){
-  return d === 'Otros' || d.includes('Venta directa') || d === '(Sin campaña)' || d.startsWith('Otras campañas');
-}
-function pushCatchAllLast(arr){
-  const normales = arr.filter(d => !esCatchAll(d));
-  const catchall = arr.filter(d => esCatchAll(d));
-  return normales.concat(catchall);
+// ---------- CALIDAD DE LEAD Y PNA/PP (ahora corte-aware) ----------
+const paleta = ['#1D3A5F','#0F8B7D','#D98E3B','#C24B4B','#6C5CC4','#378ADD'];
+function renderLegend(elId, series){
+  document.getElementById(elId).innerHTML = series.map((s,i) =>
+    '<span><span class="dot" style="background:'+paleta[i%paleta.length]+'"></span>'+s.label+'</span>').join('');
 }
 
-function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
-  const leadsRowsAll = DATA[leadsKey]; const salesRowsAll = DATA[salesKey];
-  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
-  const salesRows = salesRowsAll.filter(r => r[1] <= corte);
-  let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
-  if(excludeSubstr) dims = dims.filter(d => !excludeSubstr.some(ex => d.includes(ex)));
-  if(customOrder){
-    dims = customOrder.filter(d => dims.includes(d)).concat(dims.filter(d => !customOrder.includes(d)));
-  } else {
-    const totalsLeadsByDim = {};
-    dims.forEach(d => { totalsLeadsByDim[d] = leadsRows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
-    dims = dims.sort((a,b)=> totalsLeadsByDim[b]-totalsLeadsByDim[a]);
-    dims = pushCatchAllLast(dims);
-  }
-  const totalLeadsPorMes = {};
-  mesesV.forEach(m => { totalLeadsPorMes[m] = leadsRows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
-  const agg = {};
-  dims.forEach(d => {
-    agg[d] = {};
-    mesesV.forEach(m => {
-      const lsub = leadsRows.filter(r=>r[0]===m && r[2]===d);
-      const ssub = salesRows.filter(r=>r[0]===m && r[2]===d);
-      agg[d][m] = { l: lsub.reduce((s,r)=>s+r[3],0), conv: lsub.reduce((s,r)=>s+r[4],0),
-        v: ssub.reduce((s,r)=>s+r[3],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0), vColchon: ssub.reduce((s,r)=>s+r[6],0) };
-    });
-  });
-  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride){
-    let rowDims = rowOrderOverride ? rowOrderOverride : dims;
-    if(rowFilter) rowDims = rowDims.filter(rowFilter);
-    let html = '<thead><tr><th>' + prefix + '</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-    rowDims.forEach(d => {
-      html += '<tr><td>'+d+'</td>' + mesesV.map(m => {
-        const res = valueFn(agg[d][m], m, d);
-        if(res && typeof res === 'object') return '<td class="'+(res.cls||'')+'">'+res.text+'</td>';
-        return '<td>'+res+'</td>';
-      }).join('') + '</tr>';
-    });
-    if(totalFn){
-      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
-    }
-    html += '</tbody>';
-    const el = document.getElementById(tableId); if(el) el.innerHTML = html;
-  }
-  return {build, dims, agg, totalLeadsPorMes};
-}
-
-function ordenarPorEfectividad(dims, agg){
-  const conEfect = dims.map(d => {
-    const totL = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].l:0), 0);
-    const totC = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].conv:0), 0);
-    return { d, efect: totL>0 ? totC/totL : -1 };
-  });
-  conEfect.sort((a,b) => b.efect - a.efect);
-  return pushCatchAllLast(conEfect.map(x=>x.d));
-}
-
-function efectCellColored(agg_d, m, mesesArr, esRelevante){
-  const v = agg_d[m]; if(!v || v.l===0) return '–';
-  const efect = pctFmt((v.conv/v.l)*100);
-  if(!esRelevante) return efect;
-  const idx = mesesArr.indexOf(m); if(idx===0) return efect;
-  const vPrev = agg_d[mesesArr[idx-1]]; if(!vPrev || vPrev.l===0) return efect;
-  const efectPrev = vPrev.conv/vPrev.l; if(efectPrev<=0) return efect;
-  const relChange = ((v.conv/v.l)-efectPrev)/efectPrev;
-  if(relChange >= 0.15) return {text: efect, cls:'up'};
-  if(relChange <= -0.15) return {text: efect, cls:'down'};
-  return efect;
-}
-
-function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, withExtras, customOrder, corte){
-  const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, customOrder, corte);
-  M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
-    if(v.l===0) return '–';
-    const part = M.totalLeadsPorMes[m]>0 ? (v.l/M.totalLeadsPorMes[m])*100 : 0;
-    return v.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-  }, null, (rowDims, m) => {
-    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
-    return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  });
-  M.build('table'+idPrefix+'VentasMatrix', (v) => v.v>0 ? v.v.toLocaleString() : '–', null, (rowDims, m) => {
-    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
-    return total>0 ? total.toLocaleString() : '–';
-  });
-  if(withExtras){
-    M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
-      const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
-      return total>0 ? total.toLocaleString() : '–';
-    });
-    M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'));
-  }
-  const efectFilter = excludeFromEfect ? (d => !excludeFromEfect.some(ex => d.includes(ex))) : null;
-  const dimsParaEfect = efectFilter ? M.dims.filter(efectFilter) : M.dims;
-  const relevancia = {};
-  dimsParaEfect.forEach(d => {
-    const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
-    relevancia[d] = (parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0) >= 0.08;
-  });
-  const ordenEfect = ordenarPorEfectividad(dimsParaEfect, M.agg);
-  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, relevancia[d]), null, null, ordenEfect);
-}
-
-// (renderMatrixSet ahora se llama dentro de render(corte) para respetar el dia de corte)
-
-function renderAllMatrixSets(corte){
-  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], true, null, corte);
-  renderMatrixSet('Tasa', 'leads_by_tasa', 'sales_by_tasa', [], [], false, ['T1','T2','T3','Sin dato'], corte);
-  renderMatrixSet('Prima', 'leads_by_prima', 'sales_by_prima', [], [], false, ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'], corte);
-  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], false, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte);
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], false, null, corte);
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], false, null, corte);
-}
-
-
-// ---------- CROSS TABS ----------
-function pctFmt(v){
-  return v < 10 ? (Math.round(v*100)/100) + '%' : (Math.round(v*10)/10) + '%';
-}
-
-function renderNestedCross(prefixLeads, prefixVentas, prefixEfect, leadsKey, salesKey, dim2Order, corte){
-  const leadsRows = DATA[leadsKey]; // [mes,dia,dim1,dim2,leads,convertidos]
-  const salesRows = DATA[salesKey]; // [mes,dia,dim1,dim2,ventas]
-
-  const dim1s = pushCatchAllLast([...new Set(leadsRows.map(r=>r[2]))]);
-  const dim2sByDim1 = {};
-  dim1s.forEach(d1 => {
-    const present = new Set(leadsRows.filter(r=>r[2]===d1).map(r=>r[3]));
-    dim2sByDim1[d1] = dim2Order.filter(d2 => present.has(d2));
-  });
-
-  function agg(d1, d2, m){
-    const l = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2);
-    const s = salesRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2);
-    return {
-      leads: l.reduce((a,r)=>a+r[4],0),
-      conv: l.reduce((a,r)=>a+r[5],0),
-      ventas: s.reduce((a,r)=>a+r[4],0)
-    };
-  }
-
-  // total de leads POR FUENTE (dim1) y mes, para la base de % participacion
-  const totalPorDim1Mes = {};
-  dim1s.forEach(d1 => {
-    totalPorDim1Mes[d1] = {};
-    mesesV.forEach(m => {
-      totalPorDim1Mes[d1][m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1).reduce((s,r)=>s+r[4],0);
-    });
-  });
-
-  function buildRows(valueFn, totalFn, subtotalFn){
-    let rowsHtml = '';
-    dim1s.forEach(d1 => {
-      rowsHtml += '<tr style="background:var(--bg);"><td colspan="' + (mesesV.length+1) + '" style="font-weight:700;color:var(--navy);">' + d1 + '</td></tr>';
-      dim2sByDim1[d1].forEach(d2 => {
-        rowsHtml += '<tr><td style="padding-left:22px;">' + d2 + '</td>' + mesesV.map(m => '<td>' + valueFn(d1,d2,m) + '</td>').join('') + '</tr>';
-      });
-      if(subtotalFn){
-        rowsHtml += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal ' + d1 + '</td>' + mesesV.map(m => '<td>' + subtotalFn(d1,m) + '</td>').join('') + '</tr>';
-      }
-    });
-    if(totalFn){
-      rowsHtml += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>' + mesesV.map(m => '<td>' + totalFn(m) + '</td>').join('') + '</tr>';
-    }
-    return rowsHtml;
-  }
-
-  const headHtml = '<thead><tr><th></th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead>';
-
-  const leadsRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
-    if(a.leads===0) return '–';
-    const totalDim1 = totalPorDim1Mes[d1][m];
-    const part = totalDim1>0 ? (a.leads/totalDim1)*100 : 0;
-    return a.leads.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-  }, (m) => {
-    let total = 0;
-    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,m).leads; }));
-    return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  }, (d1,m) => {
-    const t = totalPorDim1Mes[d1][m];
-    return t>0 ? t.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  });
-  document.getElementById(prefixLeads).innerHTML = headHtml + '<tbody>' + leadsRowsHtml + '</tbody>';
-
-  const ventasRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
-    return a.ventas>0 ? a.ventas.toLocaleString() : '–';
-  }, (m) => {
-    let total = 0;
-    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,m).ventas; }));
-    return total>0 ? total.toLocaleString() : '–';
-  }, (d1,m) => {
-    let t = 0;
-    dim2sByDim1[d1].forEach(d2 => { t += agg(d1,d2,m).ventas; });
-    return t>0 ? t.toLocaleString() : '–';
-  });
-  document.getElementById(prefixVentas).innerHTML = headHtml + '<tbody>' + ventasRowsHtml + '</tbody>';
-
-  const efectRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
-    return a.leads>0 ? pctFmt((a.conv/a.leads)*100) : '–';
-  });
-  document.getElementById(prefixEfect).innerHTML = headHtml + '<tbody>' + efectRowsHtml + '</tbody>';
-}
-
-const ORDEN_TASA = ['T1','T2','T3','Sin dato'];
-const ORDEN_PRIMA = ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'];
-
-function renderAllCrossTabs(corte){
-  renderNestedCross('tableCFT_Leads','tableCFT_Ventas','tableCFT_Efect','leads_cross_fuente_tasa','sales_cross_fuente_tasa', ORDEN_TASA, corte);
-  renderNestedCross('tableCFP_Leads','tableCFP_Ventas','tableCFP_Efect','leads_cross_fuente_prima','sales_cross_fuente_prima', ORDEN_PRIMA, corte);
-  renderNestedCross('tableCST_Leads','tableCST_Ventas','tableCST_Efect','leads_cross_subfuente_tasa','sales_cross_subfuente_tasa', ORDEN_TASA, corte);
-  renderNestedCross('tableCSP_Leads','tableCSP_Ventas','tableCSP_Efect','leads_cross_subfuente_prima','sales_cross_subfuente_prima', ORDEN_PRIMA, corte);
-}
-
-// ---------- CAMPAÑAS ----------
-function fillMonthSelect(selectId, months, labels){
-  const sel = document.getElementById(selectId); if(!sel || sel.dataset.filled) return;
-  months.forEach((m,i) => { const opt=document.createElement('option'); opt.value=m; opt.textContent=labels[i];
-    if(m==='2026-07') opt.selected=true; sel.appendChild(opt); });
-  sel.dataset.filled='1'; sel.addEventListener('change', renderCampanaTable);
-}
-fillMonthSelect('mesCampana', mesesV, labelsV);
-function renderCampanaTable(){
-  const sel = document.getElementById('mesCampana'); const mes = sel.value || '2026-07';
-  const rows = DATA.campanas.filter(r => r.mes===mes).sort((a,b)=> (esCatchAll(a.campana)?1:0)-(esCatchAll(b.campana)?1:0) || b.leads-a.leads);
-  const totalLeadsMes = DATA.leads_total_mes[mes] || rows.reduce((s,r)=>s+r.leads,0);
-  let html = '<thead><tr><th>Campaña</th><th>Leads</th><th>Convertidos</th><th>% Participación</th><th>Efectividad</th></tr></thead><tbody>';
-  let totLeads=0, totConv=0;
-  rows.forEach(r => {
-    const part = totalLeadsMes>0 ? Math.round((r.leads/totalLeadsMes)*1000)/10 : 0;
-    const efect = r.leads>0 ? Math.round((r.convertidos/r.leads)*1000)/10 : 0;
-    const shortName = r.campana.length>55 ? r.campana.slice(0,55)+'…' : r.campana;
-    totLeads += r.leads; totConv += r.convertidos;
-    html += '<tr><td title="'+r.campana.replace(/"/g,'&quot;')+'">'+shortName+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td>'+part+'%</td><td>'+efect+'%</td></tr>';
-  });
-  const totPart = totalLeadsMes>0 ? Math.round((totLeads/totalLeadsMes)*1000)/10 : 0;
-  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+totPart+'%</td><td>–</td></tr>';
-  html += '</tbody>';
-  document.getElementById('tableCampana').innerHTML = html;
-}
-renderCampanaTable();
-
-// ---------- VINTAGE ----------
-function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte){
-  const origenes = [...mesesL]; const ventaCols = [...mesesV];
-  const matriz = {};
-  DATA.sales_vintage.forEach(([mv,dia,ml,v]) => { if(dia>corte) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
-  const totalPorCol = {};
-  ventaCols.forEach(mv => { totalPorCol[mv] = origenes.reduce((s,ml)=> s + ((matriz[ml]||{})[mv]||0), 0); });
-  let html = '<thead><tr><th>Mes lead / Mes venta</th>' + ventaCols.map(mv=>'<th>'+mesEsLabel[mv]+'</th>').join('') + (totalsRow?'<th>Total</th>':'') + '</tr></thead><tbody>';
-  origenes.forEach(ml => {
-    let rowTotal=0;
-    let cells = ventaCols.map(mv => { const v=(matriz[ml]||{})[mv]||0; rowTotal+=v; return '<td>'+valueFn(v,ml,mv,totalPorCol[mv])+'</td>'; }).join('');
-    if(rowTotal===0) return;
-    html += '<tr><td>'+mesEsLabel[ml]+'</td>' + cells + (totalsRow?'<td style="font-weight:600;">'+(isPercent?'':rowTotal.toLocaleString())+'</td>':'') + '</tr>';
-  });
-  if(totalsCol) html += '<tr style="font-weight:600;background:var(--bg);"><td>Total</td>' + ventaCols.map(mv=>'<td>'+(isPercent?'100%':totalPorCol[mv].toLocaleString())+'</td>').join('') + (totalsRow?'<td></td>':'') + '</tr>';
-  html += '</tbody>';
-  document.getElementById(tableId).innerHTML = html;
-}
-
-function renderVintageTable(corte){
-  buildMatrixTable('tableVintageCant', (v)=> v>0?v.toLocaleString():'–', false, true, true, corte);
-  buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte);
-  buildMatrixTable('tableVintageEfect', (v,ml)=> {
-    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte);
-    if(!t||v===0) return v>0?'0%':'–';
-    return (Math.round((v/t)*1000)/10)+'%';
-  }, true, false, false, corte);
-
-  let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
-  let totLeads=0, totConv=0;
-  mesesL.forEach(m => {
-    const total = aggMonth(DATA.leads_daily, m, 'leads', corte);
-    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte);
-    if(!total) return;
-    const noConv = total-conv; const pct = Math.round((conv/total)*1000)/10;
-    totLeads += total; totConv += conv;
-    html += '<tr><td>'+mesEsLabel[m]+'</td><td>'+total.toLocaleString()+'</td><td>'+conv.toLocaleString()+'</td><td>'+noConv.toLocaleString()+'</td><td>'+pct+'%</td></tr>';
-  });
-  const totPct = totLeads>0 ? Math.round((totConv/totLeads)*1000)/10 : 0;
-  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+(totLeads-totConv).toLocaleString()+'</td><td>'+totPct+'%</td></tr>';
-  html += '</tbody>';
-  document.getElementById('tableVintageLeads').innerHTML = html;
-}
-
-function renderDiasConversion(corte){
-  const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
-  const matriz = {};
-  DATA.dias_matriz.forEach(([mv,dia,bin,n]) => { if(dia>corte) return; matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n; });
-  let html = '<thead><tr><th>Días hasta la venta</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-  bins.forEach(b => { html += '<tr><td>'+b+'</td>' + mesesV.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>'; });
-  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
-  html += '</tbody>';
-  document.getElementById('tableDiasConversion').innerHTML = html;
-  const medTxt = mesesV.map((m,i) => labelsV[i]+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
-  document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
-}
-
-// ---------- CALIDAD / PP / PNA ----------
 function renderTipoLeadTable(corte){
-  const tipos = ['Caliente','Tibio','Frío','No evaluable'];
+  const tipos = ['Alto','Medio','Bajo','No evaluable'];
   const totL = mesesL.map(m => tipos.reduce((s,t)=>s+aggDimDay(DATA.leads_by_tipolead,t,m,3,corte),0));
   let html = '<thead><tr><th>Tipo de lead</th>' + labelsL.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   tipos.forEach(t => {
@@ -939,12 +716,32 @@ function renderTipoLeadTable(corte){
   document.getElementById('tableTipoLeadEfect').innerHTML = html;
 }
 
-const paleta = ['#1D3A5F','#0F8B7D','#D98E3B','#C24B4B','#6C5CC4'];
-function renderLegend(elId, series){
-  document.getElementById(elId).innerHTML = series.map((s,i) => '<span><span class="dot" style="background:'+paleta[i%paleta.length]+'"></span>'+s.label+'</span>').join('');
+function renderClicsTable(corte){
+  const bins = ['0','1-2','3-5','6-10','11-20','20+'];
+  const totL = mesesL.map(m => bins.reduce((s,b)=>s+aggDimDay(DATA.leads_by_clics,b,m,3,corte),0));
+  let html = '<thead><tr><th>Clics en cotizador</th>' + labelsL.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  bins.forEach(b => {
+    const leadsPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_clics,b,m,3,corte));
+    const convPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_clics,b,m,4,corte));
+    const parts = mesesL.map((m,i) => totL[i]>0 && leadsPorMes[i]>0 ? leadsPorMes[i]/totL[i] : null).filter(x=>x!==null);
+    const avgPart = parts.length ? parts.reduce((a,b2)=>a+b2,0)/parts.length : 0;
+    const relevante = avgPart >= 0.08;
+    html += '<tr><td>'+b+'</td>' + mesesL.map((m,i) => {
+      const l = leadsPorMes[i], c = convPorMes[i];
+      if(!l) return '<td>–</td>';
+      const efect = Math.round((c/l)*1000)/10;
+      if(!relevante || i===0) return '<td>'+efect+'%</td>';
+      const lp = leadsPorMes[i-1], cp = convPorMes[i-1];
+      if(!lp) return '<td>'+efect+'%</td>';
+      const relChange = cp/lp>0 ? ((c/l)-(cp/lp))/(cp/lp) : 0;
+      let cls = relChange>=0.15?'up':(relChange<=-0.15?'down':'');
+      return '<td class="'+cls+'">'+efect+'%</td>';
+    }).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tableClicsEfect').innerHTML = html;
 }
 
-let chPPCall, chPNATasa;
 function renderPPyPNA(corte){
   const calls = [...new Set(DATA.sales_by_call.map(r=>r[2]))].filter(c=>!c.includes('WhatsApp') && !c.includes('Sin call'));
   const ppSeries = calls.map(c => ({
@@ -956,27 +753,295 @@ function renderPPyPNA(corte){
   }));
   renderLegend('legendPPCall', ppSeries);
   if(!chPPCall){
-    chPPCall = new Chart(document.getElementById('chPPCall'), { type:'line', data:{ labels:labelsV, datasets: ppSeries.map((s,i)=>({label:s.label,data:s.data,borderColor:paleta[i%paleta.length],backgroundColor:'transparent',tension:.3,pointRadius:3,borderWidth:2})) },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlLine(v=>'S/ '+abbrevNum(v))}, scales:{x:{grid:{display:false}},y:{grid:{color:'#EDEAE0'},ticks:{color:'#8B8880'}}} } });
+    chPPCall = new Chart(document.getElementById('chPPCall'), {
+      type:'line', data:{ labels:labelsV, datasets: ppSeries.map((s,i)=>({label:s.label,data:s.data,borderColor:paleta[i%paleta.length],backgroundColor:'transparent',tension:.3,pointRadius:3,borderWidth:2})) },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlLine(v=>'S/ '+abbrevNum(v))},
+        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+    });
   } else {
     chPPCall.data.datasets = ppSeries.map((s,i)=>({label:s.label,data:s.data,borderColor:paleta[i%paleta.length],backgroundColor:'transparent',tension:.3,pointRadius:3,borderWidth:2}));
     chPPCall.update();
   }
 
-  const tasas = ['T1','T2','T3','Sin dato'];
-  const pnaSeries = tasas.map(t => ({
-    label:t, data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 4, corte))
-  })).filter(s => s.data.some(v=>v>0));
-  renderLegend('legendPNATasa', pnaSeries);
-  if(!chPNATasa){
-    chPNATasa = new Chart(document.getElementById('chPNATasa'), { type:'bar', data:{ labels:labelsV, datasets: pnaSeries.map((s,i)=>({label:s.label,data:s.data,backgroundColor:paleta[i%paleta.length],stack:'s'})) },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#EDEAE0'},ticks:{color:'#8B8880'}}} } });
+  const prods = ['Vida Cash','Endoso'];
+  const pnaSeries = prods.map(p => ({
+    label:p, data: mesesV.map(m => aggDimDay(DATA.sales_by_subproducto, p, m, 4, corte))
+  }));
+  renderLegend('legendPNAProd', pnaSeries);
+  if(!chPNAProd){
+    chPNAProd = new Chart(document.getElementById('chPNAProd'), {
+      type:'bar', data:{ labels:labelsV, datasets: pnaSeries.map((s,i)=>({label:s.label,data:s.data,backgroundColor:paleta[i%paleta.length],stack:'s'})) },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+        scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+    });
   } else {
-    chPNATasa.data.datasets = pnaSeries.map((s,i)=>({label:s.label,data:s.data,backgroundColor:paleta[i%paleta.length],stack:'s'}));
-    chPNATasa.update();
+    chPNAProd.data.datasets = pnaSeries.map((s,i)=>({label:s.label,data:s.data,backgroundColor:paleta[i%paleta.length],stack:'s'}));
+    chPNAProd.update();
   }
 }
 
+// ---------- BREAKDOWN TABLES ----------
+// leads array format: [mes, dia, dim, leads, convertidos]
+// sales array format: [mes, dia, dim, ventas, prima, con_lead_mismo_mes, con_lead_mes_anterior, directas]
+
+function fillMonthSelect(selectId, months, labels){
+  const sel = document.getElementById(selectId);
+  if(!sel || sel.dataset.filled) return;
+  months.forEach((m,i) => {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = labels[i];
+    if(m === '2026-07') opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.dataset.filled = '1';
+  sel.addEventListener('change', () => render(corteActual));
+}
+fillMonthSelect('mesCampana', mesesV, labelsV);
+
+const mesEsLabel = {};
+mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
+
+function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte){
+  const origenes = [...mesesL]; // Dic..Jul, filas
+  const ventaCols = [...mesesV]; // Ene..Jul, columnas
+
+  const matriz = {};
+  DATA.sales_vintage.forEach(([mv,dia,ml,v]) => {
+    if(dia > corte) return;
+    matriz[ml] = matriz[ml] || {};
+    matriz[ml][mv] = (matriz[ml][mv]||0) + v;
+  });
+
+  const totalPorCol = {};
+  ventaCols.forEach(mv => { totalPorCol[mv] = origenes.reduce((s,ml)=> s + ((matriz[ml]||{})[mv]||0), 0); });
+
+  let html = '<thead><tr><th>Mes lead / Mes venta</th>' + ventaCols.map(mv=>'<th>'+mesEsLabel[mv]+'</th>').join('') + (totalsRow?'<th>Total</th>':'') + '</tr></thead><tbody>';
+
+  origenes.forEach(ml => {
+    const label = mesEsLabel[ml];
+    let rowTotal = 0;
+    let cells = ventaCols.map(mv => {
+      const v = (matriz[ml]||{})[mv] || 0;
+      rowTotal += v;
+      const val = valueFn(v, ml, mv, totalPorCol[mv]);
+      return '<td>'+val+'</td>';
+    }).join('');
+    if(rowTotal===0) return;
+    html += '<tr><td>'+label+'</td>' + cells + (totalsRow ? '<td style="font-weight:600;">'+ (isPercent?'':rowTotal.toLocaleString()) +'</td>' : '') + '</tr>';
+  });
+
+  if(totalsCol){
+    html += '<tr style="font-weight:600;background:var(--bg);"><td>Total</td>' + ventaCols.map(mv=>'<td>'+(isPercent?'100%':totalPorCol[mv].toLocaleString())+'</td>').join('') + (totalsRow?'<td></td>':'') + '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById(tableId).innerHTML = html;
+}
+
+function renderVintageTable(corte){
+  buildMatrixTable('tableVintageCant', (v)=> v>0 ? v.toLocaleString() : '–', false, true, true, corte);
+  buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte);
+  buildMatrixTable('tableVintageEfect', (v,ml)=> {
+    const totalLeadsMl = aggMonth(DATA.leads_daily, ml, 'leads', corte);
+    if(!totalLeadsMl || v===0) return v>0 ? '0%' : '–';
+    return (Math.round((v/totalLeadsMl)*1000)/10)+'%';
+  }, true, false, false, corte);
+
+  let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
+  let totLeads=0, totConv=0;
+  mesesL.forEach(m => {
+    const total = aggMonth(DATA.leads_daily, m, 'leads', corte);
+    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte);
+    if(!total) return;
+    const noConv = total - conv;
+    const pct = Math.round((conv/total)*1000)/10;
+    totLeads += total; totConv += conv;
+    html += '<tr><td>'+mesEsLabel[m]+'</td><td>'+total.toLocaleString()+'</td><td>'+conv.toLocaleString()+'</td><td>'+noConv.toLocaleString()+'</td><td>'+pct+'%</td></tr>';
+  });
+  const totPct = totLeads>0 ? Math.round((totConv/totLeads)*1000)/10 : 0;
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+(totLeads-totConv).toLocaleString()+'</td><td>'+totPct+'%</td></tr>';
+  html += '</tbody>';
+  document.getElementById('tableVintageLeads').innerHTML = html;
+}
+
+function renderDiasConversion(corte){
+  const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
+  const matriz = {};
+  DATA.dias_matriz.forEach(([mv,dia,bin,n]) => {
+    if(dia > corte) return;
+    matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n;
+  });
+
+  let html = '<thead><tr><th>Días hasta la venta</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  bins.forEach(b => {
+    html += '<tr><td>'+b+'</td>' + mesesV.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  });
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  html += '</tbody>';
+  document.getElementById('tableDiasConversion').innerHTML = html;
+
+  // Mediana de dias no es trivial de recalcular exacto por bin agregado; se muestra la mediana precomputada del mes completo como referencia.
+  const medTxt = mesesV.map((m,i) => labelsV[i]+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
+  document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
+}
+
+function renderCampanaTable(){
+  const sel = document.getElementById('mesCampana');
+  if(!sel) return;
+  const mes = sel.value || '2026-07';
+  const rows = DATA.campanas.filter(r => r.mes===mes).sort((a,b)=> (esCatchAll(a.campana)?1:0)-(esCatchAll(b.campana)?1:0) || b.leads-a.leads);
+  const totalLeadsMes = DATA.leads_total_mes[mes] || rows.reduce((s,r)=>s+r.leads,0);
+
+  const table = document.getElementById('tableCampana');
+  let html = '<thead><tr><th>Campaña</th><th>Leads</th><th>Convertidos</th><th>% Participación</th><th>Efectividad</th></tr></thead><tbody>';
+  let totLeads=0, totConv=0;
+  rows.forEach(r => {
+    const part = totalLeadsMes>0 ? Math.round((r.leads/totalLeadsMes)*1000)/10 : 0;
+    const efect = r.leads>0 ? Math.round((r.convertidos/r.leads)*1000)/10 : 0;
+    const shortName = r.campana.length > 55 ? r.campana.slice(0,55)+'…' : r.campana;
+    totLeads += r.leads; totConv += r.convertidos;
+    html += '<tr><td title="'+r.campana.replace(/"/g,'&quot;')+'" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;">'+shortName+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td>'+part+'%</td><td>'+efect+'%</td></tr>';
+  });
+  const totPart = totalLeadsMes>0 ? Math.round((totLeads/totalLeadsMes)*1000)/10 : 0;
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+totPart+'%</td><td>–</td></tr>';
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function esCatchAll(d){
+  return d === 'Otros' || d.includes('Venta directa') || d === '(Sin campaña)' || d.startsWith('Otras campañas');
+}
+function pushCatchAllLast(arr){
+  const normales = arr.filter(d => !esCatchAll(d));
+  const catchall = arr.filter(d => esCatchAll(d));
+  return normales.concat(catchall);
+}
+
+function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, corte){
+  const leadsRowsAll = DATA[leadsKey];
+  const salesRowsAll = DATA[salesKey];
+  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
+  const salesRows = salesRowsAll.filter(r => r[1] <= corte);
+  let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
+  if(excludeSubstr) dims = dims.filter(d => !excludeSubstr.some(ex => d.includes(ex)));
+
+  const totalsLeadsByDim = {};
+  dims.forEach(d => { totalsLeadsByDim[d] = leadsRows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
+  dims = dims.sort((a,b)=> totalsLeadsByDim[b]-totalsLeadsByDim[a]);
+  dims = pushCatchAllLast(dims);
+
+  const totalLeadsPorMes = {};
+  mesesV.forEach(m => { totalLeadsPorMes[m] = leadsRows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
+
+  const agg = {};
+  dims.forEach(d => {
+    agg[d] = {};
+    mesesV.forEach(m => {
+      const lsub = leadsRows.filter(r=>r[0]===m && r[2]===d);
+      const ssub = salesRows.filter(r=>r[0]===m && r[2]===d);
+      agg[d][m] = {
+        l: lsub.reduce((s,r)=>s+r[3],0), conv: lsub.reduce((s,r)=>s+r[4],0),
+        v: ssub.reduce((s,r)=>s+r[3],0),
+        vMismoMes: ssub.reduce((s,r)=>s+r[5],0),
+        vColchon: ssub.reduce((s,r)=>s+r[6],0)
+      };
+    });
+  });
+
+  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride){
+    let rowDims = rowOrderOverride ? rowOrderOverride : dims;
+    if(rowFilter) rowDims = rowDims.filter(rowFilter);
+    let html = '<thead><tr><th>' + prefix + '</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+    rowDims.forEach(d => {
+      html += '<tr><td>'+d+'</td>' + mesesV.map(m => {
+        const res = valueFn(agg[d][m], m, d);
+        if(res && typeof res === 'object') return '<td class="'+(res.cls||'')+'">'+res.text+'</td>';
+        return '<td>'+res+'</td>';
+      }).join('') + '</tr>';
+    });
+    if(totalFn){
+      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
+    }
+    html += '</tbody>';
+    const el = document.getElementById(tableId);
+    if(el) el.innerHTML = html;
+  }
+  return {build, dims, agg, totalLeadsPorMes};
+}
+
+function ordenarPorEfectividad(dims, agg){
+  const conEfect = dims.map(d => {
+    const totL = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].l:0), 0);
+    const totC = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].conv:0), 0);
+    return { d, efect: totL>0 ? totC/totL : -1 };
+  });
+  conEfect.sort((a,b) => b.efect - a.efect);
+  return pushCatchAllLast(conEfect.map(x=>x.d));
+}
+
+// Colorea efectividad: solo en filas con participacion promedio relevante (>=8%),
+// verde si sube >=15% vs mes anterior, rojo si baja >=15%. Nada mas.
+function pctFmt(v){
+  return v < 10 ? (Math.round(v*100)/100) + '%' : (Math.round(v*10)/10) + '%';
+}
+
+function efectCellColored(agg_d, m, mesesArr, totalLeadsPorMesObj, esRelevante){
+  const v = agg_d[m];
+  if(!v || v.l===0) return '–';
+  const efect = pctFmt((v.conv/v.l)*100);
+  if(!esRelevante) return efect;
+  const idx = mesesArr.indexOf(m);
+  if(idx===0) return efect;
+  const mPrev = mesesArr[idx-1];
+  const vPrev = agg_d[mPrev];
+  if(!vPrev || vPrev.l===0) return efect;
+  const efectPrev = vPrev.conv/vPrev.l;
+  const efectNow = v.conv/v.l;
+  if(efectPrev<=0) return efect;
+  const relChange = (efectNow-efectPrev)/efectPrev;
+  if(relChange >= 0.15) return {text: efect, cls:'up'};
+  if(relChange <= -0.15) return {text: efect, cls:'down'};
+  return efect;
+}
+
+function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, corte){
+  const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, corte);
+  M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
+    if(v.l===0) return '–';
+    const part = M.totalLeadsPorMes[m]>0 ? (v.l/M.totalLeadsPorMes[m])*100 : 0;
+    return v.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+  }, null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
+    return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
+  });
+  M.build('table'+idPrefix+'VentasMatrix', (v) => v.v>0 ? v.v.toLocaleString() : '–', null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
+    return total>0 ? total.toLocaleString() : '–';
+  });
+  M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
+    return total>0 ? total.toLocaleString() : '–';
+  });
+  M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'));
+  const efectFilter = excludeFromEfect ? (d => !excludeFromEfect.some(ex => d.includes(ex))) : null;
+  const dimsParaEfect = efectFilter ? M.dims.filter(efectFilter) : M.dims;
+
+  const relevancia = {};
+  dimsParaEfect.forEach(d => {
+    const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
+    const avg = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
+    relevancia[d] = avg >= 0.08;
+  });
+
+  const ordenEfect = ordenarPorEfectividad(dimsParaEfect, M.agg);
+  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, M.totalLeadsPorMes, relevancia[d]), null, null, ordenEfect);
+}
+
+function renderAllMatrixSets(corte){
+  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], corte);
+  renderMatrixSet('Prod', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte);
+  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte);
+  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte);
+}
 document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
 render(20);
 
