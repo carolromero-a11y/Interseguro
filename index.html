@@ -1,90 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Vida (en vivo) — InterSeguro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<style>
-  :root{ --navy:#132A46; --navy-2:#1D3A5F; --teal:#0F8B7D; --teal-light:#E3F3F0; --amber:#D98E3B; --red:#C24B4B;
-    --bg:#F5F3EE; --card:#FFFFFF; --border:#E3E0D6; --text:#1D1D1B; --text-2:#615F58; --text-3:#8B8880; }
-  *{box-sizing:border-box;}
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; }
-  header{ background:var(--navy); color:#fff; padding:28px 32px; border-bottom:4px solid var(--teal); }
-  header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
-  header h1{ margin:0; font-size:26px; font-weight:600; }
-  header p{ margin:6px 0 0; color:#C3D2DE; font-size:14px; }
-  #estado{ font-size:12px; color:#8FB8CE; margin-top:10px; }
-  main{ max-width:1100px; margin:0 auto; padding:28px 24px 60px; }
-  section{ margin-bottom:32px; }
-  section h2{ font-size:15px; font-weight:600; color:var(--navy); margin:0 0 4px; text-transform:uppercase; }
-  section .sub{ font-size:13px; color:var(--text-3); margin:0 0 14px; }
-  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
-  .kpi{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
-  .kpi .label{ font-size:12px; color:var(--text-3); margin:0 0 6px; }
-  .kpi .value{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--navy); margin:0;}
-  .chart-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; }
-  .chart-wrap{ position:relative; width:100%; height:260px; }
-  table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
-  table.data-table th, table.data-table td{ padding:9px 10px; text-align:right; border-bottom:1px solid var(--border); }
-  table.data-table th:first-child, table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
-  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; }
-  .table-wrap{ overflow-x:auto; border-radius:10px; margin-bottom:14px; }
-  #loading, #error{ text-align:center; padding:60px 20px; color:var(--text-2); }
-  #error{ color:var(--red); display:none; }
-</style>
-</head>
-<body>
-
-<header>
-  <p class="eyebrow">InterSeguro · Productos digitales</p>
-  <h1>Dashboard de ventas — Vida (en vivo)</h1>
-  <p>Piloto: se actualiza solo desde el Google Sheet, sin necesidad de un archivo nuevo cada vez</p>
-  <p id="estado">Cargando datos...</p>
-</header>
-
-<main>
-  <div id="loading">Conectando con el Google Sheet…</div>
-  <div id="error">No se pudo cargar la información. Revisa que el Sheet esté compartido como "Cualquiera con el enlace puede ver" y que el ID esté bien puesto en el código (SHEET_ID).</div>
-
-  <div id="contenido" style="display:none;">
-    <section>
-      <h2>Resumen</h2>
-      <div class="kpi-grid">
-        <div class="kpi"><p class="label">Ventas totales (periodo cargado)</p><p class="value" id="kVentasTotal">–</p></div>
-        <div class="kpi"><p class="label">Leads totales (periodo cargado)</p><p class="value" id="kLeadsTotal">–</p></div>
-        <div class="kpi"><p class="label">Efectividad general</p><p class="value" id="kEfectGeneral">–</p></div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Ventas por mes</h2>
-      <div class="chart-card"><div class="chart-wrap"><canvas id="chVentas"></canvas></div></div>
-    </section>
-
-    <section>
-      <h2>Efectividad por cohorte de leads</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCohort"></table></div>
-    </section>
-
-    <section>
-      <h2>Leads por call — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallLeads"></table></div>
-    </section>
-    <section>
-      <h2>Ventas por call — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallVentas"></table></div>
-    </section>
-    <section>
-      <h2>Efectividad por call — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallEfect"></table></div>
-    </section>
-  </div>
-</main>
-
-<script>
 // ============ CONFIGURA ESTO ============
 const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
 // =========================================
@@ -95,7 +8,8 @@ fetch(url)
   .then(r => r.text())
   .then(text => {
     const match = text.match(/setResponse\(([\s\S]*)\);/);
-    if (!match) throw new Error('Formato inesperado');
+    if (!match) throw new Error('Formato inesperado del Google Sheet');
+    
     const json = JSON.parse(match[1]);
     const DATA = {};
     
@@ -108,7 +22,7 @@ fetch(url)
           try { 
             DATA[tabla] = JSON.parse(jsonStr); 
           } catch(e) {
-            DATA[tabla] = jsonStr; // Por si es texto plano como el campo 'actualizado'
+            DATA[tabla] = jsonStr;
           }
         } else {
           DATA[tabla] = [];
@@ -116,83 +30,98 @@ fetch(url)
       }
     });
 
-    render(DATA);
+    // Ocultamos la carga e indicamos éxito ANTES de renderizar
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+
+    // Ejecutamos el render en un bloque protegido
+    try {
+      render(DATA);
+    } catch(err) {
+      console.error("Error al renderizar los componentes visuales:", err);
+    }
   })
   .catch(err => {
+    // Esto SOLO se activará si el Sheet no carga en absoluto
     document.getElementById('loading').style.display = 'none';
     document.getElementById('error').style.display = 'block';
-    console.error("Error al procesar los datos:", err);
+    console.error("Error de conexión con Google Sheet:", err);
   });
 
 function render(DATA) {
-  // Garantizar arrays por si alguna tabla falta en el Sheet
-  DATA.sales_daily = DATA.sales_daily || [];
-  DATA.leads_daily = DATA.leads_daily || [];
-  DATA.cohort = DATA.cohort || [];
-  DATA.leads_by_call = DATA.leads_by_call || [];
-  DATA.sales_by_call = DATA.sales_by_call || [];
+  DATA.sales_daily = Array.isArray(DATA.sales_daily) ? DATA.sales_daily : [];
+  DATA.leads_daily = Array.isArray(DATA.leads_daily) ? DATA.leads_daily : [];
+  DATA.cohort = Array.isArray(DATA.cohort) ? DATA.cohort : [];
+  DATA.leads_by_call = Array.isArray(DATA.leads_by_call) ? DATA.leads_by_call : [];
+  DATA.sales_by_call = Array.isArray(DATA.sales_by_call) ? DATA.sales_by_call : [];
 
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('error').style.display = 'none';
-  document.getElementById('contenido').style.display = 'block';
   document.getElementById('estado').textContent = 'Última actualización del Sheet: ' + (DATA.actualizado || '—');
 
   const meses = [...new Set(DATA.sales_daily.map(r => r.mes))].filter(Boolean).sort();
-  const labels = meses.map(m => m.slice(5) + '/' + m.slice(2,4));
+  const labels = meses.map(m => String(m).slice(5) + '/' + String(m).slice(2,4));
 
-  // KPIs
-  const ventasTotal = DATA.sales_daily.reduce((s,r) => s + (r.ventas || 0), 0);
-  const leadsTotal = DATA.leads_daily.reduce((s,r) => s + (r.leads || 0), 0);
-  const convTotal = DATA.leads_daily.reduce((s,r) => s + (r.convertidos || 0), 0);
+  // 1. KPIs
+  const ventasTotal = DATA.sales_daily.reduce((s,r) => s + (Number(r.ventas) || 0), 0);
+  const leadsTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.leads) || 0), 0);
+  const convTotal = DATA.leads_daily.reduce((s,r) => s + (Number(r.convertidos) || 0), 0);
   
   document.getElementById('kVentasTotal').textContent = ventasTotal.toLocaleString();
   document.getElementById('kLeadsTotal').textContent = leadsTotal.toLocaleString();
   document.getElementById('kEfectGeneral').textContent = leadsTotal > 0 ? (Math.round(convTotal/leadsTotal*1000)/10)+'%' : '–';
 
-  // Ventas por mes
-  const ventasPorMes = meses.map(m => DATA.sales_daily.filter(r=>r.mes===m).reduce((s,r)=>s+(r.ventas || 0),0));
-  new Chart(document.getElementById('chVentas'), {
-    type: 'bar',
-    data: { labels, datasets: [{ data: ventasPorMes, backgroundColor: '#1D3A5F', borderRadius: 4 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}} } }
-  });
+  // 2. Gráfico de ventas por mes
+  const ventasPorMes = meses.map(m => DATA.sales_daily.filter(r=>r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0));
+  const canvasElem = document.getElementById('chVentas');
+  if (canvasElem) {
+    new Chart(canvasElem, {
+      type: 'bar',
+      data: { labels, datasets: [{ data: ventasPorMes, backgroundColor: '#1D3A5F', borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}} } }
+    });
+  }
 
-  // Cohorte
-  let html = '<thead><tr><th>Mes</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Efectividad</td>';
-  meses.forEach(m => {
-    const r = DATA.cohort.find(x=>x.mes===m);
-    html += '<td>' + (r && r.total>0 ? (Math.round(r.convertidos/r.total*1000)/10)+'%' : '–') + '</td>';
-  });
-  html += '</tr></tbody>';
-  document.getElementById('tableCohort').innerHTML = html;
+  // 3. Tabla Cohorte
+  const tableCohort = document.getElementById('tableCohort');
+  if (tableCohort) {
+    let html = '<thead><tr><th>Mes</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Efectividad</td>';
+    meses.forEach(m => {
+      const r = DATA.cohort.find(x=>x.mes===m);
+      html += '<td>' + (r && r.total>0 ? (Math.round((r.convertidos||0)/(r.total||1)*1000)/10)+'%' : '–') + '</td>';
+    });
+    html += '</tr></tbody>';
+    tableCohort.innerHTML = html;
+  }
 
-  // Por call
+  // 4. Tablas Call
   const calls = [...new Set(DATA.leads_by_call.map(r=>r.dim))].filter(Boolean);
+  
   function buildCallTable(elId, valueFn) {
+    const tableEl = document.getElementById(elId);
+    if (!tableEl) return;
     let h = '<thead><tr><th>Call</th>' + labels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
     calls.forEach(c => {
       h += '<tr><td>'+c+'</td>' + meses.map(m => '<td>'+valueFn(c,m)+'</td>').join('') + '</tr>';
     });
     h += '</tbody>';
-    document.getElementById(elId).innerHTML = h;
+    tableEl.innerHTML = h;
   }
 
   buildCallTable('tableCallLeads', (c,m) => {
-    const l = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(r.leads || 0),0);
+    const l = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.leads) || 0),0);
     return l>0 ? l.toLocaleString() : '–';
   });
+
   buildCallTable('tableCallVentas', (c,m) => {
-    const v = DATA.sales_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(r.ventas || 0),0);
+    const v = DATA.sales_by_call.filter(r=>r.dim===c && r.mes===m).reduce((s,r)=>s+(Number(r.ventas) || 0),0);
     return v>0 ? v.toLocaleString() : '–';
   });
+
   buildCallTable('tableCallEfect', (c,m) => {
     const rows = DATA.leads_by_call.filter(r=>r.dim===c && r.mes===m);
-    const l = rows.reduce((s,r)=>s+(r.leads || 0),0);
-    const conv = rows.reduce((s,r)=>s+(r.convertidos || 0),0);
+    const l = rows.reduce((s,r)=>s+(Number(r.leads) || 0),0);
+    const conv = rows.reduce((s,r)=>s+(Number(r.convertidos) || 0),0);
     return l>0 ? (Math.round(conv/l*1000)/10)+'%' : '–';
   });
 }
-</script>
-</body>
-</html>
