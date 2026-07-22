@@ -77,7 +77,16 @@
 </style>
 </head>
 <body>
-<div id="loadingOverlay" style="padding:100px 20px;text-align:center;font-family:'IBM Plex Sans',sans-serif;color:#615F58;">
+<div id="passwordGate" style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif;background:#F4F1EA;">
+  <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:360px;width:90%;text-align:center;">
+    <p style="font-weight:700;color:#1D3A5F;font-size:14px;letter-spacing:0.06em;margin:0 0 4px;">INTERSEGURO · PRODUCTOS DIGITALES</p>
+    <h2 style="margin:0 0 20px;color:#1D3A5F;">Dashboard Vida</h2>
+    <input type="password" id="passwordInput" placeholder="Contraseña" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D8D4C8;border-radius:6px;font-size:14px;margin-bottom:12px;">
+    <button id="passwordSubmit" style="width:100%;padding:10px 12px;background:#1D3A5F;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Entrar</button>
+    <p id="passwordError" style="display:none;color:#C24B4B;font-size:13px;margin:12px 0 0;">Contraseña incorrecta, intenta de nuevo.</p>
+  </div>
+</div>
+<div id="loadingOverlay" style="display:none;padding:100px 20px;text-align:center;font-family:'IBM Plex Sans',sans-serif;color:#615F58;">
   <p style="font-size:16px;">Conectando con el Google Sheet…</p>
 </div>
 <div id="dashboardRoot" style="display:none;">
@@ -104,6 +113,16 @@
     <span class="val" id="corteVal">Día 20 de julio</span>
     <span class="hint">Aplica a todas las pestañas</span>
   </div>
+
+  <div class="controls" style="margin-top:8px;">
+    <label for="rangoDesde">Ver un rango de fechas específico</label>
+    <input type="date" id="rangoDesde" min="2025-12-01" max="2026-07-31" value="2026-07-01">
+    <span style="padding:0 4px;color:#8B8880;">a</span>
+    <input type="date" id="rangoHasta" min="2025-12-01" max="2026-07-31" value="2026-07-20">
+    <button id="rangoBtn" style="padding:6px 14px;background:#1D3A5F;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Ver rango</button>
+    <span class="hint">Independiente del día de corte — funciona con cualquier ventana de días, incluso cruzando meses</span>
+  </div>
+  <div id="rangoResultado" style="display:none;"></div>
 
   <!-- ===== TAB: RESUMEN ===== -->
   <div class="tabpanel active" id="tab-resumen">
@@ -380,9 +399,38 @@
 
 <script>
 let DATA;
-const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
+const SHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
+// ---------- PANTALLA DE CONTRASEÑA ----------
+// Aviso honesto: esto bloquea el acceso casual (alguien que caiga en el link sin querer),
+// pero NO es seguridad real -- el HTML y la clave se pueden ver en el codigo fuente de la
+// pagina. Si necesitas que el contenido este realmente protegido, hay que mover esto a un
+// hosting con autenticacion de verdad.
+const CLAVE_ACCESO = 'Vid42026$';
+function intentarEntrar(){
+  const val = document.getElementById('passwordInput').value;
+  if (val === CLAVE_ACCESO) {
+    try { sessionStorage.setItem('vidaAccesoOK', '1'); } catch(e) {}
+    document.getElementById('passwordGate').style.display = 'none';
+    document.getElementById('loadingOverlay').style.display = 'block';
+    iniciarCarga();
+  } else {
+    document.getElementById('passwordError').style.display = 'block';
+  }
+}
+document.getElementById('passwordSubmit').addEventListener('click', intentarEntrar);
+document.getElementById('passwordInput').addEventListener('keydown', e => { if (e.key === 'Enter') intentarEntrar(); });
+
+let yaAccedio = false;
+try { yaAccedio = sessionStorage.getItem('vidaAccesoOK') === '1'; } catch(e) {}
+if (yaAccedio) {
+  document.getElementById('passwordGate').style.display = 'none';
+  document.getElementById('loadingOverlay').style.display = 'block';
+  iniciarCarga();
+}
+
+function iniciarCarga(){
 fetch(OUTPUT_URL)
   .then(r => r.text())
   .then(text => {
@@ -406,6 +454,9 @@ fetch(OUTPUT_URL)
       try { data[tabla] = JSON.parse(textoCompleto); }
       catch(e) { console.error('No se pudo parsear la tabla', tabla, e); }
     });
+    if (Object.keys(data).length === 0) {
+      throw new Error('El Sheet respondio pero la pestaña "Output" esta vacia. Lo mas probable es que falte correr "Dashboard InterSeguro > Actualizar dashboard" en el Sheet despues de pegar el ultimo script, o que el SHEET_ID en este archivo no apunte al Sheet correcto.');
+    }
     DATA = data;
     // Normalizacion defensiva: si alguna tabla no llego o no se pudo parsear (por ejemplo
     // por un error de red o un problema puntual de una celda en el Sheet), rellenamos con un
@@ -434,6 +485,7 @@ fetch(OUTPUT_URL)
       '<span style="font-size:12px;color:#8B8880;">Detalle técnico: ' + err.message + '</span></div>';
     console.error(err);
   });
+}
 
 function initDashboard(){
 if (window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
@@ -1060,6 +1112,52 @@ function renderAllMatrixSets(corte){
   renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte);
   renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte);
 }
+document.getElementById('rangoBtn').addEventListener('click', () => {
+  const desdeVal = document.getElementById('rangoDesde').value;
+  const hastaVal = document.getElementById('rangoHasta').value;
+  if (!desdeVal || !hastaVal) return;
+  const desde = new Date(desdeVal + 'T00:00:00');
+  const hasta = new Date(hastaVal + 'T23:59:59');
+  function enRango(r) {
+    const d = new Date(r.mes + '-' + String(r.dia).padStart(2,'0') + 'T12:00:00');
+    return d >= desde && d <= hasta;
+  }
+  const ventasFiltradas = DATA.sales_daily.filter(enRango);
+  const leadsFiltrados = DATA.leads_daily.filter(enRango);
+  const ventas = ventasFiltradas.reduce((s,r)=>s+r.ventas,0);
+  const prima = ventasFiltradas.reduce((s,r)=>s+r.prima,0);
+  const leads = leadsFiltrados.reduce((s,r)=>s+r.leads,0);
+  const convertidos = leadsFiltrados.reduce((s,r)=>s+r.convertidos,0);
+  const efect = leads>0 ? (convertidos/leads*100) : 0;
+
+  function enRangoArr(r) {
+    const d = new Date(r[0] + '-' + String(r[1]).padStart(2,'0') + 'T12:00:00');
+    return d >= desde && d <= hasta;
+  }
+  const porCall = {};
+  DATA.sales_by_call.filter(enRangoArr).forEach(r => {
+    porCall[r[2]] = porCall[r[2]] || { ventas: 0, prima: 0 };
+    porCall[r[2]].ventas += r[3];
+    porCall[r[2]].prima += r[4];
+  });
+  const filasCall = Object.keys(porCall).sort((a,b)=>porCall[b].ventas-porCall[a].ventas)
+    .map(c => `<tr><td>${c}</td><td>${porCall[c].ventas.toLocaleString()}</td><td>S/ ${abbrevNum(porCall[c].prima)}</td></tr>`).join('');
+
+  const fmtFecha = (v) => { const [y,m,d] = v.split('-'); return d+'/'+m+'/'+y; };
+  document.getElementById('rangoResultado').innerHTML = `
+    <section style="margin-top:8px;">
+      <h2>Resultado del ${fmtFecha(desdeVal)} al ${fmtFecha(hastaVal)}</h2>
+      <div class="kpi-grid">
+        <div class="kpi"><p class="label">Ventas</p><p class="value">${ventas.toLocaleString()}</p></div>
+        <div class="kpi"><p class="label">Prima total</p><p class="value">S/ ${abbrevNum(prima)}</p></div>
+        <div class="kpi"><p class="label">Leads</p><p class="value">${leads.toLocaleString()}</p></div>
+        <div class="kpi"><p class="label">Efectividad</p><p class="value">${pctFmt(efect)}</p></div>
+      </div>
+      <div class="table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr><th>Call</th><th>Ventas</th><th>Prima</th></tr></thead><tbody>${filasCall || '<tr><td colspan="3">Sin ventas en este rango</td></tr>'}</tbody></table></div>
+    </section>`;
+  document.getElementById('rangoResultado').style.display = 'block';
+});
+
 document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
 render(20);
 
