@@ -90,7 +90,7 @@
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
   <h1>Dashboard de ventas — Rumbo</h1>
-  <p class="desc">Producto de ahorro · enero – julio 2026 </p>
+  <p class="desc">Producto de inversión · enero – julio 2026 · datos reales al 20 de julio</p>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
@@ -393,7 +393,7 @@
 
 <footer>
   <p><strong>Notas de metodología:</strong> mismas reglas que el dashboard de Vida (dedup por póliza, cruce por DNI con lead más reciente antes de la venta, ventas sin lead pero con call real se cuentan como lead sintético del mismo mes). La <strong>Tasa</strong> y el <strong>Plazo</strong> de cada venta se completan con la información del lead atribuido cuando la venta no trae ese dato directamente (frecuente por errores de "Fecha inválida" en el archivo de ventas).</p>
-  <p>Generado para el equipo de Productos Digitales — Rumbo. Última actualización de datos: 20 de julio de 2026.</p>
+  <p>Generado para el equipo de Productos Digitales — Rumbo. Última actualización de datos: <span id="fechaHoy">20 de julio de 2026</span>.</p>
 </footer>
 
 <script>
@@ -482,6 +482,17 @@ fetch(OUTPUT_URL)
 }
 
 function initDashboard(){
+// Fecha real en que se corrio "Actualizar dashboard" en el Sheet (no la fecha de hoy) --
+// viene del propio script de Google, asi que refleja el ultimo refresco de datos real.
+(function(){
+  const el = document.getElementById('fechaHoy');
+  if (!el) return;
+  if (!DATA.actualizado) { el.textContent = '(fecha no disponible, corre "Actualizar dashboard" en el Sheet)'; return; }
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const f = new Date(DATA.actualizado);
+  el.textContent = f.getDate() + ' de ' + meses[f.getMonth()] + ' de ' + f.getFullYear() + ', ' + String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0');
+})();
+
 if (window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
 
 function abbrevNum(v){
