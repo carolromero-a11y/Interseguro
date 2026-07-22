@@ -389,13 +389,39 @@ fetch(OUTPUT_URL)
     const match = text.match(/setResponse\(([\s\S]*)\);/);
     if (!match) throw new Error('Formato de respuesta inesperado del Sheet');
     const json = JSON.parse(match[1]);
-    const data = {};
+    // Reensamblar tablas que Google Sheets partio en varios "pedazos" (limite de 50,000
+    // caracteres por celda). Cada fila trae: tabla, pedazo de texto, total de pedazos, numero de pedazo.
+    const pedazosPorTabla = {};
     json.table.rows.forEach(r => {
       const tabla = r.c[0] ? r.c[0].v : null;
-      const jsonStr = r.c[1] ? r.c[1].v : null;
-      if (tabla && jsonStr) { try { data[tabla] = JSON.parse(jsonStr); } catch(e) { console.error('No se pudo parsear la tabla', tabla, e); } }
+      const pedazo = r.c[1] ? r.c[1].v : null;
+      const numPedazo = r.c[3] ? Number(r.c[3].v) : 1;
+      if (!tabla || pedazo === null) return;
+      pedazosPorTabla[tabla] = pedazosPorTabla[tabla] || [];
+      pedazosPorTabla[tabla][numPedazo - 1] = pedazo;
+    });
+    const data = {};
+    Object.keys(pedazosPorTabla).forEach(tabla => {
+      const textoCompleto = pedazosPorTabla[tabla].join('');
+      try { data[tabla] = JSON.parse(textoCompleto); }
+      catch(e) { console.error('No se pudo parsear la tabla', tabla, e); }
     });
     DATA = data;
+    // Normalizacion defensiva: si alguna tabla no llego o no se pudo parsear (por ejemplo
+    // por un error de red o un problema puntual de una celda en el Sheet), rellenamos con un
+    // valor vacio en vez de dejar 'undefined' -- asi una tabla faltante ya NO rompe el resto
+    // del dashboard (antes, si UNA tabla fallaba, todas las que se dibujaban despues en la
+    // misma cadena se quedaban en blanco tambien).
+    const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
+      'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage',
+      'leads_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
+      'leads_by_clics','dias_matriz','july_days','leads_by_tasa','sales_by_tasa','leads_by_prima',
+      'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
+      'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
+      'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima'];
+    const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
+    CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
+    CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('dashboardRoot').style.display = 'block';
     initDashboard();
@@ -566,15 +592,18 @@ function render(corte){
     chProyeccionLeads.update();
   }
 
-  renderVintageTable(corte);
-  renderCampanaTable();
-  renderAllMatrixSets(corte);
-  renderCanalYPrimaProm(corte);
-  renderCohortTable(corte);
-  renderTipoLeadTable(corte);
-  renderClicsTable(corte);
-  renderPPyPNA(corte);
-  renderDiasConversion(corte);
+  // Cada tabla/grafico se ejecuta de forma aislada: si una falla (por ejemplo por un dato
+  // faltante puntual), las demas se siguen dibujando con normalidad en vez de quedar en blanco.
+  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+  intentar('renderVintageTable', () => renderVintageTable(corte));
+  intentar('renderCampanaTable', () => renderCampanaTable());
+  intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
+  intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
+  intentar('renderCohortTable', () => renderCohortTable(corte));
+  intentar('renderTipoLeadTable', () => renderTipoLeadTable(corte));
+  intentar('renderClicsTable', () => renderClicsTable(corte));
+  intentar('renderPPyPNA', () => renderPPyPNA(corte));
+  intentar('renderDiasConversion', () => renderDiasConversion(corte));
 }
 
 // Canal composition (ahora corte-aware)
