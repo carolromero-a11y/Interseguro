@@ -500,7 +500,7 @@
   <div class="tabpanel" id="tab-comite">
     <section>
       <h2>Consolidado — todos los call</h2>
-      <p class="sub">Leads, Ventas, Efectividad, PNA y PP reales al día de corte, más proyección de cierre por días de gestión</p>
+      <p class="sub">Leads, Ventas, % Ventas Colchón, Efectividad, PNA y PP al mismo día de corte en los últimos 3 meses + el mes actual, más proyección de cierre por días de gestión</p>
       <div class="table-wrap"><table class="data-table" id="tableComiteConsolidado"></table></div>
     </section>
     <section>
@@ -511,7 +511,7 @@
       <h2>Solo Call Externo (Biznes)</h2>
       <div class="table-wrap"><table class="data-table" id="tableComiteExterno"></table></div>
     </section>
-    <p class="note">Efectividad = ventas con lead del mismo mes ÷ leads de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). La fila "Proyecc." usa el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0), mezclando el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
+    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
   </div>
 
 </main>
@@ -1628,46 +1628,78 @@ function renderTablaComite(tableId, filtroCall, corte){
   const cols = mesesCerradosRecientes.concat(mesActual ? [mesActual] : []);
   if(!cols.length) { const el = document.getElementById(tableId); if(el) el.innerHTML = ''; return; }
   function ventasDeMes(m, corteDia){
-    if(!filtroCall) return { v: aggMonth(DATA.sales_daily, m, 'ventas', corteDia), prima: aggMonth(DATA.sales_daily, m, 'prima', corteDia), pna: aggMonth(DATA.sales_daily, m, 'pna', corteDia) };
+    if(!filtroCall) return {
+      v: aggMonth(DATA.sales_daily, m, 'ventas', corteDia),
+      prima: aggMonth(DATA.sales_daily, m, 'prima', corteDia),
+      pna: aggMonth(DATA.sales_daily, m, 'pna', corteDia),
+      mismoMes: aggMonth(DATA.sales_daily, m, 'mismoMes', corteDia),
+      // sales_daily (consolidado) no trae "mesAnt" (venta colchon) como columna propia; se saca
+      // sumando esa columna en sales_by_call para TODOS los call de ese mes (misma fuente, mismo total).
+      colchon: (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia).reduce((s,r)=>s+(r[6]||0),0)
+    };
     const rows = (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucket(r[2])===filtroCall);
-    return { v: rows.reduce((s,r)=>s+r[3],0), prima: rows.reduce((s,r)=>s+r[4],0), pna: rows.reduce((s,r)=>s+(r[8]||0),0) };
+    return {
+      v: rows.reduce((s,r)=>s+r[3],0), prima: rows.reduce((s,r)=>s+r[4],0), pna: rows.reduce((s,r)=>s+(r[8]||0),0),
+      mismoMes: rows.reduce((s,r)=>s+(r[5]||0),0), colchon: rows.reduce((s,r)=>s+(r[6]||0),0)
+    };
   }
   function leadsDeMes(m, corteDia){
     if(!filtroCall) return aggMonth(DATA.leads_daily, m, 'leads', corteDia);
     return (DATA.leads_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucket(r[2])===filtroCall).reduce((s,r)=>s+r[3],0);
   }
-  const leadsVals = cols.map(m => leadsDeMes(m, m===mesActual?corte:9999));
-  const ventasVals = cols.map(m => ventasDeMes(m, m===mesActual?corte:9999));
-  const efectVals = cols.map((m,i) => leadsVals[i]>0 ? pctFmt((ventasVals[i].v/leadsVals[i])*100) : '–');
+  // Fila principal: SIEMPRE al mismo dia de corte en todas las columnas (tambien en los meses
+  // ya cerrados), para comparar manzanas con manzanas (ej. "que llevaba mayo al dia 16" vs.
+  // "que lleva agosto al dia 16"). Ningun mes se muestra completo aqui, ni siquiera los cerrados.
+  const leadsVals = cols.map(m => leadsDeMes(m, corte));
+  const ventasVals = cols.map(m => ventasDeMes(m, corte));
+  // Efectividad = ventas del mes hechas con lead TAMBIEN de ese mismo mes / leads de ese mes
+  // (misma definicion que se usa en TODAS las demas tablas del dashboard, no ventas totales).
+  const efectVals = cols.map((m,i) => leadsVals[i]>0 ? pctFmt((ventasVals[i].mismoMes/leadsVals[i])*100) : '–');
+  // % Participacion Colchon = venta colchon (lead asignado el mes pasado) / ventas totales del mes,
+  // igual formula que la tabla "% Participacion Colchon" del resto de hojas del dashboard.
+  const colchonPartVals = cols.map((m,i) => {
+    const v = ventasVals[i];
+    if(v.v>0 && v.colchon>0) return (Math.round((v.colchon/v.v)*1000)/10)+'%';
+    return v.v>0 ? '0%' : '–';
+  });
   const pnaVals = ventasVals.map(v => v.pna);
   const ppVals = ventasVals.map((v,i) => v.v>0 ? Math.round(v.prima/v.v) : null);
 
   let html = '<thead><tr><th></th>' + cols.map(labelFull).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   html += filaComite('Leads', leadsVals, v=>v.toLocaleString());
   html += filaComite('Ventas', ventasVals.map(v=>v.v), v=>v.toLocaleString());
-  html += filaComite('Efectividad', efectVals, v=>v);
+  html += filaComite('Participación ventas leads mes pasado (% ventas colchón)', colchonPartVals, v=>v);
+  html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
   html += filaComite('PNA', pnaVals, v=>'S/ '+Math.round(v).toLocaleString());
   html += filaComite('PP', ppVals, v=>'S/ '+v.toLocaleString());
-  // Fila de proyeccion (solo para el mes actual, en las demas columnas queda vacio)
-  if(mesActual){
-    const idxActual = cols.indexOf(mesActual);
-    const ventasActualComite = ventasVals[idxActual] ? ventasVals[idxActual].v : 0;
-    const leadsActualComite = leadsVals[idxActual] || 0;
-    const primaActualComite = ventasVals[idxActual] ? ventasVals[idxActual].prima : 0;
-    const ventasProyC = Math.round(proyectarCierre('ventas', ventasActualComite, corte));
-    const leadsProyC = Math.round(proyectarCierre('leads', leadsActualComite, corte));
-    // PNA/PP proyectados con la misma tasa de ventas (no hay historico separado por PNA/dia de gestion)
-    const pnaActualComite = pnaVals[idxActual] || 0;
-    // No hay historico de PNA por dia de gestion separado; se proyecta escalando el PNA
-    // actual por el mismo ritmo de crecimiento que la proyeccion de ventas.
-    const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
-    html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Proyecc. ('+labelFull(mesActual)+')</td></tr>';
-    const proyRow = cols.map((m,i) => i===idxActual ? {pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((ventasProyC/leadsProyC)*100):'–', leads:leadsProyC} : null);
-    html += '<tr><td>PNA</td>' + proyRow.map(r=>'<td>'+(r?('S/ '+r.pna.toLocaleString()):'')+'</td>').join('') + '</tr>';
-    html += '<tr><td>Ventas</td>' + proyRow.map(r=>'<td>'+(r?r.ventas.toLocaleString():'')+'</td>').join('') + '</tr>';
-    html += '<tr><td>Efectividad</td>' + proyRow.map(r=>'<td>'+(r?r.efect:'')+'</td>').join('') + '</tr>';
-    html += '<tr><td>Leads</td>' + proyRow.map(r=>'<td>'+(r?r.leads.toLocaleString():'')+'</td>').join('') + '</tr>';
-  }
+  // Fila de proyeccion: en los meses YA CERRADOS (mayo, junio, julio) no hay nada que proyectar
+  // -- se muestra el dato real con el que cerro el mes completo ("Mes cerrado"). Solo en el mes
+  // actual (agosto, todavia en curso) se calcula la proyeccion real por dias de gestion.
+  html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Proyección de cierre</td></tr>';
+  const proyRow = cols.map((m,i) => {
+    if(m === mesActual){
+      const ventasActualComite = ventasVals[i] ? ventasVals[i].v : 0;
+      const mismoMesActualComite = ventasVals[i] ? ventasVals[i].mismoMes : 0;
+      const leadsActualComite = leadsVals[i] || 0;
+      const pnaActualComite = pnaVals[i] || 0;
+      const ventasProyC = Math.round(proyectarCierre('ventas', ventasActualComite, corte));
+      const mismoMesProyC = Math.round(proyectarCierre('mismoMes', mismoMesActualComite, corte));
+      const leadsProyC = Math.round(proyectarCierre('leads', leadsActualComite, corte));
+      // No hay historico de PNA por dia de gestion separado; se proyecta escalando el PNA
+      // actual por el mismo ritmo de crecimiento que la proyeccion de ventas.
+      const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
+      return { cerrado:false, pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((mismoMesProyC/leadsProyC)*100):'–', leads:leadsProyC };
+    }
+    // Mes ya cerrado: dato real completo del mes (sin cortar por dia de corte), no una proyeccion.
+    const vFull = ventasDeMes(m, 9999);
+    const lFull = leadsDeMes(m, 9999);
+    return { cerrado:true, pna:vFull.pna, ventas:vFull.v, efect: lFull>0?pctFmt((vFull.mismoMes/lFull)*100):'–', leads:lFull };
+  });
+  const tagCerrado = '<div style="font-size:10px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Mes cerrado</div>';
+  html += '<tr><td>PNA</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+'S/ '+Math.round(r.pna).toLocaleString()+'</td>').join('') + '</tr>';
+  html += '<tr><td>Ventas</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.ventas.toLocaleString()+'</td>').join('') + '</tr>';
+  html += '<tr><td>Efectividad lead y venta mes</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.efect+'</td>').join('') + '</tr>';
+  html += '<tr><td>Leads</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.leads.toLocaleString()+'</td>').join('') + '</tr>';
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
