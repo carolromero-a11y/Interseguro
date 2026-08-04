@@ -94,7 +94,7 @@
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
   <h1>Dashboard de ventas — Vida</h1>
-  <p class="desc">Vida Cash y Endosos · enero – julio 2026 </p>
+  <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026</p>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
@@ -110,15 +110,15 @@
   <div class="controls">
     <label for="corteSlider">Día de corte</label>
     <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
-    <span class="val" id="corteVal">Día 20 de julio</span>
+    <span class="val" id="corteVal">Día 20</span>
     <span class="hint">Aplica a todas las pestañas</span>
   </div>
 
   <div class="controls" style="margin-top:8px;">
     <label for="rangoDesde">Ver un rango de fechas específico</label>
-    <input type="date" id="rangoDesde" min="2025-12-01" max="2026-07-31" value="2026-07-01">
+    <input type="date" id="rangoDesde">
     <span style="padding:0 4px;color:#8B8880;">a</span>
-    <input type="date" id="rangoHasta" min="2025-12-01" max="2026-07-31" value="2026-07-20">
+    <input type="date" id="rangoHasta">
     <button id="rangoBtn" style="padding:6px 14px;background:#1D3A5F;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Ver rango</button>
     <span class="hint">Independiente del día de corte — funciona con cualquier ventana de días, incluso cruzando meses</span>
   </div>
@@ -129,11 +129,11 @@
 
   <section>
     <h2>Resumen al corte</h2>
-    <p class="sub">Indicadores de julio, calculados hasta el día seleccionado arriba</p>
+    <p class="sub" id="resumenSub">Indicadores de julio, calculados hasta el día seleccionado arriba</p>
     <div class="kpi-grid">
-      <div class="kpi"><p class="label">Ventas julio (real)</p><p class="value" id="kVentas">–</p></div>
-      <div class="kpi"><p class="label">vs. junio (mismo corte)</p><p class="value" id="kVsJun">–</p></div>
-      <div class="kpi"><p class="label">Prima julio (real)</p><p class="value" id="kPrima">–</p></div>
+      <div class="kpi"><p class="label" id="lblVentas">Ventas julio (real)</p><p class="value" id="kVentas">–</p></div>
+      <div class="kpi"><p class="label" id="lblVsAnt">vs. junio (mismo corte)</p><p class="value" id="kVsJun">–</p></div>
+      <div class="kpi"><p class="label" id="lblPrima">Prima julio (real)</p><p class="value" id="kPrima">–</p></div>
       <div class="kpi accent"><p class="label">Proyección cierre — ventas</p><p class="value" id="kProyVentas">–</p></div>
       <div class="kpi accent"><p class="label">Proyección cierre — prima</p><p class="value" id="kProyPrima">–</p></div>
       <div class="kpi accent2"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
@@ -151,30 +151,26 @@
     </section>
 
   <section>
-    <h2>Proyección de cierre de julio — ventas</h2>
-    <p class="sub">Ajustada por calendario: sábados con call solo hasta mediodía, domingos sin gestión, feriados nacionales y partidos del Mundial</p>
+    <h2 id="tituloProyVentas">Proyección de cierre de julio — ventas</h2>
+    <p class="sub">Ajustada por calendario: sábados con call solo hasta mediodía, domingos sin gestión, feriados nacionales y eventos puntuales del mes</p>
     <div class="legend">
       <span><span class="dot" style="background:#1D3A5F"></span>Real a la fecha</span>
       <span><span class="dot" style="background:#0F8B7D"></span>Proyección resto del mes</span>
     </div>
     <div class="chart-card">
-      <div class="chart-wrap"><canvas id="chProyeccion" role="img" aria-label="Ventas reales de julio a la fecha más la proyección del resto del mes"></canvas></div>
+      <div class="chart-wrap"><canvas id="chProyeccion" role="img" aria-label="Ventas reales del mes a la fecha más la proyección del resto del mes"></canvas></div>
       <p class="note" id="proyNote"></p>
-      <div class="assumptions">
-        <span class="tag feriado">23, 28, 29 jul — Feriado: ventas ×0.7, leads ×0.8</span>
-        <span class="tag mundial">18 jul 4pm — Tercer puesto: ventas ×0.6, leads ×0.5</span>
-        <span class="tag mundial">19 jul 2pm — Final del Mundial: ventas ×0.3, leads ×0.2</span>
-      </div>
+      <div class="assumptions" id="assumptionsBox"></div>
     </div>
   </section>
 
   <section>
-    <h2>Proyección de cierre de julio — leads</h2>
+    <h2 id="tituloProyLeads">Proyección de cierre de julio — leads</h2>
     <div class="legend">
       <span><span class="dot" style="background:#1D3A5F"></span>Real a la fecha</span>
       <span><span class="dot" style="background:#6C5CC4"></span>Proyección resto del mes</span>
     </div>
-    <div class="chart-card"><div class="chart-wrap"><canvas id="chProyeccionLeads" role="img" aria-label="Leads reales de julio a la fecha más la proyección del resto del mes"></canvas></div></div>
+    <div class="chart-card"><div class="chart-wrap"><canvas id="chProyeccionLeads" role="img" aria-label="Leads reales del mes actual a la fecha más la proyección del resto del mes"></canvas></div></div>
   </section>
 
   <div class="grid-2">
@@ -393,8 +389,8 @@
 
 <footer>
   <p><strong>Notas de metodología:</strong> se excluyen todos los canales con "IBK". Se cuentan todos los estados de póliza, incluyendo ANULADA. La prima usada es <strong>Prima x Frecuencia</strong>. La fecha de lead usada es <strong>FechaAsignacion</strong>. Los meses recientes aún no maduran del todo, por lo que su efectividad puede subir con el tiempo.</p>
-  <p><strong>Proyección de julio:</strong> promedio histórico (ene-jun) por día de semana, con factores de ajuste editables para feriados (23, 28, 29 jul) y partidos del Mundial (18 y 19 jul) — no calibrados con datos históricos reales de esos eventos.</p>
-  <p>Generado para el equipo de Productos Digitales — Vida. Última actualización de datos: <span id="fechaHoy"> de julio de 2026</span>.</p>
+  <p id="notaProyeccion"><strong>Proyección del mes actual:</strong> promedio histórico por día de semana (todos los meses cerrados anteriores), con factores de ajuste editables para feriados y eventos puntuales — no calibrados con datos históricos reales de esos eventos.</p>
+  <p>Generado para el equipo de Productos Digitales — Vida. Última actualización de datos: <span id="fechaHoy">—</span>.</p>
 </footer>
 
 <script>
@@ -466,7 +462,7 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage',
       'leads_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
-      'leads_by_clics','dias_matriz','july_days','leads_by_tasa','sales_by_tasa','leads_by_prima',
+      'leads_by_clics','dias_matriz','july_days','dias_mes_actual','eventos_mes_actual','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima'];
@@ -525,10 +521,36 @@ function dlLine(fmt){
   };
 }
 
-const mesesV = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
-const labelsV = ['Ene','Feb','Mar','Abr','May','Jun','Jul'];
-const mesesL = ['2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
-const labelsL = ['Dic','Ene','Feb','Mar','Abr','May','Jun','Jul'];
+// Los meses ya NO estan hardcodeados aqui: se derivan solos de los datos que llegaron del
+// Sheet. Asi, cuando se agrega un mes nuevo (ej. agosto) y se corre "Actualizar dashboard",
+// aparece automaticamente en todas las tablas y graficos sin tener que tocar este HTML.
+const MESES_ES_ABR = {'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
+const MESES_ES_FULL = {'01':'enero','02':'febrero','03':'marzo','04':'abril','05':'mayo','06':'junio','07':'julio','08':'agosto','09':'septiembre','10':'octubre','11':'noviembre','12':'diciembre'};
+function labelAbr(m){ return MESES_ES_ABR[m.split('-')[1]] || m; }
+function labelFull(m){ return MESES_ES_FULL[m.split('-')[1]] || m; }
+function anioDe(m){ return m.split('-')[0]; }
+function mesesEnRango(desde, hasta){
+  const out = [];
+  let y = parseInt(desde.slice(0,4),10), m = parseInt(desde.slice(5,7),10);
+  const yh = parseInt(hasta.slice(0,4),10), mh = parseInt(hasta.slice(5,7),10);
+  while (y < yh || (y===yh && m<=mh)) { out.push(y+'-'+String(m).padStart(2,'0')); m++; if(m>12){m=1;y++;} }
+  return out;
+}
+function diasEnMes(m){ const [y,mm] = m.split('-').map(Number); return new Date(y, mm, 0).getDate(); }
+
+const mesesConVentas = [...new Set(DATA.sales_daily.map(r=>r.mes))].sort();
+const mesesConLeads = [...new Set(DATA.leads_daily.map(r=>r.mes))].sort();
+const mesesTodos = [...mesesConVentas, ...mesesConLeads].sort();
+const mesesV = mesesConVentas.length ? mesesEnRango(mesesConVentas[0], mesesConVentas[mesesConVentas.length-1]) : [];
+const mesesL = mesesTodos.length ? mesesEnRango(mesesTodos[0], mesesTodos[mesesTodos.length-1]) : mesesV;
+const labelsV = mesesV.map(labelAbr);
+const labelsL = mesesL.map(labelAbr);
+// "Mes actual" = el ultimo mes con ventas (se asume en curso); "mes anterior" = el que le
+// sigue hacia atras. DATA.mes_actual (si el Sheet ya lo manda) tiene prioridad; si no,
+// se usa el ultimo de mesesV como respaldo.
+const mesActual = DATA.mes_actual || mesesV[mesesV.length-1] || null;
+const mesAnterior = mesesV[mesesV.indexOf(mesActual)-1] || null;
+const diasMesActual = DATA.dias_mes_actual && DATA.dias_mes_actual.length ? DATA.dias_mes_actual : (DATA.july_days || []);
 
 function aggMonth(rows, mes, field, maxDia){
   return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia))
@@ -548,25 +570,106 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 let chVentasCorte, chProyeccion, chProyeccionLeads, chEfectividad, chMultiPoliza, chPPCall, chPNAProd;
 let corteActual = 16;
 
+// Textos que dependen del mes actual/anterior: se arman una sola vez (no cambian con el
+// slider de corte, solo con los datos que llegaron del Sheet).
+function actualizarTextosMes(){
+  if(!mesActual) return;
+  const actualAbr = labelAbr(mesActual);
+  const actualFull = labelFull(mesActual);
+  const anteriorFull = mesAnterior ? labelFull(mesAnterior) : '–';
+  document.getElementById('lblVentas').textContent = 'Ventas ' + actualFull + ' (real)';
+  document.getElementById('lblVsAnt').textContent = 'vs. ' + anteriorFull + ' (mismo corte)';
+  document.getElementById('lblPrima').textContent = 'Prima ' + actualFull + ' (real)';
+  document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
+  document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
+  document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
+  // El subtitulo del header ya no muestra el rango de meses (enero-julio, enero-agosto...):
+  // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
+  // pedir este cambio cuando pase a "enero-septiembre" el mes que viene.
+  document.getElementById('headerDesc').textContent = 'Vida Cash y Endosos · ' + anioDe(mesActual);
+  // Tags de feriados/eventos del mes que se está proyectando: ya no están escritos a mano,
+  // se arman solos desde DATA.eventos_mes_actual (lo que generó el .gs para este mes).
+  const box = document.getElementById('assumptionsBox');
+  if(box){
+    const eventos = DATA.eventos_mes_actual || [];
+    if(eventos.length === 0){
+      box.innerHTML = '<span class="tag">Sin feriados ni eventos especiales marcados para ' + actualFull + '</span>';
+    } else {
+      box.innerHTML = eventos.map(e => {
+        const esFeriado = /feriado/i.test(e.desc);
+        return '<span class="tag ' + (esFeriado?'feriado':'mundial') + '">' + e.dia + ' ' + actualAbr.toLowerCase() +
+          ' — ' + e.desc + ': ventas ×' + e.factorVentas + ', leads ×' + e.factorLeads + '</span>';
+      }).join('');
+    }
+  }
+  const notaEl = document.getElementById('notaProyeccion');
+  if(notaEl){
+    const eventosTxt = (DATA.eventos_mes_actual||[]).map(e => e.dia + ' ' + actualAbr.toLowerCase() + ' (' + e.desc + ')').join(', ');
+    notaEl.innerHTML = '<strong>Proyección de ' + actualFull + ':</strong> promedio histórico (' +
+      mesesV.slice(0,-1).map(labelAbr).join('-').toLowerCase() + ') por día de semana' +
+      (eventosTxt ? ', con factores de ajuste para: ' + eventosTxt : ', sin feriados ni eventos especiales marcados este mes') +
+      ' — no calibrados con datos históricos reales de esos eventos.';
+  }
+}
+actualizarTextosMes();
+
+// El rango de fechas específico ya no tiene un tope fijo en julio: min/max/valor por
+// defecto se calculan solos según hasta dónde lleguen los datos reales (sales_daily /
+// leads_daily), así que agosto (y cualquier mes futuro) queda seleccionable en el
+// calendario apenas el Sheet lo tenga.
+function configurarRangoFechas(){
+  const rangoDesdeEl = document.getElementById('rangoDesde');
+  const rangoHastaEl = document.getElementById('rangoHasta');
+  if(!rangoDesdeEl || !rangoHastaEl || !mesesL.length) return;
+  const primerMes = mesesL[0];
+  const ultimoMes = mesesV.length ? mesesV[mesesV.length-1] : mesesL[mesesL.length-1];
+  const fechaMin = primerMes + '-01';
+  const fechaMax = ultimoMes + '-' + String(diasEnMes(ultimoMes)).padStart(2,'0');
+  rangoDesdeEl.min = fechaMin; rangoDesdeEl.max = fechaMax;
+  rangoHastaEl.min = fechaMin; rangoHastaEl.max = fechaMax;
+  // Por defecto, se muestra el mes actual completo (hasta el último día con datos reales,
+  // por si el mes todavía está a mitad de camino).
+  const diasConDatos = [
+    ...DATA.sales_daily.filter(r=>r.mes===mesActual).map(r=>r.dia),
+    ...DATA.leads_daily.filter(r=>r.mes===mesActual).map(r=>r.dia)
+  ];
+  const ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  rangoDesdeEl.value = mesActual ? (mesActual + '-01') : fechaMin;
+  rangoHastaEl.value = mesActual ? (mesActual + '-' + String(ultimoDiaConDatos).padStart(2,'0')) : fechaMax;
+}
+configurarRangoFechas();
+
+// El pie de página se había quedado con el texto fijo "de julio de 2026": nunca se
+// conectó a la fecha real que ya manda el .gs (DATA.actualizado). Se arregla aquí.
+(function actualizarFechaFooter(){
+  const el = document.getElementById('fechaHoy');
+  if(!el || !DATA.actualizado) return;
+  try {
+    const d = new Date(DATA.actualizado);
+    const txt = d.toLocaleString('es-PE', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'America/Lima' });
+    el.textContent = txt;
+  } catch(e) { el.textContent = DATA.actualizado; }
+})();
+
 function render(corte){
   corteActual = corte;
-  document.getElementById('corteVal').textContent = 'Día ' + corte + ' de julio';
+  document.getElementById('corteVal').textContent = 'Día ' + corte;
 
-  const ventasCompleto = mesesV.map(m => m==='2026-07' ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+  const idxActual = mesesV.indexOf(mesActual);
+  const idxAnterior = idxActual - 1;
+  const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
   const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-  const julIdx = mesesV.indexOf('2026-07');
-  const junIdx = mesesV.indexOf('2026-06');
-  const ventasJul = ventasCorte[julIdx];
-  const ventasJun = ventasCorte[junIdx];
-  const primaJul = aggMonth(DATA.sales_daily, '2026-07', 'prima', corte);
-  const leadsJul = aggMonth(DATA.leads_daily, '2026-07', 'leads', corte);
+  const ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+  const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+  const primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'prima', corte) : 0;
+  const leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
 
-  document.getElementById('kVentas').textContent = ventasJul.toLocaleString();
-  const diff = ventasJun > 0 ? Math.round(((ventasJul - ventasJun)/ventasJun)*1000)/10 : 0;
+  document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+  const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
   const diffEl = document.getElementById('kVsJun');
   diffEl.textContent = (diff>=0?'+':'') + diff + '%';
   diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
-  document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaJul).toLocaleString();
+  document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
 
   if(!chVentasCorte){
     chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
@@ -585,21 +688,24 @@ function render(corte){
   }
 
   let ventasRestante = 0, primaRestante = 0, leadsRestante = 0;
-  const diasRestantes = DATA.july_days.filter(d => d.dia > corte);
+  const diasRestantes = diasMesActual.filter(d => d.dia > corte);
   diasRestantes.forEach(d => {
     ventasRestante += d.exp_ventas; primaRestante += d.exp_prima; leadsRestante += d.exp_leads;
   });
-  const ventasProy = Math.round(ventasJul + ventasRestante);
-  const primaProy = primaJul + primaRestante;
-  const leadsProy = Math.round(leadsJul + leadsRestante);
+  const ventasProy = Math.round(ventasActual + ventasRestante);
+  const primaProy = primaActual + primaRestante;
+  const leadsProy = Math.round(leadsActual + leadsRestante);
 
   document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
   document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
   document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
 
-  const ventasCerradosArr = mesesV.slice(0,6).map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-  const proyLabels = [...labelsV.slice(0,6), 'Jul'];
-  const proyReal = [...ventasCerradosArr, ventasJul];
+  const mesesCerradosProy = mesesV.slice(0, -1);
+  const labelsCerradosProy = labelsV.slice(0, -1);
+  const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+  const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+  const proyLabels = [...labelsCerradosProy, actualAbrCorto];
+  const proyReal = [...ventasCerradosArr, ventasActual];
   const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
 
   if(!chProyeccion){
@@ -607,7 +713,7 @@ function render(corte){
       type:'bar',
       data:{ labels:proyLabels, datasets:[
         {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-        {label:'Proyección resto de julio', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+        {label:'Proyección resto del mes', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
       ]},
       options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
         scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
@@ -618,14 +724,16 @@ function render(corte){
     chProyeccion.update();
   }
 
-  const nFeriados = diasRestantes.filter(d=>d.etiqueta==='Feriado').length;
-  const nMundial = diasRestantes.filter(d=>d.etiqueta && d.etiqueta.startsWith('Mundial')).length;
+  const eventosRestantes = (DATA.eventos_mes_actual||[]).filter(e => e.dia > corte);
+  const nFeriados = eventosRestantes.filter(e=>/feriado/i.test(e.desc)).length;
+  const nOtros = eventosRestantes.length - nFeriados;
   document.getElementById('proyNote').textContent =
-    'De los ' + diasRestantes.length + ' días que quedan tras el día ' + corte + ', ' + nFeriados + ' son feriados y ' + nMundial + ' tiene partido decisivo del Mundial.';
+    'De los ' + diasRestantes.length + ' días que quedan tras el día ' + corte + ', ' + nFeriados + ' son feriados' +
+    (nOtros>0 ? ' y ' + nOtros + ' tiene(n) un evento especial marcado' : '') + '.';
 
-  const leadsCerradosArr = mesesL.slice(1,7).map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
-  const proyLeadsLabels = [...labelsL.slice(1,7), 'Jul'];
-  const proyLeadsReal = [...leadsCerradosArr, leadsJul];
+  const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
+  const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
+  const proyLeadsReal = [...leadsCerradosArr, leadsActual];
   const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
 
   if(!chProyeccionLeads){
@@ -633,7 +741,7 @@ function render(corte){
       type:'bar',
       data:{ labels:proyLeadsLabels, datasets:[
         {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-        {label:'Proyección resto de julio', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
+        {label:'Proyección resto del mes', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
       ]},
       options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
         scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
@@ -860,7 +968,7 @@ function fillMonthSelect(selectId, months, labels){
   months.forEach((m,i) => {
     const opt = document.createElement('option');
     opt.value = m; opt.textContent = labels[i];
-    if(m === '2026-07') opt.selected = true;
+    if(m === mesActual) opt.selected = true;
     sel.appendChild(opt);
   });
   sel.dataset.filled = '1';
@@ -872,8 +980,8 @@ const mesEsLabel = {};
 mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
 
 function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte){
-  const origenes = [...mesesL]; // Dic..Jul, filas
-  const ventaCols = [...mesesV]; // Ene..Jul, columnas
+  const origenes = [...mesesL]; // todos los meses con datos (leads), filas
+  const ventaCols = [...mesesV]; // todos los meses con ventas, columnas
 
   const matriz = {};
   DATA.sales_vintage.forEach(([mv,dia,ml,v]) => {
@@ -957,7 +1065,7 @@ function renderDiasConversion(corte){
 function renderCampanaTable(){
   const sel = document.getElementById('mesCampana');
   if(!sel) return;
-  const mes = sel.value || '2026-07';
+  const mes = sel.value || mesActual;
   const rows = DATA.campanas.filter(r => r.mes===mes).sort((a,b)=> (esCatchAll(a.campana)?1:0)-(esCatchAll(b.campana)?1:0) || b.leads-a.leads);
   const totalLeadsMes = DATA.leads_total_mes[mes] || rows.reduce((s,r)=>s+r.leads,0);
 
