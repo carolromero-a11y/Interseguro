@@ -94,7 +94,7 @@
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
   <h1>Dashboard de ventas — Vida</h1>
-  <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026 </p>
+  <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026</p>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
@@ -583,10 +583,10 @@ function actualizarTextosMes(){
   document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
   document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
-  const primerMesV = mesesV[0];
-  if(primerMesV){
-    document.getElementById('headerDesc').textContent = 'Vida Cash y Endosos · ' + labelFull(primerMesV) + ' – ' + actualFull + ' ' + anioDe(mesActual);
-  }
+  // El subtitulo del header ya no muestra el rango de meses (enero-julio, enero-agosto...):
+  // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
+  // pedir este cambio cuando pase a "enero-septiembre" el mes que viene.
+  document.getElementById('headerDesc').textContent = 'Vida Cash y Endosos · ' + anioDe(mesActual);
   // Tags de feriados/eventos del mes que se está proyectando: ya no están escritos a mano,
   // se arman solos desde DATA.eventos_mes_actual (lo que generó el .gs para este mes).
   const box = document.getElementById('assumptionsBox');
