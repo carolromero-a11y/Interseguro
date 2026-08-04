@@ -74,6 +74,17 @@
   .insight-box li{ margin-bottom:4px; }
   footer{ max-width:1180px; margin:0 auto; padding:0 24px 40px; color:var(--text-3); font-size:12px; line-height:1.6;}
   footer strong{ color:var(--text-2); }
+  .filter-bar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .dropdown-filter{ position:relative; }
+  .dropdown-filter-btn{ font-family:'IBM Plex Sans',sans-serif; font-size:13px; padding:8px 14px; border-radius:7px; border:1px solid var(--border); background:#fff; color:var(--navy); cursor:pointer; font-weight:500; }
+  .dropdown-filter-btn:hover{ border-color:var(--teal); }
+  .dropdown-filter-panel{ display:none; position:absolute; z-index:20; top:calc(100% + 4px); left:0; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,0.12); padding:10px; min-width:170px; }
+  .dropdown-filter-panel.open{ display:block; }
+  .dropdown-filter-panel label{ display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; color:var(--text); }
+  .dropdown-filter-panel label:hover{ background:var(--bg); border-radius:5px; }
+  .dropdown-filter-panel .df-actions{ display:flex; gap:8px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+  .dropdown-filter-panel .df-actions button{ font-size:11px; background:none; border:none; color:var(--teal); cursor:pointer; padding:2px 4px; }
+  .filter-hint{ font-size:12px; color:var(--text-3); }
 </style>
 </head>
 <body>
@@ -102,6 +113,7 @@
     <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
     <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
+    <button class="tab-btn" data-tab="comite">Comité</button>
   </div>
 </header>
 
@@ -126,6 +138,12 @@
 
   <!-- ===== TAB: RESUMEN ===== -->
   <div class="tabpanel active" id="tab-resumen">
+
+  <section>
+    <h2>Insights del mes</h2>
+    <p class="sub">Los 3 a 5 cambios más grandes al día de corte actual, comparando el mes en curso contra el anterior — efectividad, participación y KPIs generales</p>
+    <div class="insight-box" id="insightsBox">–</div>
+  </section>
 
   <section>
     <h2>Resumen al corte</h2>
@@ -192,10 +210,18 @@
     </section>
   </div>
 
+  <div class="filter-bar">
+    <div class="dropdown-filter" data-tab="resumen">
+      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <span class="filter-hint">Por defecto, últimos 3 meses con datos. Aplica a la tabla de efectividad de abajo.</span>
+  </div>
+
   <div class="grid-2">
     <section>
-      <h2>Efectividad por cohorte de leads</h2>
-      <p class="sub">Leads convertidos ÷ leads del mismo mes (FechaAsignacion)</p>
+      <h2>Efectividad del mes con leads del mes</h2>
+      <p class="sub">Ventas de ese mes hechas con un lead también asignado ese mismo mes ÷ leads asignados ese mes</p>
       <div class="table-wrap"><table class="data-table" id="tableCohortEfect"></table></div>
     </section>
 
@@ -214,14 +240,27 @@
 
   <!-- ===== TAB: POR CALL ===== -->
   <div class="tabpanel" id="tab-call">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="call">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Por defecto, últimos 3 meses con datos. Aplica a todas las tablas de esta pestaña.</span>
+    </div>
     <section>
       <h2>Leads y % Participación por call — todos los meses</h2>
-      <p class="sub">Filas: call. Columnas: mes. Mes completo (no usa el día de corte).</p>
+      <p class="sub">Filas: call. Columnas: mes. Usa el día de corte seleccionado arriba.</p>
       <div class="table-wrap"><table class="data-table" id="tableCallLeadsMatrix"></table></div>
     </section>
     <section>
       <h2>Ventas por call — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a ese call, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableCallVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — todos los meses</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableCallMismoMesMatrix"></table></div>
     </section>
     <section>
       <h2>Venta Colchón — todos los meses</h2>
@@ -235,7 +274,7 @@
     </section>
     <section>
       <h2>Efectividad por call — todos los meses</h2>
-      <p class="sub">Leads de ese call que convirtieron en venta ÷ leads de ese call, mismo mes</p>
+      <p class="sub">Ventas de ese call con lead también de ese mes ÷ leads de ese call, mismo mes</p>
       <div class="table-wrap"><table class="data-table" id="tableCallEfectMatrix"></table></div>
       <p class="note">Excluye WhatsApp (no hay leads separados por canal de gestión) y "Sin call - influencia directa" (siempre ~100%, artefacto del lead sintético). <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span> = subió 15%+ vs. mes anterior, <span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = bajó 15%+ — solo se colorea si ese call/producto/fuente tiene participación relevante de leads (≥8% del mes en promedio); si tiene poco volumen no se resalta aunque cambie mucho, porque no es representativo.</p>
     </section>
@@ -243,13 +282,30 @@
 
   <!-- ===== TAB: POR PRODUCTO ===== -->
   <div class="tabpanel" id="tab-producto">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="producto">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="producto-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno.</span>
+    </div>
     <section>
       <h2>Leads y % Participación por producto — todos los meses</h2>
       <div class="table-wrap"><table class="data-table" id="tableProdLeadsMatrix"></table></div>
     </section>
     <section>
       <h2>Ventas por producto — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a ese producto, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableProdVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — todos los meses</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableProdMismoMesMatrix"></table></div>
     </section>
     <section>
       <h2>Venta Colchón — todos los meses</h2>
@@ -263,13 +319,22 @@
     </section>
     <section>
       <h2>Efectividad por producto — todos los meses</h2>
+      <p class="sub">Ventas de ese producto con lead también de ese mes ÷ leads de ese producto, mismo mes. Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableProdEfectMatrix"></table></div>
-      <p class="note">Todas las tablas son de mes completo (no usan el día de corte). Efectividad = convertidos ÷ leads, mismo mes. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
+      <p class="note"><span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
     </section>
+    <p class="note" id="notaCallOtros" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
   <!-- ===== TAB: POR FUENTE ===== -->
   <div class="tabpanel" id="tab-fuente">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="fuente">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Por defecto, últimos 3 meses con datos. Aplica a todas las tablas de esta pestaña (fuente y subfuente).</span>
+    </div>
     <section>
       <h2>Leads y % Participación por fuente — todos los meses</h2>
       <p class="sub">Solo Google y Facebook se identifican como fuente propia; todo lo demás (Bing, TikTok, orgánico, email, sin campaña, ventas directas, etc.) va agrupado en "Otros"</p>
@@ -277,7 +342,13 @@
     </section>
     <section>
       <h2>Ventas por fuente — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a esa fuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — por fuente</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteMismoMesMatrix"></table></div>
     </section>
     <section>
       <h2>Venta Colchón — por fuente</h2>
@@ -290,6 +361,7 @@
     </section>
     <section>
       <h2>Efectividad por fuente — todos los meses</h2>
+      <p class="sub">Ventas de esa fuente con lead también de ese mes ÷ leads de esa fuente, mismo mes. Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
       <p class="note">"Otros" mezcla fuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
     </section>
@@ -300,7 +372,13 @@
     </section>
     <section>
       <h2>Ventas por subfuente — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a esa subfuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — por subfuente</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteMismoMesMatrix"></table></div>
     </section>
     <section>
       <h2>Venta Colchón — por subfuente</h2>
@@ -313,8 +391,9 @@
     </section>
     <section>
       <h2>Efectividad por subfuente — todos los meses</h2>
+      <p class="sub">Ventas de esa subfuente con lead también de ese mes ÷ leads de esa subfuente, mismo mes. Usa el día de corte.</p>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteEfectMatrix"></table></div>
-      <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada. Todas las tablas de esta pestaña son de mes completo (no usan el día de corte).</p>
+      <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada.</p>
     </section>
     <section>
       <h2>Campañas con más leads</h2>
@@ -330,9 +409,16 @@
 
   <!-- ===== TAB: ANTIGÜEDAD DEL LEAD (VINTAGE) ===== -->
   <div class="tabpanel" id="tab-vintage">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="vintage">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Por defecto, últimos 3 meses con datos (filtra la columna de mes de venta). Aplica a todas las tablas de esta pestaña.</span>
+    </div>
     <section>
       <h2>Composición de la venta — cantidad</h2>
-      <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta. Mes completo (no usa el día de corte).</p>
+      <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta. Usa el día de corte seleccionado arriba.</p>
       <div class="table-wrap"><table class="data-table" id="tableVintageCant"></table></div>
     </section>
     <section>
@@ -361,15 +447,40 @@
 
   <!-- ===== TAB: CALIDAD DE LEAD Y PNA/PP ===== -->
   <div class="tabpanel" id="tab-calidad">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="calidad">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Por defecto, últimos 3 meses con datos. Aplica a las tablas de tipo de lead y clics de abajo.</span>
+    </div>
+    <section>
+      <h2>Leads y % Participación por tipo de lead — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableTipoLeadLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por tipo de lead — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a ese tipo de lead, sin importar en qué mes se asignó el lead. Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableTipoLeadVentasMatrix"></table></div>
+    </section>
     <section>
       <h2>Efectividad por tipo de lead (Alto / Medio / Bajo)</h2>
-      <p class="sub">Evolución mensual — un lead "Alto" convierte varias veces más que uno "Bajo" o "No evaluable"</p>
-      <div class="table-wrap"><table class="data-table" id="tableTipoLeadEfect"></table></div>
+      <p class="sub">Ventas de ese tipo de lead con lead también de ese mes ÷ leads de ese tipo, mismo mes. Un lead "Alto" convierte varias veces más que uno "Bajo" o "No evaluable"</p>
+      <div class="table-wrap"><table class="data-table" id="tableTipoLeadEfectMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Leads y % Participación por clics en cotizador — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableClicsLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por clics en cotizador — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a ese rango de clics, sin importar en qué mes se asignó el lead. Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableClicsVentasMatrix"></table></div>
     </section>
     <section>
       <h2>Efectividad por interacción con el cotizador (clics)</h2>
-      <p class="sub">A más clics en el cotizador antes de dejar sus datos, mayor probabilidad de compra</p>
-      <div class="table-wrap"><table class="data-table" id="tableClicsEfect"></table></div>
+      <p class="sub">Ventas de ese rango de clics con lead también de ese mes ÷ leads de ese rango, mismo mes. A más clics en el cotizador antes de dejar sus datos, mayor probabilidad de compra</p>
+      <div class="table-wrap"><table class="data-table" id="tableClicsEfectMatrix"></table></div>
     </section>
     <section>
       <h2>Prima promedio (PP) por call center</h2>
@@ -383,6 +494,24 @@
       <div class="legend" id="legendPNAProd"></div>
       <div class="chart-card"><div class="chart-wrap"><canvas id="chPNAProd" role="img" aria-label="Evolución mensual de la PNA total por producto"></canvas></div></div>
     </section>
+  </div>
+
+  <!-- ===== TAB: COMITÉ ===== -->
+  <div class="tabpanel" id="tab-comite">
+    <section>
+      <h2>Consolidado — todos los call</h2>
+      <p class="sub">Leads, Ventas, Efectividad, PNA y PP reales al día de corte, más proyección de cierre por días de gestión</p>
+      <div class="table-wrap"><table class="data-table" id="tableComiteConsolidado"></table></div>
+    </section>
+    <section>
+      <h2>Solo Call Interno</h2>
+      <div class="table-wrap"><table class="data-table" id="tableComiteInterno"></table></div>
+    </section>
+    <section>
+      <h2>Solo Call Externo (Biznes)</h2>
+      <div class="table-wrap"><table class="data-table" id="tableComiteExterno"></table></div>
+    </section>
+    <p class="note">Efectividad = ventas con lead del mismo mes ÷ leads de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). La fila "Proyecc." usa el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0), mezclando el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
   </div>
 
 </main>
@@ -461,8 +590,9 @@ fetch(OUTPUT_URL)
     // misma cadena se quedaban en blanco tambien).
     const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage',
-      'leads_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
-      'leads_by_clics','dias_matriz','july_days','dias_mes_actual','eventos_mes_actual','leads_by_tasa','sales_by_tasa','leads_by_prima',
+      'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
+      'leads_by_clics','sales_by_clics','dias_matriz','ventas_dni','dias_gestion_calendario',
+      'leads_cross_producto_call','sales_cross_producto_call','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima'];
@@ -550,11 +680,54 @@ const labelsL = mesesL.map(labelAbr);
 // se usa el ultimo de mesesV como respaldo.
 const mesActual = DATA.mes_actual || mesesV[mesesV.length-1] || null;
 const mesAnterior = mesesV[mesesV.indexOf(mesActual)-1] || null;
-const diasMesActual = DATA.dias_mes_actual && DATA.dias_mes_actual.length ? DATA.dias_mes_actual : (DATA.july_days || []);
 
 function aggMonth(rows, mes, field, maxDia){
   return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia))
     .reduce((s,r) => s + r[field], 0);
+}
+
+// ---------- DÍAS DE GESTIÓN ----------
+// DATA.dias_gestion_calendario trae, para cada día de cada mes con datos: [mes, dia, dow,
+// peso, feriadoDesc|null]. peso = 1 (lun-vie sin feriado), 0.5 (sábado), 0 (domingo o
+// feriado). Con esto se arma la proyección de cierre (tarea "días de gestión") y también
+// se puede calcular para cualquier mes, no solo el que está abierto ahora.
+const diasGestionPorMes = {};
+(DATA.dias_gestion_calendario||[]).forEach(([mes,dia,dow,peso,feriado]) => {
+  diasGestionPorMes[mes] = diasGestionPorMes[mes] || [];
+  diasGestionPorMes[mes].push({dia,dow,peso,feriado});
+});
+function diasGestionDeMes(mes){ return diasGestionPorMes[mes] || []; }
+function sumaDiasGestion(mes, hastaDia){
+  return diasGestionDeMes(mes).filter(d => hastaDia===null || hastaDia===undefined || d.dia<=hastaDia).reduce((s,d)=>s+d.peso,0);
+}
+function feriadosDeMes(mes){ return diasGestionDeMes(mes).filter(d=>d.feriado); }
+// Últimos hasta 3 meses de venta ya cerrados (antes del mes actual), en orden cronológico —
+// base histórica para la proyección por días de gestión.
+const mesesCerradosRecientes = mesesV.slice(0, mesesV.indexOf(mesActual)).slice(-3);
+// Tasa histórica pooled (suma de todo el valor ÷ suma de todos los días de gestión de esos
+// meses cerrados) para un campo dado: 'ventas', 'prima' (de sales_daily) o 'leads' (de leads_daily).
+function tasaHistorica(field){
+  let totalVal = 0, totalDG = 0;
+  mesesCerradosRecientes.forEach(m => {
+    const val = field==='leads' ? aggMonth(DATA.leads_daily, m, 'leads', null) : aggMonth(DATA.sales_daily, m, field, null);
+    totalVal += val;
+    totalDG += sumaDiasGestion(m, null);
+  });
+  return totalDG>0 ? totalVal/totalDG : 0;
+}
+// Proyección de cierre del mes actual: mezcla el ritmo real a la fecha de corte con la tasa
+// histórica de los últimos meses cerrados, ponderando cada vez más el ritmo real a medida
+// que avanza el mes (más días de gestión ya transcurridos = más peso al ritmo real).
+function proyectarCierre(field, valorActual, corte){
+  if(!mesActual) return valorActual;
+  const dgTranscurridos = sumaDiasGestion(mesActual, corte);
+  const dgTotales = sumaDiasGestion(mesActual, null);
+  if(dgTotales<=0) return valorActual;
+  const weight = Math.min(1, dgTranscurridos/dgTotales);
+  const tasaActual = dgTranscurridos>0 ? valorActual/dgTranscurridos : 0;
+  const tasaHist = tasaHistorica(field);
+  const tasaBlend = weight*tasaActual + (1-weight)*tasaHist;
+  return tasaBlend * dgTotales;
 }
 
 // ---------- TABS ----------
@@ -587,28 +760,25 @@ function actualizarTextosMes(){
   // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
   // pedir este cambio cuando pase a "enero-septiembre" el mes que viene.
   document.getElementById('headerDesc').textContent = 'Vida Cash y Endosos · ' + anioDe(mesActual);
-  // Tags de feriados/eventos del mes que se está proyectando: ya no están escritos a mano,
-  // se arman solos desde DATA.eventos_mes_actual (lo que generó el .gs para este mes).
+  // Tags de feriados del mes que se está proyectando: se arman solos desde
+  // DATA.dias_gestion_calendario (calendario oficial de feriados de Perú cargado en el .gs).
   const box = document.getElementById('assumptionsBox');
   if(box){
-    const eventos = DATA.eventos_mes_actual || [];
-    if(eventos.length === 0){
-      box.innerHTML = '<span class="tag">Sin feriados ni eventos especiales marcados para ' + actualFull + '</span>';
+    const feriados = feriadosDeMes(mesActual);
+    if(feriados.length === 0){
+      box.innerHTML = '<span class="tag">Sin feriados marcados para ' + actualFull + '</span>';
     } else {
-      box.innerHTML = eventos.map(e => {
-        const esFeriado = /feriado/i.test(e.desc);
-        return '<span class="tag ' + (esFeriado?'feriado':'mundial') + '">' + e.dia + ' ' + actualAbr.toLowerCase() +
-          ' — ' + e.desc + ': ventas ×' + e.factorVentas + ', leads ×' + e.factorLeads + '</span>';
-      }).join('');
+      box.innerHTML = feriados.map(f =>
+        '<span class="tag feriado">' + f.dia + ' ' + actualAbr.toLowerCase() + ' — ' + f.feriado + ' (0 días de gestión)</span>'
+      ).join('');
     }
   }
   const notaEl = document.getElementById('notaProyeccion');
   if(notaEl){
-    const eventosTxt = (DATA.eventos_mes_actual||[]).map(e => e.dia + ' ' + actualAbr.toLowerCase() + ' (' + e.desc + ')').join(', ');
-    notaEl.innerHTML = '<strong>Proyección de ' + actualFull + ':</strong> promedio histórico (' +
-      mesesV.slice(0,-1).map(labelAbr).join('-').toLowerCase() + ') por día de semana' +
-      (eventosTxt ? ', con factores de ajuste para: ' + eventosTxt : ', sin feriados ni eventos especiales marcados este mes') +
-      ' — no calibrados con datos históricos reales de esos eventos.';
+    const mesesHistNombres = mesesCerradosRecientes.map(labelFull).join(', ');
+    notaEl.innerHTML = '<strong>Proyección de ' + actualFull + ':</strong> se mezcla el ritmo real del mes a la fecha de corte (ventas o leads ÷ días de gestión ya transcurridos) con la tasa histórica de los últimos meses cerrados' +
+      (mesesHistNombres ? ' (' + mesesHistNombres + ')' : '') +
+      '. Un día de gestión = lunes a viernes sin feriado (1), sábado (0.5), domingo o feriado (0). A medida que avanza el mes, la proyección pesa cada vez más el ritmo real y menos el histórico.';
   }
 }
 actualizarTextosMes();
@@ -687,14 +857,11 @@ function render(corte){
     chVentasCorte.update();
   }
 
-  let ventasRestante = 0, primaRestante = 0, leadsRestante = 0;
-  const diasRestantes = diasMesActual.filter(d => d.dia > corte);
-  diasRestantes.forEach(d => {
-    ventasRestante += d.exp_ventas; primaRestante += d.exp_prima; leadsRestante += d.exp_leads;
-  });
-  const ventasProy = Math.round(ventasActual + ventasRestante);
-  const primaProy = primaActual + primaRestante;
-  const leadsProy = Math.round(leadsActual + leadsRestante);
+  const ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+  const primaProy = proyectarCierre('prima', primaActual, corte);
+  const leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+  const ventasRestante = Math.max(0, ventasProy - ventasActual);
+  const leadsRestante = Math.max(0, leadsProy - leadsActual);
 
   document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
   document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
@@ -724,12 +891,11 @@ function render(corte){
     chProyeccion.update();
   }
 
-  const eventosRestantes = (DATA.eventos_mes_actual||[]).filter(e => e.dia > corte);
-  const nFeriados = eventosRestantes.filter(e=>/feriado/i.test(e.desc)).length;
-  const nOtros = eventosRestantes.length - nFeriados;
+  const dgTranscurridos = mesActual ? sumaDiasGestion(mesActual, corte) : 0;
+  const dgTotales = mesActual ? sumaDiasGestion(mesActual, null) : 0;
+  const pctAvance = dgTotales>0 ? Math.round((dgTranscurridos/dgTotales)*1000)/10 : 0;
   document.getElementById('proyNote').textContent =
-    'De los ' + diasRestantes.length + ' días que quedan tras el día ' + corte + ', ' + nFeriados + ' son feriados' +
-    (nOtros>0 ? ' y ' + nOtros + ' tiene(n) un evento especial marcado' : '') + '.';
+    'Van ' + dgTranscurridos + ' de ' + dgTotales + ' días de gestión de ' + (mesActual?labelFull(mesActual):'') + ' (' + pctAvance + '% del mes) — a mayor avance, más peso tiene el ritmo real de este mes en la proyección.';
 
   const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
   const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
@@ -760,10 +926,11 @@ function render(corte){
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
   intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
   intentar('renderCohortTable', () => renderCohortTable(corte));
-  intentar('renderTipoLeadTable', () => renderTipoLeadTable(corte));
-  intentar('renderClicsTable', () => renderClicsTable(corte));
   intentar('renderPPyPNA', () => renderPPyPNA(corte));
   intentar('renderDiasConversion', () => renderDiasConversion(corte));
+  intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
+  intentar('renderInsights', () => renderInsights(corte));
+  intentar('renderComite', () => renderComite(corte));
 }
 
 // Canal composition (ahora corte-aware)
@@ -830,26 +997,43 @@ function renderCanalYPrimaProm(corte){
   }
 }
 
-(function(){
-  const md = DATA.multi_dist;
-  const total = md['1 póliza'] + md['2 pólizas'] + md['3+ pólizas'];
-  document.getElementById('kMulti1').textContent = md['1 póliza'].toLocaleString();
-  document.getElementById('kMulti2').textContent = md['2 pólizas'].toLocaleString();
-  document.getElementById('kMulti3').textContent = md['3+ pólizas'].toLocaleString();
-  const pct1 = total>0 ? Math.round((md['1 póliza']/total)*1000)/10 : 0;
-  document.getElementById('multiSub').textContent = pct1 + '% de los clientes compra una sola vez';
-})();
+// Pólizas por cliente: ahora reactivo al día de corte. Cada venta cuenta solo si su día (dentro
+// de su propio mes) es <= corte -- mismo criterio de "peras con peras" que el resto del
+// dashboard. Antes era un total fijo (multi_dist) que no cambiaba con el slider.
+function renderPolizasCliente(corte){
+  const porDni = {};
+  (DATA.ventas_dni||[]).forEach(([mes,dia,dni]) => {
+    if(dia > corte) return;
+    porDni[dni] = (porDni[dni]||0) + 1;
+  });
+  const counts = Object.values(porDni);
+  const c1 = counts.filter(c=>c===1).length;
+  const c2 = counts.filter(c=>c===2).length;
+  const c3 = counts.filter(c=>c>=3).length;
+  const total = c1 + c2 + c3;
+  document.getElementById('kMulti1').textContent = c1.toLocaleString();
+  document.getElementById('kMulti2').textContent = c2.toLocaleString();
+  document.getElementById('kMulti3').textContent = c3.toLocaleString();
+  const pct1 = total>0 ? Math.round((c1/total)*1000)/10 : 0;
+  document.getElementById('multiSub').textContent = pct1 + '% de los clientes compra una sola vez (al día de corte actual)';
+}
 
 function renderCohortTable(corte){
+  // Efectividad del mes con leads del mes: ventas de ese mes hechas con un lead TAMBIEN
+  // asignado ese mismo mes (DATA.sales_daily.mismoMes), no "leads que alguna vez
+  // convirtieron" (eso mezclaba ventas de meses futuros con el lead del mes actual).
+  const cols = mesesVisiblesL('resumen');
   const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte));
-  const convs = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'convertidos', corte));
-  let html = '<thead><tr><th>Cohorte</th>' + labelsL.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Todos los leads</td>';
-  mesesL.forEach((m,i) => {
-    const total = totales[i], conv = convs[i];
+  const mismoMes = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte));
+  let html = '<thead><tr><th>Efectividad</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Todos los leads</td>';
+  cols.forEach(m => {
+    const i = mesesL.indexOf(m);
+    const total = totales[i], conv = mismoMes[i];
     if(!total){ html += '<td>–</td>'; return; }
     const efect = Math.round((conv/total)*1000)/10;
-    if(i===0){ html += '<td>'+efect+'%</td>'; return; }
-    const prevTotal = totales[i-1], prevConv = convs[i-1];
+    const idxPrev = i-1;
+    if(idxPrev<0){ html += '<td>'+efect+'%</td>'; return; }
+    const prevTotal = totales[idxPrev], prevConv = mismoMes[idxPrev];
     if(!prevTotal){ html += '<td>'+efect+'%</td>'; return; }
     const efectPrev = prevConv/prevTotal;
     const relChange = efectPrev>0 ? ((conv/total)-efectPrev)/efectPrev : 0;
@@ -866,58 +1050,6 @@ const paleta = ['#1D3A5F','#0F8B7D','#D98E3B','#C24B4B','#6C5CC4','#378ADD'];
 function renderLegend(elId, series){
   document.getElementById(elId).innerHTML = series.map((s,i) =>
     '<span><span class="dot" style="background:'+paleta[i%paleta.length]+'"></span>'+s.label+'</span>').join('');
-}
-
-function renderTipoLeadTable(corte){
-  const tipos = ['Alto','Medio','Bajo','No evaluable'];
-  const totL = mesesL.map(m => tipos.reduce((s,t)=>s+aggDimDay(DATA.leads_by_tipolead,t,m,3,corte),0));
-  let html = '<thead><tr><th>Tipo de lead</th>' + labelsL.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-  tipos.forEach(t => {
-    const leadsPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_tipolead,t,m,3,corte));
-    const convPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_tipolead,t,m,4,corte));
-    const parts = mesesL.map((m,i) => totL[i]>0 && leadsPorMes[i]>0 ? leadsPorMes[i]/totL[i] : null).filter(x=>x!==null);
-    const avgPart = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
-    const relevante = avgPart >= 0.08;
-    html += '<tr><td>'+t+'</td>' + mesesL.map((m,i) => {
-      const l = leadsPorMes[i], c = convPorMes[i];
-      if(!l) return '<td>–</td>';
-      const efect = Math.round((c/l)*1000)/10;
-      if(!relevante || i===0) return '<td>'+efect+'%</td>';
-      const lp = leadsPorMes[i-1], cp = convPorMes[i-1];
-      if(!lp) return '<td>'+efect+'%</td>';
-      const relChange = cp/lp>0 ? ((c/l)-(cp/lp))/(cp/lp) : 0;
-      let cls = relChange>=0.15?'up':(relChange<=-0.15?'down':'');
-      return '<td class="'+cls+'">'+efect+'%</td>';
-    }).join('') + '</tr>';
-  });
-  html += '</tbody>';
-  document.getElementById('tableTipoLeadEfect').innerHTML = html;
-}
-
-function renderClicsTable(corte){
-  const bins = ['0','1-2','3-5','6-10','11-20','20+'];
-  const totL = mesesL.map(m => bins.reduce((s,b)=>s+aggDimDay(DATA.leads_by_clics,b,m,3,corte),0));
-  let html = '<thead><tr><th>Clics en cotizador</th>' + labelsL.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-  bins.forEach(b => {
-    const leadsPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_clics,b,m,3,corte));
-    const convPorMes = mesesL.map(m => aggDimDay(DATA.leads_by_clics,b,m,4,corte));
-    const parts = mesesL.map((m,i) => totL[i]>0 && leadsPorMes[i]>0 ? leadsPorMes[i]/totL[i] : null).filter(x=>x!==null);
-    const avgPart = parts.length ? parts.reduce((a,b2)=>a+b2,0)/parts.length : 0;
-    const relevante = avgPart >= 0.08;
-    html += '<tr><td>'+b+'</td>' + mesesL.map((m,i) => {
-      const l = leadsPorMes[i], c = convPorMes[i];
-      if(!l) return '<td>–</td>';
-      const efect = Math.round((c/l)*1000)/10;
-      if(!relevante || i===0) return '<td>'+efect+'%</td>';
-      const lp = leadsPorMes[i-1], cp = convPorMes[i-1];
-      if(!lp) return '<td>'+efect+'%</td>';
-      const relChange = cp/lp>0 ? ((c/l)-(cp/lp))/(cp/lp) : 0;
-      let cls = relChange>=0.15?'up':(relChange<=-0.15?'down':'');
-      return '<td class="'+cls+'">'+efect+'%</td>';
-    }).join('') + '</tr>';
-  });
-  html += '</tbody>';
-  document.getElementById('tableClicsEfect').innerHTML = html;
 }
 
 function renderPPyPNA(corte){
@@ -943,7 +1075,7 @@ function renderPPyPNA(corte){
 
   const prods = ['Vida Cash','Endoso'];
   const pnaSeries = prods.map(p => ({
-    label:p, data: mesesV.map(m => aggDimDay(DATA.sales_by_subproducto, p, m, 4, corte))
+    label:p, data: mesesV.map(m => aggDimDay(DATA.sales_by_subproducto, p, m, 8, corte))
   }));
   renderLegend('legendPNAProd', pnaSeries);
   if(!chPNAProd){
@@ -979,9 +1111,9 @@ fillMonthSelect('mesCampana', mesesV, labelsV);
 const mesEsLabel = {};
 mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
 
-function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte){
+function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte, colsFiltrados){
   const origenes = [...mesesL]; // todos los meses con datos (leads), filas
-  const ventaCols = [...mesesV]; // todos los meses con ventas, columnas
+  const ventaCols = colsFiltrados && colsFiltrados.length ? colsFiltrados : [...mesesV]; // columnas (filtrables por hoja)
 
   const matriz = {};
   DATA.sales_vintage.forEach(([mv,dia,ml,v]) => {
@@ -1016,13 +1148,14 @@ function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, cor
 }
 
 function renderVintageTable(corte){
-  buildMatrixTable('tableVintageCant', (v)=> v>0 ? v.toLocaleString() : '–', false, true, true, corte);
-  buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte);
+  const colsVintage = mesesVisiblesV('vintage');
+  buildMatrixTable('tableVintageCant', (v)=> v>0 ? v.toLocaleString() : '–', false, true, true, corte, colsVintage);
+  buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte, colsVintage);
   buildMatrixTable('tableVintageEfect', (v,ml)=> {
     const totalLeadsMl = aggMonth(DATA.leads_daily, ml, 'leads', corte);
     if(!totalLeadsMl || v===0) return v>0 ? '0%' : '–';
     return (Math.round((v/totalLeadsMl)*1000)/10)+'%';
-  }, true, false, false, corte);
+  }, true, false, false, corte, colsVintage);
 
   let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
   let totLeads=0, totConv=0;
@@ -1043,22 +1176,23 @@ function renderVintageTable(corte){
 
 function renderDiasConversion(corte){
   const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
+  const cols = mesesVisiblesV('vintage');
   const matriz = {};
   DATA.dias_matriz.forEach(([mv,dia,bin,n]) => {
     if(dia > corte) return;
     matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n;
   });
 
-  let html = '<thead><tr><th>Días hasta la venta</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  let html = '<thead><tr><th>Días hasta la venta</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   bins.forEach(b => {
-    html += '<tr><td>'+b+'</td>' + mesesV.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+    html += '<tr><td>'+b+'</td>' + cols.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
   });
-  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
   html += '</tbody>';
   document.getElementById('tableDiasConversion').innerHTML = html;
 
   // Mediana de dias no es trivial de recalcular exacto por bin agregado; se muestra la mediana precomputada del mes completo como referencia.
-  const medTxt = mesesV.map((m,i) => labelsV[i]+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
+  const medTxt = cols.map(m => labelAbr(m)+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
   document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
 }
 
@@ -1110,6 +1244,10 @@ function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, corte){
   const totalLeadsPorMes = {};
   mesesV.forEach(m => { totalLeadsPorMes[m] = leadsRows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
 
+  // agg SIEMPRE se calcula para TODOS los meses (mesesV completo), no solo los que el
+  // usuario eligio mostrar en el filtro de meses de la hoja -- asi las comparaciones "vs.
+  // mes anterior" (color verde/rojo) siguen comparando contra el mes inmediato real, aunque
+  // ese mes no este visible en la tabla.
   const agg = {};
   dims.forEach(d => {
     agg[d] = {};
@@ -1120,24 +1258,27 @@ function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, corte){
         l: lsub.reduce((s,r)=>s+r[3],0), conv: lsub.reduce((s,r)=>s+r[4],0),
         v: ssub.reduce((s,r)=>s+r[3],0),
         vMismoMes: ssub.reduce((s,r)=>s+r[5],0),
-        vColchon: ssub.reduce((s,r)=>s+r[6],0)
+        vColchon: ssub.reduce((s,r)=>s+r[6],0),
+        pna: ssub.reduce((s,r)=>s+(r[8]||0),0)
       };
     });
   });
 
-  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride){
+  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride, colsOverride){
+    const cols = colsOverride && colsOverride.length ? colsOverride : mesesV;
+    const colLabels = cols.map(labelAbr);
     let rowDims = rowOrderOverride ? rowOrderOverride : dims;
     if(rowFilter) rowDims = rowDims.filter(rowFilter);
-    let html = '<thead><tr><th>' + prefix + '</th>' + labelsV.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+    let html = '<thead><tr><th>' + prefix + '</th>' + colLabels.map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
     rowDims.forEach(d => {
-      html += '<tr><td>'+d+'</td>' + mesesV.map(m => {
+      html += '<tr><td>'+d+'</td>' + cols.map(m => {
         const res = valueFn(agg[d][m], m, d);
         if(res && typeof res === 'object') return '<td class="'+(res.cls||'')+'">'+res.text+'</td>';
         return '<td>'+res+'</td>';
       }).join('') + '</tr>';
     });
     if(totalFn){
-      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + mesesV.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
+      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
     }
     html += '</tbody>';
     const el = document.getElementById(tableId);
@@ -1149,7 +1290,7 @@ function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, corte){
 function ordenarPorEfectividad(dims, agg){
   const conEfect = dims.map(d => {
     const totL = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].l:0), 0);
-    const totC = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].conv:0), 0);
+    const totC = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].vMismoMes:0), 0);
     return { d, efect: totL>0 ? totC/totL : -1 };
   });
   conEfect.sort((a,b) => b.efect - a.efect);
@@ -1162,18 +1303,22 @@ function pctFmt(v){
   return v < 10 ? (Math.round(v*100)/100) + '%' : (Math.round(v*10)/10) + '%';
 }
 
+// Efectividad = ventas de ese mes con lead TAMBIEN de ese mes (vMismoMes) / leads de ese
+// mes -- no "leads que alguna vez convirtieron" (eso mezclaba con ventas de meses futuros).
+// La comparacion "vs mes anterior" siempre camina sobre mesesV completo (mesesArr), no sobre
+// las columnas visibles del filtro, para que el color no cambie solo por ocultar una columna.
 function efectCellColored(agg_d, m, mesesArr, totalLeadsPorMesObj, esRelevante){
   const v = agg_d[m];
   if(!v || v.l===0) return '–';
-  const efect = pctFmt((v.conv/v.l)*100);
+  const efect = pctFmt((v.vMismoMes/v.l)*100);
   if(!esRelevante) return efect;
   const idx = mesesArr.indexOf(m);
   if(idx===0) return efect;
   const mPrev = mesesArr[idx-1];
   const vPrev = agg_d[mPrev];
   if(!vPrev || vPrev.l===0) return efect;
-  const efectPrev = vPrev.conv/vPrev.l;
-  const efectNow = v.conv/v.l;
+  const efectPrev = vPrev.vMismoMes/vPrev.l;
+  const efectNow = v.vMismoMes/v.l;
   if(efectPrev<=0) return efect;
   const relChange = (efectNow-efectPrev)/efectPrev;
   if(relChange >= 0.15) return {text: efect, cls:'up'};
@@ -1181,8 +1326,76 @@ function efectCellColored(agg_d, m, mesesArr, totalLeadsPorMesObj, esRelevante){
   return efect;
 }
 
-function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, corte){
+// ---------- FILTRO DE MESES POR HOJA ----------
+// Cada hoja tiene su propio selector de meses a mostrar en las tablas con meses en columnas
+// (por defecto, los ultimos 3 meses con datos). No afecta el dia de corte ni a las demas
+// hojas -- solo oculta/muestra columnas; los calculos (totales, comparacion vs. mes anterior,
+// relevancia >=8%) siempre se hacen sobre el historico completo.
+const TABS_CON_FILTRO_MESES = ['resumen','call','producto','fuente','vintage','calidad'];
+const filtroMesesTab = {};
+function ultimosN(lista, n){ return lista.slice(Math.max(0, lista.length-n)); }
+TABS_CON_FILTRO_MESES.forEach(tab => { filtroMesesTab[tab] = new Set(ultimosN(mesesV, 3)); });
+function mesesVisiblesV(tab){
+  const sel = filtroMesesTab[tab];
+  const filtrados = mesesV.filter(m => sel && sel.has(m));
+  return filtrados.length ? filtrados : mesesV;
+}
+function mesesVisiblesL(tab){
+  const sel = filtroMesesTab[tab];
+  const filtrados = mesesL.filter(m => sel && sel.has(m));
+  return filtrados.length ? filtrados : mesesL;
+}
+function construirDropdownMeses(tab, universo){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="month-filter-btn"]');
+  const label = wrap.querySelector('[data-role="month-filter-label"]');
+  const panel = wrap.querySelector('[data-role="month-filter-panel"]');
+  if(!btn || !panel || panel.dataset.filled) { actualizarLabelMeses(tab); return; }
+  panel.innerHTML = universo.map(m =>
+    '<label><input type="checkbox" value="'+m+'" '+(filtroMesesTab[tab].has(m)?'checked':'')+'> '+labelAbr(m)+'</label>'
+  ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button><button type="button" data-act="ult3">Últimos 3</button></div>';
+  panel.dataset.filled = '1';
+  panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if(cb.checked) filtroMesesTab[tab].add(cb.value); else filtroMesesTab[tab].delete(cb.value);
+      actualizarLabelMeses(tab);
+      render(corteActual);
+    });
+  });
+  panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+    filtroMesesTab[tab] = new Set(universo);
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+    actualizarLabelMeses(tab); render(corteActual);
+  });
+  panel.querySelector('[data-act="ult3"]').addEventListener('click', () => {
+    filtroMesesTab[tab] = new Set(ultimosN(universo,3));
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = filtroMesesTab[tab].has(cb.value));
+    actualizarLabelMeses(tab); render(corteActual);
+  });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+  actualizarLabelMeses(tab);
+}
+function actualizarLabelMeses(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="month-filter-label"]');
+  if(!label) return;
+  const elegidos = mesesL.filter(m => filtroMesesTab[tab].has(m));
+  label.textContent = elegidos.length ? elegidos.map(labelAbr).join(', ') : 'ninguno';
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => p.classList.remove('open'));
+});
+TABS_CON_FILTRO_MESES.forEach(tab => construirDropdownMeses(tab, mesesL));
+
+function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, corte, tabFiltro, soloBasico){
   const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, corte);
+  const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
   M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
     if(v.l===0) return '–';
     const part = M.totalLeadsPorMes[m]>0 ? (v.l/M.totalLeadsPorMes[m])*100 : 0;
@@ -1190,16 +1403,22 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
   }, null, (rowDims, m) => {
     const total = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
     return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  });
+  }, null, cols);
   M.build('table'+idPrefix+'VentasMatrix', (v) => v.v>0 ? v.v.toLocaleString() : '–', null, (rowDims, m) => {
     const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
     return total>0 ? total.toLocaleString() : '–';
-  });
-  M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
-    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
+  }, null, cols);
+  M.build('table'+idPrefix+'MismoMesMatrix', (v) => v.vMismoMes>0 ? v.vMismoMes.toLocaleString() : '–', null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vMismoMes,0);
     return total>0 ? total.toLocaleString() : '–';
-  });
-  M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'));
+  }, null, cols);
+  if(!soloBasico){
+    M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
+      const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
+      return total>0 ? total.toLocaleString() : '–';
+    }, null, cols);
+    M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'), null, null, null, cols);
+  }
   const efectFilter = excludeFromEfect ? (d => !excludeFromEfect.some(ex => d.includes(ex))) : null;
   const dimsParaEfect = efectFilter ? M.dims.filter(efectFilter) : M.dims;
 
@@ -1211,15 +1430,254 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
   });
 
   const ordenEfect = ordenarPorEfectividad(dimsParaEfect, M.agg);
-  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, M.totalLeadsPorMes, relevancia[d]), null, null, ordenEfect);
+  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, M.totalLeadsPorMes, relevancia[d]), null, null, ordenEfect, cols);
+  return M;
 }
 
 function renderAllMatrixSets(corte){
-  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], corte);
-  renderMatrixSet('Prod', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte);
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte);
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte);
+  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], corte, 'call');
+  renderMatrixSet('Prod', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte, 'producto');
+  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte, 'fuente');
+  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte, 'fuente');
+  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], corte, 'calidad', true);
+  renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true);
+  renderCallFiltroProducto(corte);
 }
+// ---------- FILTRO DE CALL CENTER (pestaña Producto) ----------
+function callBucket(c){
+  if(!c) return 'Otros';
+  if(c.includes('Call Interno')) return 'Interno';
+  if(c.includes('Biznes')) return 'Biznes';
+  return 'Otros'; // A365, Inbound, Sin call - influencia directa, WhatsApp, etc.
+}
+const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
+let callFiltroProducto = new Set(CALL_FILTER_BUCKETS);
+function construirDropdownCall(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="producto-call"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="call-filter-btn"]');
+  const panel = wrap.querySelector('[data-role="call-filter-panel"]');
+  if(!btn || !panel) return;
+  if(!panel.dataset.filled){
+    panel.innerHTML = CALL_FILTER_BUCKETS.map(b =>
+      '<label><input type="checkbox" value="'+b+'" checked> '+b+'</label>'
+    ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
+    panel.dataset.filled = '1';
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) callFiltroProducto.add(cb.value); else callFiltroProducto.delete(cb.value);
+        actualizarLabelCall(); render(corteActual);
+      });
+    });
+    panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+      callFiltroProducto = new Set(CALL_FILTER_BUCKETS);
+      panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+      actualizarLabelCall(); render(corteActual);
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+      panel.classList.toggle('open');
+    });
+  }
+  actualizarLabelCall();
+}
+function actualizarLabelCall(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="producto-call"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="call-filter-label"]');
+  if(!label) return;
+  label.textContent = callFiltroProducto.size === CALL_FILTER_BUCKETS.length ? 'Todos' : (Array.from(callFiltroProducto).join(', ') || 'ninguno');
+}
+construirDropdownCall();
+
+// Reemplaza las tablas de Leads/Ventas/Ventas-mismo-mes/Efectividad de la pestaña Producto
+// (ya dibujadas por renderMatrixSet('Prod',...) mas arriba) por una version con el call
+// center como columna agrupadora, con los meses debajo de cada call elegido en el dropdown.
+// Venta Colchon / %Participacion Colchon de esa pestaña quedan tal cual (sin cruce por call).
+function renderCallFiltroProducto(corte){
+  const nota = document.getElementById('notaCallOtros');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroProducto.has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const cols = mesesVisiblesV('producto');
+  const leadsCross = (DATA.leads_cross_producto_call||[]).filter(r => r[1] <= corte);
+  const salesCross = (DATA.sales_cross_producto_call||[]).filter(r => r[1] <= corte);
+  const productos = ['Vida Cash','Endoso'];
+
+  function aggCelda(prod, bucket, mes){
+    const lsub = leadsCross.filter(r => r[2]===prod && callBucket(r[3])===bucket && r[0]===mes);
+    const ssub = salesCross.filter(r => r[2]===prod && callBucket(r[3])===bucket && r[0]===mes);
+    return {
+      l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
+      v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+    };
+  }
+  function buildNested(tableId, valueFn){
+    let head1 = '<tr><th rowspan="2">Producto</th>', head2 = '<tr>';
+    buckets.forEach(b => { head1 += '<th colspan="'+cols.length+'">'+b+'</th>'; head2 += cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join(''); });
+    head1 += '</tr>'; head2 += '</tr>';
+    let html = '<thead>'+head1+head2+'</thead><tbody>';
+    productos.forEach(p => {
+      html += '<tr><td>'+p+'</td>';
+      buckets.forEach(b => { cols.forEach(m => { html += '<td>'+valueFn(aggCelda(p,b,m))+'</td>'; }); });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+    const el = document.getElementById(tableId);
+    if(el) el.innerHTML = html;
+  }
+  buildNested('tableProdLeadsMatrix', a => a.l>0 ? a.l.toLocaleString() : '–');
+  buildNested('tableProdVentasMatrix', a => a.v>0 ? a.v.toLocaleString() : '–');
+  buildNested('tableProdMismoMesMatrix', a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+  buildNested('tableProdEfectMatrix', a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+}
+
+// ---------- INSIGHTS DEL MES (Resumen) ----------
+// Junta los cambios mas grandes (mes actual vs. mes anterior, al dia de corte elegido) en 3
+// categorias: efectividad por dimension, participacion por dimension, y KPIs generales del
+// mes. Se ordenan por magnitud del cambio y se muestran los 3 a 5 mas grandes.
+function renderInsights(corte){
+  const box = document.getElementById('insightsBox');
+  if(!box || !mesActual || !mesAnterior) { if(box) box.innerHTML = 'Sin suficientes meses para comparar todavía.'; return; }
+  const candidatos = [];
+  const DIMS_INSIGHT = [
+    {label:'call', prefix:'Call', leadsKey:'leads_by_call', salesKey:'sales_by_call', excludeSubstr:['WhatsApp'], excludeFromEfect:['Sin call']},
+    {label:'producto', prefix:'Prod', leadsKey:'leads_by_subproducto', salesKey:'sales_by_subproducto', excludeSubstr:[], excludeFromEfect:[]},
+    {label:'fuente', prefix:'Fuente', leadsKey:'leads_by_fuente', salesKey:'sales_by_fuente', excludeSubstr:[], excludeFromEfect:[]},
+    {label:'subfuente', prefix:'Subfuente', leadsKey:'leads_by_subfuente', salesKey:'sales_by_subfuente', excludeSubstr:[], excludeFromEfect:[]},
+    {label:'tipo de lead', prefix:'TipoLead', leadsKey:'leads_by_tipolead', salesKey:'sales_by_tipolead', excludeSubstr:[], excludeFromEfect:[]}
+  ];
+  DIMS_INSIGHT.forEach(cfg => {
+    let M;
+    try { M = buildDimMatrices(cfg.prefix, cfg.leadsKey, cfg.salesKey, cfg.excludeSubstr, corte); } catch(e){ return; }
+    const efectFilter = cfg.excludeFromEfect.length ? (d => !cfg.excludeFromEfect.some(ex => d.includes(ex))) : null;
+    const dims = efectFilter ? M.dims.filter(efectFilter) : M.dims;
+    dims.forEach(d => {
+      if(esCatchAll(d)) return;
+      const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
+      const avgPart = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
+      if(avgPart < 0.08) return; // no relevante, mismo umbral que las tablas
+      const vA = M.agg[d][mesActual], vP = M.agg[d][mesAnterior];
+      // Efectividad
+      if(vA && vP && vA.l>0 && vP.l>0){
+        const eA = vA.vMismoMes/vA.l, eP = vP.vMismoMes/vP.l;
+        if(eP>0){
+          const rel = (eA-eP)/eP;
+          if(Math.abs(rel)>=0.15){
+            candidatos.push({cat:'efectividad', mag:Math.abs(rel),
+              text:'Efectividad de <strong>'+d+'</strong> ('+cfg.label+') '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' ('+pctFmt(eP*100)+' → '+pctFmt(eA*100)+').'});
+          }
+        }
+      }
+      // Participacion de leads
+      if(vA && vP && M.totalLeadsPorMes[mesActual]>0 && M.totalLeadsPorMes[mesAnterior]>0){
+        const pA = vA.l/M.totalLeadsPorMes[mesActual], pP = vP.l/M.totalLeadsPorMes[mesAnterior];
+        if(pP>0){
+          const rel = (pA-pP)/pP;
+          if(Math.abs(rel)>=0.15){
+            candidatos.push({cat:'participacion', mag:Math.abs(rel),
+              text:'Participación de leads de <strong>'+d+'</strong> ('+cfg.label+') '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' ('+pctFmt(pP*100)+' → '+pctFmt(pA*100)+').'});
+          }
+        }
+      }
+    });
+  });
+  // KPIs generales del mes
+  const vA = aggMonth(DATA.sales_daily, mesActual, 'ventas', corte);
+  const vP = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', corte);
+  if(vP>0){
+    const rel = (vA-vP)/vP;
+    candidatos.push({cat:'kpi', mag:Math.abs(rel),
+      text:'Ventas de '+labelFull(mesActual)+' al día '+corte+': '+vA.toLocaleString()+' vs. '+vP.toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+  const pA = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+  const pP = aggMonth(DATA.sales_daily, mesAnterior, 'prima', corte);
+  if(pP>0){
+    const rel = (pA-pP)/pP;
+    candidatos.push({cat:'kpi', mag:Math.abs(rel),
+      text:'Prima de '+labelFull(mesActual)+' al día '+corte+': S/ '+Math.round(pA).toLocaleString()+' vs. S/ '+Math.round(pP).toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+  const ventasProyIns = proyectarCierre('ventas', vA, corte);
+  const ventasMesAntCompleto = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', null);
+  if(ventasMesAntCompleto>0){
+    const rel = (ventasProyIns-ventasMesAntCompleto)/ventasMesAntCompleto;
+    candidatos.push({cat:'kpi', mag:Math.abs(rel),
+      text:'Proyección de cierre de '+labelFull(mesActual)+': '+Math.round(ventasProyIns).toLocaleString()+' ventas vs. '+ventasMesAntCompleto.toLocaleString()+' cerradas en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+
+  candidatos.sort((a,b)=>b.mag-a.mag);
+  const top = candidatos.slice(0,5);
+  if(top.length < 3 && candidatos.length > top.length){
+    top.push(...candidatos.slice(top.length, 3));
+  }
+  if(!top.length){
+    box.innerHTML = 'Sin cambios de al menos 15% en efectividad, participación o KPIs generales entre '+labelFull(mesAnterior)+' y '+labelFull(mesActual)+' al día de corte actual.';
+    return;
+  }
+  box.innerHTML = '<ul>' + top.map(c=>'<li>'+c.text+'</li>').join('') + '</ul>';
+}
+
+// ---------- PESTAÑA COMITÉ ----------
+// 3 tablas (consolidado, solo Call Interno, solo Call Externo/Biznes) con Leads, Ventas,
+// Efectividad, PNA y PP reales al dia de corte + fila de Proyeccion (dias de gestion).
+function filaComite(nombre, valores, fmt){
+  return '<tr><td>'+nombre+'</td>' + valores.map(v => '<td>'+(v===null||v===undefined?'–':fmt(v))+'</td>').join('') + '</tr>';
+}
+function renderTablaComite(tableId, filtroCall, corte){
+  const cols = mesesCerradosRecientes.concat(mesActual ? [mesActual] : []);
+  if(!cols.length) { const el = document.getElementById(tableId); if(el) el.innerHTML = ''; return; }
+  function ventasDeMes(m, corteDia){
+    if(!filtroCall) return { v: aggMonth(DATA.sales_daily, m, 'ventas', corteDia), prima: aggMonth(DATA.sales_daily, m, 'prima', corteDia), pna: aggMonth(DATA.sales_daily, m, 'pna', corteDia) };
+    const rows = (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucket(r[2])===filtroCall);
+    return { v: rows.reduce((s,r)=>s+r[3],0), prima: rows.reduce((s,r)=>s+r[4],0), pna: rows.reduce((s,r)=>s+(r[8]||0),0) };
+  }
+  function leadsDeMes(m, corteDia){
+    if(!filtroCall) return aggMonth(DATA.leads_daily, m, 'leads', corteDia);
+    return (DATA.leads_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucket(r[2])===filtroCall).reduce((s,r)=>s+r[3],0);
+  }
+  const leadsVals = cols.map(m => leadsDeMes(m, m===mesActual?corte:9999));
+  const ventasVals = cols.map(m => ventasDeMes(m, m===mesActual?corte:9999));
+  const efectVals = cols.map((m,i) => leadsVals[i]>0 ? pctFmt((ventasVals[i].v/leadsVals[i])*100) : '–');
+  const pnaVals = ventasVals.map(v => v.pna);
+  const ppVals = ventasVals.map((v,i) => v.v>0 ? Math.round(v.prima/v.v) : null);
+
+  let html = '<thead><tr><th></th>' + cols.map(labelFull).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  html += filaComite('Leads', leadsVals, v=>v.toLocaleString());
+  html += filaComite('Ventas', ventasVals.map(v=>v.v), v=>v.toLocaleString());
+  html += filaComite('Efectividad', efectVals, v=>v);
+  html += filaComite('PNA', pnaVals, v=>'S/ '+Math.round(v).toLocaleString());
+  html += filaComite('PP', ppVals, v=>'S/ '+v.toLocaleString());
+  // Fila de proyeccion (solo para el mes actual, en las demas columnas queda vacio)
+  if(mesActual){
+    const idxActual = cols.indexOf(mesActual);
+    const ventasActualComite = ventasVals[idxActual] ? ventasVals[idxActual].v : 0;
+    const leadsActualComite = leadsVals[idxActual] || 0;
+    const primaActualComite = ventasVals[idxActual] ? ventasVals[idxActual].prima : 0;
+    const ventasProyC = Math.round(proyectarCierre('ventas', ventasActualComite, corte));
+    const leadsProyC = Math.round(proyectarCierre('leads', leadsActualComite, corte));
+    // PNA/PP proyectados con la misma tasa de ventas (no hay historico separado por PNA/dia de gestion)
+    const pnaActualComite = pnaVals[idxActual] || 0;
+    // No hay historico de PNA por dia de gestion separado; se proyecta escalando el PNA
+    // actual por el mismo ritmo de crecimiento que la proyeccion de ventas.
+    const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
+    html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Proyecc. ('+labelFull(mesActual)+')</td></tr>';
+    const proyRow = cols.map((m,i) => i===idxActual ? {pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((ventasProyC/leadsProyC)*100):'–', leads:leadsProyC} : null);
+    html += '<tr><td>PNA</td>' + proyRow.map(r=>'<td>'+(r?('S/ '+r.pna.toLocaleString()):'')+'</td>').join('') + '</tr>';
+    html += '<tr><td>Ventas</td>' + proyRow.map(r=>'<td>'+(r?r.ventas.toLocaleString():'')+'</td>').join('') + '</tr>';
+    html += '<tr><td>Efectividad</td>' + proyRow.map(r=>'<td>'+(r?r.efect:'')+'</td>').join('') + '</tr>';
+    html += '<tr><td>Leads</td>' + proyRow.map(r=>'<td>'+(r?r.leads.toLocaleString():'')+'</td>').join('') + '</tr>';
+  }
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+function renderComite(corte){
+  renderTablaComite('tableComiteConsolidado', null, corte);
+  renderTablaComite('tableComiteInterno', 'Interno', corte);
+  renderTablaComite('tableComiteExterno', 'Biznes', corte);
+}
+
 document.getElementById('rangoBtn').addEventListener('click', () => {
   const desdeVal = document.getElementById('rangoDesde').value;
   const hastaVal = document.getElementById('rangoHasta').value;
@@ -1267,7 +1725,13 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
 });
 
 document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
-render(20);
+// Dia de corte por defecto = ayer (dia de hoy - 1), minimo 1. Antes era un fijo en 20.
+const hoyReal = new Date();
+let corteDefault = hoyReal.getDate() - 1;
+if(corteDefault < 1) corteDefault = 1;
+if(corteDefault > 31) corteDefault = 31;
+document.getElementById('corteSlider').value = corteDefault;
+render(corteDefault);
 
 }
 </script>
