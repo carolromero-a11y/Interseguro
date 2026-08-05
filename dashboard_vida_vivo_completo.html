@@ -438,16 +438,16 @@
         <button type="button" class="dropdown-filter-btn" data-role="prima-filter-btn">Rango de prima: <span data-role="prima-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="prima-filter-panel"></div>
       </div>
-      <span class="filter-hint">Las tablas de Fuente/Subfuente/Campaña/Cotizador se filtran por call center y rango de prima (no se muestran como columnas). Los meses de todas las tablas son los del rango de fechas elegido (recortando el primer y último mes por el día exacto). Es independiente del día de corte de arriba.</span>
+      <span class="filter-hint">Todas las tablas de esta hoja tienen el call center como columna y el rango de prima como sub-fila: si eliges 1 call, aparece 1 columna (con su nombre); si eliges 2, aparecen las 2. Si eliges 2 rangos de prima, solo esas 2 sub-filas aparecen. Los meses de todas las tablas son los del rango de fechas elegido (recortando el primer y último mes por el día exacto). Es independiente del día de corte de arriba.</span>
     </div>
     <section>
       <h2>Ventas y % participación por rango de prima mensual</h2>
-      <p class="sub">Prima mensual: primero se usa la columna "Prima Mensual" de Cruce_Raw; si esa venta no cruzó, se usa la columna "Prima" de Ventas_Raw (no "Prima x Frecuencia", que es otro indicador usado en el resto del dashboard). Esta tabla siempre muestra todos los rangos de prima (para ver la composición) — el desplegable "Rango de prima" no le aplica a ella, solo a las tablas de abajo.</p>
+      <p class="sub">Prima mensual: primero se usa la columna "Prima Mensual" de Cruce_Raw; si esa venta no cruzó, se usa la columna "Prima" de Ventas_Raw (no "Prima x Frecuencia", que es otro indicador usado en el resto del dashboard). El % de cada celda es dentro de ese call center y mes (sumando solo los rangos de prima elegidos en el desplegable).</p>
       <div class="table-wrap"><table class="data-table" id="tableVentasRangoPrimaMatrix"></table></div>
     </section>
     <section>
       <h2>Ventas y % participación por fuente</h2>
-      <p class="sub">De dónde vienen las ventas del rango de fechas, call center y rango de prima elegidos, según la fuente del lead que originó la venta.</p>
+      <p class="sub">De dónde vienen las ventas del rango de fechas elegido, según la fuente del lead que originó la venta. Sub-fila: rango de prima. El % de cada celda es dentro de esa fuente, call center y mes.</p>
       <div class="table-wrap"><table class="data-table" id="tableVentasFuenteMatrix"></table></div>
     </section>
     <section>
@@ -1759,10 +1759,10 @@ function dimsOrdenadosVentas(salesKey, desde, hasta){
 const ORDEN_CLICS_COTIZADOR = ['0','1-2','3-5','6-10','11-20','20+','Sin dato'];
 
 // ---- Filtro desglosable de "Rango de prima" (mismo mecanismo que el filtro de call center,
-// pero standalone porque solo se usa en esta pestaña). No se muestra como columna en las
-// tablas de Fuente/Subfuente/Campaña/Cotizador -- solo filtra cuales ventas se cuentan. La
-// tabla "Ventas por rango de prima mensual" NO usa este filtro (siempre muestra todos los
-// rangos, para poder ver la composicion completa).
+// pero standalone porque solo se usa en esta pestaña). Controla que rangos de prima aparecen
+// como sub-fila en las tablas de Fuente/Subfuente/Campaña/Cotizador, y tambien que filas
+// aparecen en la tabla "Ventas por rango de prima mensual" (todas las tablas de la hoja se
+// filtran por este desplegable).
 let primaFiltroVentas = new Set(RANGOS_PRIMA_VENTA);
 function construirDropdownPrima(){
   const wrap = document.querySelector('.dropdown-filter[data-tab="ventas-prima"]');
@@ -1804,29 +1804,60 @@ function actualizarLabelPrima(){
 }
 construirDropdownPrima();
 
-// Tabla plana: filas = dim1 unico (fuente/subfuente/campaña/rango de cotizador), columnas =
-// mes. El call center y el rango de prima NO se muestran como columnas -- ambos se usan solo
-// para filtrar cuales ventas se cuentan (arreglo de 3 dimensiones: d1=dim, d2=rango de prima,
-// d3=call).
-function buildFlatVentasTableTri(tableId, dim1s, triKey, buckets, primas, cols, desde, hasta){
+// Tabla con call center como columna agrupadora (solo los buckets elegidos en el desplegable
+// de call, cada uno con su nombre) x mes como sub-columna debajo de cada call -- y rango de
+// prima como sub-fila debajo de cada dim1 (fuente/subfuente/campaña/rango de cotizador), solo
+// los rangos elegidos en el desplegable de prima. Todo se recalcula cuando cambia cualquiera
+// de los dos desplegables: si eliges 1 call, aparece 1 columna con su nombre; si eliges 2,
+// aparecen las 2 con su nombre; si eliges 2 rangos de prima, solo esas 2 sub-filas aparecen.
+// El % de cada celda es dentro de ese dim1 + call + mes (sumando solo los rangos de prima
+// elegidos), igual criterio que "Subtotal".
+function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, desde, hasta){
   const rowsAll = DATA[triKey]||[];
-  const rows = rowsAll.filter(r => buckets.includes(callBucket(r[4])) && primas.includes(r[3]) && ventasEnRangoFechas(r, desde, hasta));
-  function celda(d1, m){ return rows.filter(r=>r[2]===d1 && r[0]===m).reduce((s,r)=>s+r[5],0); }
-  function totalMes(m){ return dim1s.reduce((s,d1)=>s+celda(d1,m),0); }
-  let html = '<thead><tr><th></th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
-  dim1s.forEach(d1 => {
-    html += '<tr><td>'+d1+'</td>' + cols.map(m => {
-      const v = celda(d1,m);
-      if(v===0) return '<td>–</td>';
-      const tot = totalMes(m);
-      const part = tot>0 ? (v/tot)*100 : 0;
-      return '<td>'+v.toLocaleString()+' (<strong>'+pctFmt(part)+'</strong>)</td>';
-    }).join('') + '</tr>';
+  const rows = rowsAll.filter(r => ventasEnRangoFechas(r, desde, hasta));
+  function celda(d1, d2, bucket, m){
+    return rows.filter(r => r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket && r[0]===m).reduce((s,r)=>s+r[5],0);
+  }
+  function totalDim1BucketMes(d1, bucket, m){
+    return dim2s.reduce((s,d2)=>s+celda(d1,d2,bucket,m),0);
+  }
+  let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
+  buckets.forEach(b => {
+    head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+    head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
   });
-  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => {
-    const t = totalMes(m);
-    return '<td>'+(t>0?t.toLocaleString()+' (<strong>100%</strong>)':'–')+'</td>';
-  }).join('') + '</tr>';
+  head1 += '</tr>'; head2 += '</tr>';
+  const totalCols = buckets.length * cols.length;
+  let html = '<thead>'+head1+head2+'</thead><tbody>';
+  dim1s.forEach(d1 => {
+    html += '<tr style="background:var(--bg);"><td colspan="'+(totalCols+1)+'" style="font-weight:700;color:var(--navy);">'+d1+'</td></tr>';
+    dim2s.forEach(d2 => {
+      html += '<tr><td style="padding-left:22px;">'+d2+'</td>';
+      buckets.forEach(b => { cols.forEach((m,i) => {
+        const v = celda(d1,d2,b,m);
+        const cls = i===0 ? ' class="div-left"' : '';
+        if(v===0){ html += '<td'+cls+'>–</td>'; return; }
+        const tot = totalDim1BucketMes(d1,b,m);
+        const part = tot>0 ? (v/tot)*100 : 0;
+        html += '<td'+cls+'>'+v.toLocaleString()+' (<strong>'+pctFmt(part)+'</strong>)</td>';
+      }); });
+      html += '</tr>';
+    });
+    html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+d1+'</td>';
+    buckets.forEach(b => { cols.forEach((m,i) => {
+      const t = totalDim1BucketMes(d1,b,m);
+      const cls = i===0 ? ' class="div-left"' : '';
+      html += '<td'+cls+'>'+(t>0?t.toLocaleString():'–')+'</td>';
+    }); });
+    html += '</tr>';
+  });
+  html += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
+  buckets.forEach(b => { cols.forEach((m,i) => {
+    const t = dim1s.reduce((s,d1)=>s+totalDim1BucketMes(d1,b,m),0);
+    const cls = i===0 ? ' class="div-left"' : '';
+    html += '<td'+cls+'>'+(t>0?t.toLocaleString():'–')+'</td>';
+  }); });
+  html += '</tr>';
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
@@ -1882,22 +1913,22 @@ function renderVentasTab(){
     };
   }
 
-  // Esta tabla siempre muestra TODOS los rangos de prima (no se filtra por el desglosable de
-  // prima -- solo por call), para que se pueda ver la composicion completa de las ventas.
-  const totRango = totalesPorBucketMes('sales_cross_rangoprima_call', RANGOS_PRIMA_VENTA);
-  buildCallNestedTable('tableVentasRangoPrimaMatrix', 'Rango de prima', RANGOS_PRIMA_VENTA, buckets, cols,
+  // Esta tabla tambien se filtra por rango de prima ahora (a pedido del usuario) -- si elige
+  // solo 2 rangos, solo esos 2 aparecen como fila, igual que en el resto de tablas de la hoja.
+  const totRango = totalesPorBucketMes('sales_cross_rangoprima_call', primas);
+  buildCallNestedTable('tableVentasRangoPrimaMatrix', 'Rango de prima', primas, buckets, cols,
     (d,b,m) => aggCelda('sales_cross_rangoprima_call', d, b, m), valueConPct(totRango));
 
   const dimsFuente = dimsOrdenadosVentas('sales_by_fuente', desde, hasta);
-  buildFlatVentasTableTri('tableVentasFuenteMatrix', dimsFuente, 'sales_tri_fuente_rangoprima_call', buckets, primas, cols, desde, hasta);
+  buildCallNestedSubfilas('tableVentasFuenteMatrix', dimsFuente, primas, 'sales_tri_fuente_rangoprima_call', buckets, cols, desde, hasta);
 
   const dimsSubfuente = dimsOrdenadosVentas('sales_by_subfuente', desde, hasta);
-  buildFlatVentasTableTri('tableVentasSubfuenteMatrix', dimsSubfuente, 'sales_tri_subfuente_rangoprima_call', buckets, primas, cols, desde, hasta);
+  buildCallNestedSubfilas('tableVentasSubfuenteMatrix', dimsSubfuente, primas, 'sales_tri_subfuente_rangoprima_call', buckets, cols, desde, hasta);
 
   const dimsCampana = dimsOrdenadosCampanaTri('sales_tri_campana_rangoprima_call', buckets, primas, desde, hasta);
-  buildFlatVentasTableTri('tableVentasCampanaMatrix', dimsCampana, 'sales_tri_campana_rangoprima_call', buckets, primas, cols, desde, hasta);
+  buildCallNestedSubfilas('tableVentasCampanaMatrix', dimsCampana, primas, 'sales_tri_campana_rangoprima_call', buckets, cols, desde, hasta);
 
-  buildFlatVentasTableTri('tableVentasCotizadorMatrix', ORDEN_CLICS_COTIZADOR, 'sales_tri_clics_rangoprima_call', buckets, primas, cols, desde, hasta);
+  buildCallNestedSubfilas('tableVentasCotizadorMatrix', ORDEN_CLICS_COTIZADOR, primas, 'sales_tri_clics_rangoprima_call', buckets, cols, desde, hasta);
 }
 
 // ---------- INSIGHTS DEL MES (Resumen) ----------
