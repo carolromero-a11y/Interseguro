@@ -113,6 +113,7 @@
     <button class="tab-btn" data-tab="call">Por call center</button>
     <button class="tab-btn" data-tab="producto">Por producto</button>
     <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
+    <button class="tab-btn" data-tab="ventas">Ventas</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
     <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
     <button class="tab-btn" data-tab="comite">Comité</button>
@@ -414,6 +415,36 @@
     <p class="note" id="notaCallOtrosFuente" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
+  <!-- ===== TAB: VENTAS (por rango de prima mensual) ===== -->
+  <div class="tabpanel" id="tab-ventas">
+    <div class="filter-bar">
+      <label for="ventasDesde" style="font-size:13px;color:var(--text-2);font-weight:500;">Desde</label>
+      <input type="date" id="ventasDesde">
+      <label for="ventasHasta" style="font-size:13px;color:var(--text-2);font-weight:500;">Hasta</label>
+      <input type="date" id="ventasHasta">
+      <div class="dropdown-filter" data-tab="ventas-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Las tablas de esta pestaña muestran solo los meses dentro del rango de fechas elegido (recortando el primer y último mes por el día exacto). Es independiente del día de corte de arriba.</span>
+    </div>
+    <section>
+      <h2>Ventas y % participación por rango de prima mensual</h2>
+      <p class="sub">Prima mensual: primero se usa la columna "Prima Mensual" de Cruce_Raw; si esa venta no cruzó, se usa "Prima x Frecuencia" de Ventas_Raw.</p>
+      <div class="table-wrap"><table class="data-table" id="tableVentasRangoPrimaMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas y % participación por fuente</h2>
+      <p class="sub">De dónde vienen las ventas del rango de fechas elegido, según la fuente del lead que originó la venta.</p>
+      <div class="table-wrap"><table class="data-table" id="tableVentasFuenteMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas y % participación por subfuente</h2>
+      <div class="table-wrap"><table class="data-table" id="tableVentasSubfuenteMatrix"></table></div>
+    </section>
+    <p class="note" id="notaCallOtrosVentas" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
+  </div>
+
   <!-- ===== TAB: ANTIGÜEDAD DEL LEAD (VINTAGE) ===== -->
   <div class="tabpanel" id="tab-vintage">
     <div class="filter-bar">
@@ -603,7 +634,8 @@ fetch(OUTPUT_URL)
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima',
-      'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call'];
+      'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
+      'sales_by_rango_prima_venta','sales_cross_rangoprima_call'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -932,6 +964,7 @@ function render(corte){
   intentar('renderVintageTable', () => renderVintageTable(corte));
   intentar('renderCampanaTable', () => renderCampanaTable());
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
+  intentar('renderVentasTab', () => renderVentasTab());
   intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
   intentar('renderCohortTable', () => renderCohortTable(corte));
   intentar('renderPPyPNA', () => renderPPyPNA(corte));
@@ -1486,7 +1519,7 @@ function callBucket(c){
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
 // Un filtro de call independiente por pestaña (mismo patron que filtroMesesTab para los meses).
-const CALL_FILTRO_TABS = ['producto','fuente'];
+const CALL_FILTRO_TABS = ['producto','fuente','ventas'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -1639,6 +1672,113 @@ function renderCallFiltroFuente(corte){
 
   renderGrupo('Fuente', 'Fuente', 'leads_by_fuente', 'leads_cross_fuente_call', 'sales_cross_fuente_call');
   renderGrupo('Subfuente', 'Subfuente', 'leads_by_subfuente', 'leads_cross_subfuente_call', 'sales_cross_subfuente_call');
+}
+
+// ---------- PESTAÑA "VENTAS" (por rango de prima mensual, con calendario propio) ----------
+// A diferencia del resto de la pestañas (que usan el dia de corte global o el filtro de
+// meses por checkbox), esta usa un rango de fechas explicito (desde-hasta, con dia exacto en
+// ambos extremos) que el usuario elige con un calendario -- independiente del dia de corte.
+const RANGOS_PRIMA_VENTA = ['P1 (0 a 349)','P2 (350 a 500)','P3 (501 a 800)','P4 (801 a 1000)','P5 (1001 a más)','Sin dato'];
+
+// Mismo criterio de deteccion de rango que ya usa el boton "Ver rango" de arriba: arma una
+// fecha con hora fija (12:00) a partir de mes+dia para evitar problemas de huso horario.
+function fechaDeFila(mes, dia){ return new Date(mes + '-' + String(dia).padStart(2,'0') + 'T12:00:00'); }
+function ventasEnRangoFechas(r, desde, hasta){ const d = fechaDeFila(r[0], r[1]); return d >= desde && d <= hasta; }
+
+// Meses que toca el rango elegido (para las columnas de las tablas), en orden cronologico.
+function mesesEnRangoFechas(desde, hasta){
+  const out = [];
+  let y = desde.getFullYear(), m = desde.getMonth();
+  const yh = hasta.getFullYear(), mh = hasta.getMonth();
+  while (y < yh || (y === yh && m <= mh)) {
+    out.push(y + '-' + String(m+1).padStart(2,'0'));
+    m++; if(m>11){ m=0; y++; }
+  }
+  return out;
+}
+
+// Igual que configurarRangoFechas() (la del "Ver rango" de arriba), pero para el calendario
+// propio de esta pestaña: por defecto, mes actual completo hasta el ultimo dia con datos.
+function configurarRangoFechasVentas(){
+  const desdeEl = document.getElementById('ventasDesde');
+  const hastaEl = document.getElementById('ventasHasta');
+  if(!desdeEl || !hastaEl || !mesesL.length) return;
+  const primerMes = mesesL[0];
+  const ultimoMes = mesesV.length ? mesesV[mesesV.length-1] : mesesL[mesesL.length-1];
+  const fechaMin = primerMes + '-01';
+  const fechaMax = ultimoMes + '-' + String(diasEnMes(ultimoMes)).padStart(2,'0');
+  desdeEl.min = fechaMin; desdeEl.max = fechaMax;
+  hastaEl.min = fechaMin; hastaEl.max = fechaMax;
+  const diasConDatos = DATA.sales_daily.filter(r=>r.mes===mesActual).map(r=>r.dia);
+  const ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  desdeEl.value = mesActual ? (mesActual + '-01') : fechaMin;
+  hastaEl.value = mesActual ? (mesActual + '-' + String(ultimoDiaConDatos).padStart(2,'0')) : fechaMax;
+}
+configurarRangoFechasVentas();
+document.getElementById('ventasDesde').addEventListener('change', () => renderVentasTab());
+document.getElementById('ventasHasta').addEventListener('change', () => renderVentasTab());
+
+// Orden de filas por total de VENTAS (no leads) dentro del rango de fechas elegido -- mismo
+// criterio (mas volumen primero, catch-all al final) que dimsOrdenados() pero basado en
+// sales_by_fuente/sales_by_subfuente en vez de leads_by_*, porque esta pestaña es solo de ventas.
+function dimsOrdenadosVentas(salesKey, desde, hasta){
+  const rowsAll = DATA[salesKey]||[];
+  const rows = rowsAll.filter(r => ventasEnRangoFechas(r, desde, hasta));
+  let dims = [...new Set(rowsAll.map(r=>r[2]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = rows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushCatchAllLast(dims);
+}
+
+function renderVentasTab(){
+  const desdeEl = document.getElementById('ventasDesde');
+  const hastaEl = document.getElementById('ventasHasta');
+  if(!desdeEl || !hastaEl) return; // esta pestaña no existe en este dashboard
+  if(!desdeEl.value || !hastaEl.value) return;
+  const desde = new Date(desdeEl.value + 'T00:00:00');
+  const hasta = new Date(hastaEl.value + 'T23:59:59');
+  if(isNaN(desde.getTime()) || isNaN(hasta.getTime()) || desde > hasta) return; // rango invalido: se espera a que el usuario lo corrija
+  const cols = mesesEnRangoFechas(desde, hasta);
+
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['ventas'].has(b));
+  const nota = document.getElementById('notaCallOtrosVentas');
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+
+  function aggCelda(crossKey, dim, bucket, mes){
+    const rows = (DATA[crossKey]||[]).filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes && ventasEnRangoFechas(r, desde, hasta));
+    return { v: rows.reduce((s,r)=>s+r[4],0) };
+  }
+  function totalesPorBucketMes(crossKey, dims){
+    const t = {};
+    buckets.forEach(b => { cols.forEach(m => {
+      t[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(crossKey,d,b,m).v,0);
+    }); });
+    return t;
+  }
+  function valueConPct(totales){
+    return (a,d,b,m) => {
+      if(a.v===0) return '–';
+      const total = totales[b+'|'+m];
+      const part = total>0 ? (a.v/total)*100 : 0;
+      return a.v.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+    };
+  }
+
+  const totRango = totalesPorBucketMes('sales_cross_rangoprima_call', RANGOS_PRIMA_VENTA);
+  buildCallNestedTable('tableVentasRangoPrimaMatrix', 'Rango de prima', RANGOS_PRIMA_VENTA, buckets, cols,
+    (d,b,m) => aggCelda('sales_cross_rangoprima_call', d, b, m), valueConPct(totRango));
+
+  const dimsFuente = dimsOrdenadosVentas('sales_by_fuente', desde, hasta);
+  const totFuente = totalesPorBucketMes('sales_cross_fuente_call', dimsFuente);
+  buildCallNestedTable('tableVentasFuenteMatrix', 'Fuente', dimsFuente, buckets, cols,
+    (d,b,m) => aggCelda('sales_cross_fuente_call', d, b, m), valueConPct(totFuente));
+
+  const dimsSubfuente = dimsOrdenadosVentas('sales_by_subfuente', desde, hasta);
+  const totSubfuente = totalesPorBucketMes('sales_cross_subfuente_call', dimsSubfuente);
+  buildCallNestedTable('tableVentasSubfuenteMatrix', 'Subfuente', dimsSubfuente, buckets, cols,
+    (d,b,m) => aggCelda('sales_cross_subfuente_call', d, b, m), valueConPct(totSubfuente));
 }
 
 // ---------- INSIGHTS DEL MES (Resumen) ----------
