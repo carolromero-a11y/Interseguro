@@ -191,7 +191,7 @@
     </div>
     <div class="grid-2" style="margin-top:14px;">
       <div>
-        <p class="sub" style="margin-bottom:6px;">Efectividad (ventas con lead del mismo mes ÷ leads del mes, ambos a la fecha de corte)</p>
+        <p class="sub" style="margin-bottom:6px;">Efectividad (todas las ventas del mes, sin importar el mes del lead, ÷ leads del mes, ambos a la fecha de corte)</p>
         <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
       </div>
       <div>
@@ -263,23 +263,27 @@
       <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
       <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
     </div>
-    <section>
-      <h2>Leads y % Participación por call — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallLeadsMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas por call — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallVentasMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Venta Colchón — todos los meses</h2>
-      <p class="sub">Ventas con lead de mes anterior</p>
-      <div class="table-wrap"><table class="data-table" id="tableCallColchonMatrix"></table></div>
-    </section>
-    <section>
-      <h2>% Participación Colchón — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableCallColchonPartMatrix"></table></div>
-    </section>
+    <div class="grid-2">
+      <section>
+        <h2>Leads y % Participación por call — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableCallLeadsMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Ventas por call — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableCallVentasMatrix"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Venta Colchón — todos los meses</h2>
+        <p class="sub">Ventas con lead de mes anterior</p>
+        <div class="table-wrap"><table class="data-table" id="tableCallColchonMatrix"></table></div>
+      </section>
+      <section>
+        <h2>% Participación Colchón — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableCallColchonPartMatrix"></table></div>
+      </section>
+    </div>
     <section>
       <h2>Efectividad (ventas con leads del mes) por call — todos los meses</h2>
       <p class="sub">Ventas de ese call con lead también de ese mismo mes ÷ leads de ese call, mismo mes. No cuenta ventas cuyo lead se asignó en otro mes.</p>
@@ -495,23 +499,27 @@
       <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
       <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
     </div>
-    <section>
-      <h2>Composición de la venta — cantidad</h2>
-      <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta.</p>
-      <div class="table-wrap"><table class="data-table" id="tableVintageCant"></table></div>
-    </section>
-    <section>
-      <h2>Composición de la venta — % participación</h2>
-      <div class="table-wrap"><table class="data-table" id="tableVintagePart"></table></div>
-    </section>
-    <section>
-      <h2>Composición de la venta — efectividad</h2>
-      <div class="table-wrap"><table class="data-table" id="tableVintageEfect"></table></div>
-    </section>
-    <section>
-      <h2>Composición de los leads</h2>
-      <div class="table-wrap"><table class="data-table" id="tableVintageLeads"></table></div>
-    </section>
+    <div class="grid-2">
+      <section>
+        <h2>Composición de la venta — cantidad</h2>
+        <p class="sub">Filas: mes en que se asignó el lead. Columnas: mes en que se concretó la venta.</p>
+        <div class="table-wrap"><table class="data-table" id="tableVintageCant"></table></div>
+      </section>
+      <section>
+        <h2>Composición de la venta — % participación</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintagePart"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Composición de la venta — efectividad</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintageEfect"></table></div>
+      </section>
+      <section>
+        <h2>Composición de los leads</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintageLeads"></table></div>
+      </section>
+    </div>
     <section>
       <h2>Días de conversión (de lead a venta)</h2>
       <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
@@ -528,15 +536,17 @@
       </div>
       <span class="filter-hint">Por defecto, febrero (mejor mes) + mes anterior + mes actual. Aplica a las tablas de tipo de lead de abajo.</span>
     </div>
-    <section>
-      <h2>Leads y % Participación por tipo de lead — todos los meses</h2>
-      <div class="table-wrap"><table class="data-table" id="tableTipoLeadLeadsMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas por tipo de lead — todos los meses</h2>
-      <p class="sub">Todas las ventas del mes atribuidas a ese tipo de lead, sin importar en qué mes se asignó el lead. Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableTipoLeadVentasMatrix"></table></div>
-    </section>
+    <div class="grid-2">
+      <section>
+        <h2>Leads y % Participación por tipo de lead — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableTipoLeadLeadsMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Ventas por tipo de lead — todos los meses</h2>
+        <p class="sub">Todas las ventas del mes atribuidas a ese tipo de lead, sin importar en qué mes se asignó el lead. Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableTipoLeadVentasMatrix"></table></div>
+      </section>
+    </div>
     <section>
       <h2>Efectividad de ventas con leads del mes, por tipo de lead (Caliente / Tibio / Frío)</h2>
       <p class="sub">Ventas de ese tipo de lead con lead también de ese mes ÷ leads de ese tipo, mismo mes. Un lead "Caliente" convierte varias veces más que uno "Frío" o "No evaluable".</p>
@@ -846,8 +856,12 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, pnaActual
   if(nota) nota.style.display = hayAlgunaMeta ? 'none' : 'block';
 
   const leadsActualTotal = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
-  const mismoMesActualTotal = aggMonth(DATA.sales_daily, mesActual, 'mismoMes', corte);
-  const efectTotal = leadsActualTotal>0 ? (mismoMesActualTotal/leadsActualTotal)*100 : null;
+  // OJO: esta efectividad es DISTINTA a la que usan las demás tablas del dashboard (Comité,
+  // matrices por call) -- esas restringen a "ventas con lead del mismo mes". Acá, a pedido
+  // explícito, es TODAS las ventas del mes (sin importar de qué mes vino el lead) ÷ leads del
+  // mes, ambos a la fecha de corte -- por eso reusa ventasActualTotal (el mismo total que ya
+  // muestra la tarjeta KPI y la tabla de Unidades de arriba) en vez de un campo "mismoMes".
+  const efectTotal = leadsActualTotal>0 ? (ventasActualTotal/leadsActualTotal)*100 : null;
 
   function datosPorBucket(bucket){
     if(bucket==='Total'){
@@ -864,8 +878,9 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, pnaActual
       pna: proyectarGenerico(real.pna, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucket(r[2])===bucket).reduce((s,r)=>s+r[8],0))
     };
     const leadsBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
-    const mismoMesBucket = rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[5],0);
-    const efect = leadsBucket>0 ? (mismoMesBucket/leadsBucket)*100 : null;
+    // Efectividad = TODAS las ventas de ese call (real.ventas, cualquier mes de lead) ÷ leads
+    // de ese call, ambos a la fecha de corte (ver nota de efectTotal más arriba).
+    const efect = leadsBucket>0 ? (real.ventas/leadsBucket)*100 : null;
     return { real, proy, efect };
   }
 
@@ -884,39 +899,35 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, pnaActual
   buildMetaTable('tableMetaEfectividad', ['Call','Meta','Real (corte)','% vs meta'], rowsEfect);
 }
 
-// Tabla "Leads" al costado de Efectividad en el Resumen: meta del mes completo (meta diaria de
-// "Metas_Diarias" x días del mes), real acumulado a la fecha de corte, proyección de cierre
-// (mismo modelo de días de gestión que el resto del dashboard) y % de cumplimiento. En Rumbo
-// "Metas_Diarias" trae un solo producto ("Rumbo"), así que reusa directamente leadsActual/
-// leadsProy ya calculados en render() (misma fuente que las tarjetas KPI de arriba).
+// Tabla "Leads" al costado de Efectividad en el Resumen: mismas filas que las otras 3 tablas
+// de esta sección (Interno / Biznes / Total), para que las 4 se lean juntas de forma consistente.
+// Real y Proyección por call salen de leads_by_call (mismo patrón que datosPorBucket de arriba).
+// La Meta, en cambio, solo existe a nivel de mes completo (meta diaria de "Metas_Diarias" x
+// días del mes) -- no hay una meta de leads cargada por call center, así que Interno/Biznes
+// muestran "–" en Meta y % vs meta, y solo la fila Total compara contra la meta real.
 function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
   if(!mesActual) return;
   const metasDiarias = DATA.metas_diarias || [];
   const nota = document.getElementById('notaSinMetaLeads');
   const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
   if(nota) nota.style.display = hayMetaDiaria ? 'none' : 'block';
-  if(!hayMetaDiaria){ buildMetaTable('tableMetaLeads', ['Producto'], []); return; }
+  if(!hayMetaDiaria){ buildMetaTable('tableMetaLeads', ['Call'], []); return; }
 
   const diasDelMes = diasEnMes(mesActual);
-  const productos = metasDiarias.map(m => m.producto);
-  const rows = [];
+  const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
 
-  if(productos.length > 1){
-    productos.forEach(prod => {
-      const metaDiariaProd = (metasDiarias.find(m => m.producto===prod)||{}).meta || 0;
-      const metaMesProd = metaDiariaProd * diasDelMes;
-      const realProd = (DATA.leads_by_subproducto||[]).filter(r => r[0]===mesActual && r[2]===prod && r[1]<=corte).reduce((s,r)=>s+r[3],0);
-      const proyProd = proyectarGenerico(realProd, corte, m => (DATA.leads_by_subproducto||[]).filter(r=>r[0]===m && r[2]===prod).reduce((s,r)=>s+r[3],0));
-      rows.push([prod, fmtMetaN(metaMesProd), fmtMetaN(realProd), fmtMetaN(proyProd), cumplimientoMeta(proyProd, metaMesProd)]);
-    });
-    const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
-    rows.push(['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)]);
-  } else {
-    const metaMesTotal = (metasDiarias[0].meta||0) * diasDelMes;
-    rows.push([metasDiarias[0].producto, fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)]);
-  }
+  const buckets = ['Interno','Biznes','Total'];
+  const rows = buckets.map(b => {
+    if(b==='Total'){
+      return ['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
+    }
+    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===b);
+    const realBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
+    const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===b).reduce((s,r)=>s+r[3],0));
+    return [b, '–', fmtMetaN(realBucket), fmtMetaN(proyBucket), '–'];
+  });
 
-  buildMetaTable('tableMetaLeads', ['Producto','Meta del mes','Real (corte)','Proyección','% vs meta'], rows);
+  buildMetaTable('tableMetaLeads', ['Call','Meta del mes','Real (corte)','Proyección','% vs meta'], rows);
 }
 
 // Tabla "Seguimiento diario" (pestaña propia): días del mes en columnas, productos en filas
