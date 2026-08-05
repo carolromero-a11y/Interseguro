@@ -1916,8 +1916,6 @@ function renderTablaComite(tableId, filtroCall, corte){
   let html = '<thead><tr><th></th>' + cols.map(labelFull).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   html += filaComite('Leads', leadsVals, v=>v.toLocaleString());
   html += filaComite('Ventas', ventasVals.map(v=>v.v), v=>v.toLocaleString());
-  html += filaComite('Participación ventas leads mes pasado (% ventas colchón)', colchonPartVals, v=>v);
-  html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
   html += filaComite('PNA', pnaVals, v=>'S/ '+Math.round(v).toLocaleString());
   html += filaComite('PP', ppVals, v=>'S/ '+v.toLocaleString());
   // Fila de proyeccion: en los meses YA CERRADOS (mayo, junio, julio) no hay nada que proyectar
@@ -1948,6 +1946,11 @@ function renderTablaComite(tableId, filtroCall, corte){
   html += '<tr><td>Ventas</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.ventas.toLocaleString()+'</td>').join('') + '</tr>';
   html += '<tr><td>Efectividad lead y venta mes</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.efect+'</td>').join('') + '</tr>';
   html += '<tr><td>Leads</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.leads.toLocaleString()+'</td>').join('') + '</tr>';
+  // Analisis de efectividad: va DESPUES de la proyeccion de cierre (a pedido del usuario),
+  // usando el mismo dia de corte que las filas de arriba (Leads/Ventas/PNA), no la proyeccion.
+  html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Análisis de efectividad</td></tr>';
+  html += filaComite('Participación ventas leads mes pasado (% ventas colchón)', colchonPartVals, v=>v);
+  html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
