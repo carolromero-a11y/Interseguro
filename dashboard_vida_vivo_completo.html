@@ -1327,14 +1327,24 @@ function efectCellColored(agg_d, m, mesesArr, totalLeadsPorMesObj, esRelevante){
 }
 
 // ---------- FILTRO DE MESES POR HOJA ----------
-// Cada hoja tiene su propio selector de meses a mostrar en las tablas con meses en columnas
-// (por defecto, los ultimos 3 meses con datos). No afecta el dia de corte ni a las demas
-// hojas -- solo oculta/muestra columnas; los calculos (totales, comparacion vs. mes anterior,
-// relevancia >=8%) siempre se hacen sobre el historico completo.
+// Cada hoja tiene su propio selector de meses a mostrar en las tablas con meses en columnas.
+// Por defecto: marzo + el mes anterior al actual + el mes actual, siempre (no es "los ultimos
+// 3 meses" -- marzo se queda fijo como mes de referencia aunque ya no sea de los ultimos 3).
+// No afecta el dia de corte ni a las demas hojas -- solo oculta/muestra columnas; los calculos
+// (totales, comparacion vs. mes anterior, relevancia >=8%) siempre se hacen sobre el historico
+// completo.
 const TABS_CON_FILTRO_MESES = ['resumen','call','producto','fuente','vintage','calidad'];
 const filtroMesesTab = {};
 function ultimosN(lista, n){ return lista.slice(Math.max(0, lista.length-n)); }
-TABS_CON_FILTRO_MESES.forEach(tab => { filtroMesesTab[tab] = new Set(ultimosN(mesesV, 3)); });
+const mesMarzoRef = mesesL.find(m => m.endsWith('-03')) || mesesV.find(m => m.endsWith('-03')) || null;
+function mesesDefaultTab(){
+  const set = new Set();
+  if(mesMarzoRef) set.add(mesMarzoRef);
+  if(mesAnterior) set.add(mesAnterior);
+  if(mesActual) set.add(mesActual);
+  return set.size ? set : new Set(ultimosN(mesesV, 3));
+}
+TABS_CON_FILTRO_MESES.forEach(tab => { filtroMesesTab[tab] = mesesDefaultTab(); });
 function mesesVisiblesV(tab){
   const sel = filtroMesesTab[tab];
   const filtrados = mesesV.filter(m => sel && sel.has(m));
