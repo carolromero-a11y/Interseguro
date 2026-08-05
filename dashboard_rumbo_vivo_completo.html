@@ -111,11 +111,11 @@
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
   <h1>Dashboard de ventas — Rumbo</h1>
-  <p class="desc" id="headerDesc">Producto de inversión · enero – julio 2026 </p>
+  <p class="desc" id="headerDesc">Producto Rumbo · 2026</p>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
-    <button class="tab-btn" data-tab="perfil">Tasa / Prima / Edad / Plazo</button>
+    <button class="tab-btn" data-tab="perfil">Tasa / Prima / Edad</button>
     <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
     <button class="tab-btn" data-tab="ventas">Ventas</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
@@ -258,11 +258,18 @@
     </section>
   </div>
 
-  <!-- ===== TAB: PERFIL (TASA/PRIMA/EDAD/PLAZO) ===== -->
+  <!-- ===== TAB: PERFIL (TASA/PRIMA/EDAD) ===== -->
   <div class="tabpanel" id="tab-perfil">
-    <div class="dropdown-filter" data-tab="perfil">
-      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
-      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="perfil">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="perfil-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (tasa, prima y edad).</span>
     </div>
     <section>
       <h2>Rango de tasa (T1 / T2 / T3)</h2>
@@ -294,13 +301,21 @@
       <div class="table-wrap"><table class="data-table" id="tableEdadEfectMatrix"></table></div>
       <p class="note">"Sin dato" = no se pudo determinar la edad (fecha de nacimiento inválida en la venta y sin lead con edad para completar).</p>
     </section>
+    <p class="note" id="notaCallOtrosPerfil" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
   <!-- ===== TAB: POR FUENTE ===== -->
   <div class="tabpanel" id="tab-fuente">
-    <div class="dropdown-filter" data-tab="fuente">
-      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
-      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="fuente">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="fuente-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (fuente, subfuente y los cruces con tasa/prima).</span>
     </div>
     <section>
       <h2>Leads y % Participación por fuente — todos los meses</h2>
@@ -392,6 +407,7 @@
       </div>
       <div class="table-wrap"><table class="data-table" id="tableCampana"></table></div>
     </section>
+    <p class="note" id="notaCallOtrosFuente" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
   <!-- ===== TAB: VENTAS (por rango de prima mensual) ===== -->
@@ -855,10 +871,7 @@ function actualizarTextosMes(){
   document.getElementById('lblVsAnt').textContent = 'vs. ' + anteriorFull + ' (mismo corte)';
   document.getElementById('lblPrima').textContent = 'PNA ' + actualFull + ' (real)';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
-  const primerMesV = mesesV[0];
-  if(primerMesV){
-    document.getElementById('headerDesc').textContent = 'Producto de inversión · ' + labelFull(primerMesV) + ' – ' + actualFull + ' ' + anioDe(mesActual);
-  }
+  document.getElementById('headerDesc').textContent = 'Producto Rumbo · ' + anioDe(mesActual);
 }
 actualizarTextosMes();
 
@@ -1174,6 +1187,12 @@ function renderAllMatrixSets(corte){
   renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], false, null, corte, 'fuente');
   renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], false, null, corte, 'fuente');
   renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], false, ['Caliente','Tibio','Frío','No evaluable'], corte, 'calidad');
+  // Las tablas de Tasa/Prima/Edad (pestaña Perfil) y de Fuente/Subfuente (pestaña Fuente) que
+  // se acaban de dibujar arriba se reemplazan por una version con el call center como columna,
+  // si el desplegable de call de esa pestaña esta disponible -- mismo patron que
+  // renderCallFiltroProducto/renderCallFiltroFuente en el dashboard de Vida.
+  renderCallFiltroPerfil(corte);
+  renderCallFiltroFuenteBasico(corte);
 }
 
 // ---------- FILTRO DE CALL CENTER + PESTAÑA "VENTAS" (por rango de prima mensual) ----------
@@ -1186,7 +1205,7 @@ function callBucket(c){
   return 'Otros'; // A365, Inbound, Sin call - influencia directa, WhatsApp, etc.
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
-const CALL_FILTRO_TABS = ['ventas'];
+const CALL_FILTRO_TABS = ['perfil','fuente','ventas'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -1248,6 +1267,103 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
+}
+
+// Reemplaza las tablas de Leads/Ventas/Efectividad de Tasa/Prima/Edad (pestaña "Tasa / Prima /
+// Edad", ya dibujadas por renderMatrixSet(...) mas arriba) por una version con el call center
+// como columna agrupadora, con los meses debajo de cada call elegido en el dropdown. Mismo
+// patron que renderCallFiltroProducto en el dashboard de Vida, usando los nuevos cruces
+// leads/sales_cross_tasa_call, _prima_call y _edad_call del .gs.
+function renderCallFiltroPerfil(corte){
+  const nota = document.getElementById('notaCallOtrosPerfil');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['perfil'].has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const cols = mesesVisiblesV('perfil');
+
+  function renderGrupo(idPrefix, rowLabel, dimOrder, leadsCrossKey, salesCrossKey){
+    const leadsCrossAll = DATA[leadsCrossKey]||[];
+    const leadsCross = leadsCrossAll.filter(r => r[1] <= corte);
+    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] <= corte);
+    // La lista de dims presentes se calcula SIN filtrar por corte (igual que en
+    // renderNestedCrossConCall) -- si no, un dia de corte bajo podia dejar la tabla vacia
+    // aunque si haya datos mas adelante en el mes.
+    const present = new Set(leadsCrossAll.map(r=>r[2]));
+    const dims = dimOrder.filter(d => present.has(d));
+
+    function aggCelda(dim, bucket, mes){
+      const lsub = leadsCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      const ssub = salesCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      return {
+        l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
+        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+      };
+    }
+    const totalLeadsPorBucketMes = {};
+    buckets.forEach(b => { cols.forEach(m => {
+      totalLeadsPorBucketMes[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
+    }); });
+
+    buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dims, buckets, cols, aggCelda, (a,d,b,m) => {
+      if(a.l===0) return '–';
+      const total = totalLeadsPorBucketMes[b+'|'+m];
+      const part = total>0 ? (a.l/total)*100 : 0;
+      return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+    });
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+  }
+
+  renderGrupo('Tasa', 'Tasa', ORDEN_TASA, 'leads_cross_tasa_call', 'sales_cross_tasa_call');
+  renderGrupo('Prima', 'Prima', ORDEN_PRIMA, 'leads_cross_prima_call', 'sales_cross_prima_call');
+  renderGrupo('Edad', 'Edad', ORDEN_EDAD_VENTAS, 'leads_cross_edad_call', 'sales_cross_edad_call');
+}
+
+// Igual que renderCallFiltroPerfil, pero para las 6 tablas basicas (Leads/Ventas/Efectividad x
+// Fuente/Subfuente) de la pestaña "Por fuente y subfuente". Las 12 tablas cruzadas de esa misma
+// pestaña (Fuente/Subfuente x Tasa/Prima) se manejan aparte en renderAllCrossTabs, porque usan
+// los arreglos "tri" (3 dimensiones) en vez de estos cruces de 2 dimensiones.
+function renderCallFiltroFuenteBasico(corte){
+  const nota = document.getElementById('notaCallOtrosFuente');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const cols = mesesVisiblesV('fuente');
+
+  function renderGrupo(idPrefix, rowLabel, leadsCrossKey, salesCrossKey){
+    const leadsCrossAll = DATA[leadsCrossKey]||[];
+    const leadsCross = leadsCrossAll.filter(r => r[1] <= corte);
+    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] <= corte);
+    // Orden de fuente/subfuente: por volumen total de leads dentro del cruce con call (igual
+    // que dimsOrdenados() en Vida), catch-all al final. La lista de dims presentes se calcula
+    // SIN filtrar por corte (mismo criterio que renderNestedCrossConCall), para que un dia de
+    // corte bajo no vacie la tabla aunque haya datos mas adelante en el mes.
+    const dimsReales = pushCatchAllLast([...new Set(leadsCrossAll.map(r=>r[2]))]);
+    function aggCelda(dim, bucket, mes){
+      const lsub = leadsCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      const ssub = salesCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      return {
+        l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
+        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+      };
+    }
+    const totalLeadsPorBucketMes = {};
+    buckets.forEach(b => { cols.forEach(m => {
+      totalLeadsPorBucketMes[b+'|'+m] = dimsReales.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
+    }); });
+
+    buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, (a,d,b,m) => {
+      if(a.l===0) return '–';
+      const total = totalLeadsPorBucketMes[b+'|'+m];
+      const part = total>0 ? (a.l/total)*100 : 0;
+      return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+    });
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+  }
+
+  renderGrupo('Fuente', 'Fuente', 'leads_cross_fuente_call', 'sales_cross_fuente_call');
+  renderGrupo('Subfuente', 'Subfuente', 'leads_cross_subfuente_call', 'sales_cross_subfuente_call');
 }
 
 const RANGOS_PRIMA_VENTA = ['P1 (0 a 349)','P2 (350 a 500)','P3 (501 a 800)','P4 (801 a 1000)','P5 (1001 a más)','Sin dato'];
@@ -1474,10 +1590,14 @@ function pctFmt(v){
   return v < 10 ? (Math.round(v*100)/100) + '%' : (Math.round(v*10)/10) + '%';
 }
 
-function renderNestedCross(prefixLeads, prefixVentas, prefixEfect, leadsKey, salesKey, dim2Order, corte, tabFiltro){
+// Dibuja las 12 tablas cruzadas de la pestaña "Por fuente y subfuente" (Fuente/Subfuente en
+// negrita + Tasa/Prima como sub-fila), agregando el call center como grupo de columnas -- usa
+// los arreglos "tri" (dim1, dim2, call) del .gs para que el desplegable de call center de esa
+// pestaña tambien las afecte, igual que ya afecta a las 6 tablas basicas de Fuente/Subfuente.
+function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsTriKey, salesTriKey, dim2Order, buckets, corte, tabFiltro){
   const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
-  const leadsRows = DATA[leadsKey]; // [mes,dia,dim1,dim2,leads,convertidos]
-  const salesRows = DATA[salesKey]; // [mes,dia,dim1,dim2,ventas,mismoMes,mesAnt]
+  const leadsRows = DATA[leadsTriKey]||[]; // [mes,dia,dim1,dim2,callRaw,leads,convertidos]
+  const salesRows = DATA[salesTriKey]||[]; // [mes,dia,dim1,dim2,callRaw,ventas,mismoMes,mesAnt]
 
   const dim1s = pushCatchAllLast([...new Set(leadsRows.map(r=>r[2]))]);
   const dim2sByDim1 = {};
@@ -1486,79 +1606,98 @@ function renderNestedCross(prefixLeads, prefixVentas, prefixEfect, leadsKey, sal
     dim2sByDim1[d1] = dim2Order.filter(d2 => present.has(d2));
   });
 
-  function agg(d1, d2, m){
-    const l = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2);
-    const s = salesRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2);
+  function agg(d1, d2, bucket, m){
+    const l = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
+    const s = salesRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
     return {
-      leads: l.reduce((a,r)=>a+r[4],0),
-      conv: l.reduce((a,r)=>a+r[5],0),
-      ventas: s.reduce((a,r)=>a+r[4],0),
-      // Efectividad = ventas de ese mes con lead TAMBIEN de ese mismo mes (columna "mismoMes"
-      // de sales_cross_*), no leads que alguna vez convirtieron. Misma correccion que en Vida.
-      mismoMes: s.reduce((a,r)=>a+(r[5]||0),0)
+      leads: l.reduce((a,r)=>a+r[5],0),
+      conv: l.reduce((a,r)=>a+r[6],0),
+      ventas: s.reduce((a,r)=>a+r[5],0),
+      mismoMes: s.reduce((a,r)=>a+(r[6]||0),0)
     };
   }
 
-  // total de leads POR FUENTE (dim1) y mes, para la base de % participacion
-  const totalPorDim1Mes = {};
+  const totalPorDim1BucketMes = {};
   dim1s.forEach(d1 => {
-    totalPorDim1Mes[d1] = {};
-    mesesV.forEach(m => {
-      totalPorDim1Mes[d1][m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1).reduce((s,r)=>s+r[4],0);
-    });
+    totalPorDim1BucketMes[d1] = {};
+    buckets.forEach(b => { cols.forEach(m => {
+      totalPorDim1BucketMes[d1][b+'|'+m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && callBucket(r[4])===b).reduce((s,r)=>s+r[5],0);
+    }); });
   });
+
+  const totalCols = buckets.length * cols.length;
+  let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
+  buckets.forEach(b => {
+    head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+    head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+  });
+  head1 += '</tr>'; head2 += '</tr>';
+  const headHtml = '<thead>'+head1+head2+'</thead>';
 
   function buildRows(valueFn, totalFn, subtotalFn){
     let rowsHtml = '';
     dim1s.forEach(d1 => {
-      rowsHtml += '<tr style="background:var(--bg);"><td colspan="' + (cols.length+1) + '" style="font-weight:700;color:var(--navy);">' + d1 + '</td></tr>';
+      rowsHtml += '<tr style="background:var(--bg);"><td colspan="' + (totalCols+1) + '" style="font-weight:700;color:var(--navy);">' + d1 + '</td></tr>';
       dim2sByDim1[d1].forEach(d2 => {
-        rowsHtml += '<tr><td style="padding-left:22px;">' + d2 + '</td>' + cols.map(m => '<td>' + valueFn(d1,d2,m) + '</td>').join('') + '</tr>';
+        rowsHtml += '<tr><td style="padding-left:22px;">' + d2 + '</td>';
+        buckets.forEach(b => { cols.forEach((m,i) => {
+          const cls = i===0 ? ' class="div-left"' : '';
+          rowsHtml += '<td'+cls+'>' + valueFn(d1,d2,b,m) + '</td>';
+        }); });
+        rowsHtml += '</tr>';
       });
       if(subtotalFn){
-        rowsHtml += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal ' + d1 + '</td>' + cols.map(m => '<td>' + subtotalFn(d1,m) + '</td>').join('') + '</tr>';
+        rowsHtml += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal ' + d1 + '</td>';
+        buckets.forEach(b => { cols.forEach((m,i) => {
+          const cls = i===0 ? ' class="div-left"' : '';
+          rowsHtml += '<td'+cls+'>' + subtotalFn(d1,b,m) + '</td>';
+        }); });
+        rowsHtml += '</tr>';
       }
     });
     if(totalFn){
-      rowsHtml += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>' + cols.map(m => '<td>' + totalFn(m) + '</td>').join('') + '</tr>';
+      rowsHtml += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
+      buckets.forEach(b => { cols.forEach((m,i) => {
+        const cls = i===0 ? ' class="div-left"' : '';
+        rowsHtml += '<td'+cls+'>' + totalFn(b,m) + '</td>';
+      }); });
+      rowsHtml += '</tr>';
     }
     return rowsHtml;
   }
 
-  const headHtml = '<thead><tr><th></th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead>';
-
-  const leadsRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
+  const leadsRowsHtml = buildRows((d1,d2,b,m) => {
+    const a = agg(d1,d2,b,m);
     if(a.leads===0) return '–';
-    const totalDim1 = totalPorDim1Mes[d1][m];
-    const part = totalDim1>0 ? (a.leads/totalDim1)*100 : 0;
+    const totalDim1Bucket = totalPorDim1BucketMes[d1][b+'|'+m];
+    const part = totalDim1Bucket>0 ? (a.leads/totalDim1Bucket)*100 : 0;
     return a.leads.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-  }, (m) => {
+  }, (b,m) => {
     let total = 0;
-    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,m).leads; }));
+    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,b,m).leads; }));
     return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  }, (d1,m) => {
-    const t = totalPorDim1Mes[d1][m];
+  }, (d1,b,m) => {
+    const t = totalPorDim1BucketMes[d1][b+'|'+m];
     return t>0 ? t.toLocaleString() + ' (<strong>100%</strong>)' : '–';
   });
   document.getElementById(prefixLeads).innerHTML = headHtml + '<tbody>' + leadsRowsHtml + '</tbody>';
 
-  const ventasRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
+  const ventasRowsHtml = buildRows((d1,d2,b,m) => {
+    const a = agg(d1,d2,b,m);
     return a.ventas>0 ? a.ventas.toLocaleString() : '–';
-  }, (m) => {
+  }, (b,m) => {
     let total = 0;
-    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,m).ventas; }));
+    dim1s.forEach(d1 => dim2sByDim1[d1].forEach(d2 => { total += agg(d1,d2,b,m).ventas; }));
     return total>0 ? total.toLocaleString() : '–';
-  }, (d1,m) => {
+  }, (d1,b,m) => {
     let t = 0;
-    dim2sByDim1[d1].forEach(d2 => { t += agg(d1,d2,m).ventas; });
+    dim2sByDim1[d1].forEach(d2 => { t += agg(d1,d2,b,m).ventas; });
     return t>0 ? t.toLocaleString() : '–';
   });
   document.getElementById(prefixVentas).innerHTML = headHtml + '<tbody>' + ventasRowsHtml + '</tbody>';
 
-  const efectRowsHtml = buildRows((d1,d2,m) => {
-    const a = agg(d1,d2,m);
+  const efectRowsHtml = buildRows((d1,d2,b,m) => {
+    const a = agg(d1,d2,b,m);
     return a.leads>0 ? pctFmt((a.mismoMes/a.leads)*100) : '–';
   });
   document.getElementById(prefixEfect).innerHTML = headHtml + '<tbody>' + efectRowsHtml + '</tbody>';
@@ -1568,10 +1707,12 @@ const ORDEN_TASA = ['T1','T2','T3','Sin dato'];
 const ORDEN_PRIMA = ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'];
 
 function renderAllCrossTabs(corte){
-  renderNestedCross('tableCFT_Leads','tableCFT_Ventas','tableCFT_Efect','leads_cross_fuente_tasa','sales_cross_fuente_tasa', ORDEN_TASA, corte, 'fuente');
-  renderNestedCross('tableCFP_Leads','tableCFP_Ventas','tableCFP_Efect','leads_cross_fuente_prima','sales_cross_fuente_prima', ORDEN_PRIMA, corte, 'fuente');
-  renderNestedCross('tableCST_Leads','tableCST_Ventas','tableCST_Efect','leads_cross_subfuente_tasa','sales_cross_subfuente_tasa', ORDEN_TASA, corte, 'fuente');
-  renderNestedCross('tableCSP_Leads','tableCSP_Ventas','tableCSP_Efect','leads_cross_subfuente_prima','sales_cross_subfuente_prima', ORDEN_PRIMA, corte, 'fuente');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
+  if(!buckets.length) return;
+  renderNestedCrossConCall('tableCFT_Leads','tableCFT_Ventas','tableCFT_Efect','leads_tri_fuente_tasa_call','sales_tri_fuente_tasa_call', ORDEN_TASA, buckets, corte, 'fuente');
+  renderNestedCrossConCall('tableCFP_Leads','tableCFP_Ventas','tableCFP_Efect','leads_tri_fuente_prima_call','sales_tri_fuente_prima_call', ORDEN_PRIMA, buckets, corte, 'fuente');
+  renderNestedCrossConCall('tableCST_Leads','tableCST_Ventas','tableCST_Efect','leads_tri_subfuente_tasa_call','sales_tri_subfuente_tasa_call', ORDEN_TASA, buckets, corte, 'fuente');
+  renderNestedCrossConCall('tableCSP_Leads','tableCSP_Ventas','tableCSP_Efect','leads_tri_subfuente_prima_call','sales_tri_subfuente_prima_call', ORDEN_PRIMA, buckets, corte, 'fuente');
 }
 
 // ---------- CAMPAÑAS ----------
