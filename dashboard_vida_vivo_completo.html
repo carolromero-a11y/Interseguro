@@ -131,6 +131,7 @@
 
 <main>
 
+  <div id="corteControls">
   <div class="controls">
     <label for="corteSlider">Día de corte</label>
     <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
@@ -147,6 +148,7 @@
     <span class="hint">Independiente del día de corte — funciona con cualquier ventana de días, incluso cruzando meses</span>
   </div>
   <div id="rangoResultado" style="display:none;"></div>
+  </div>
 
   <!-- ===== TAB: RESUMEN ===== -->
   <div class="tabpanel active" id="tab-resumen">
@@ -183,9 +185,18 @@
         <div class="table-wrap"><table class="data-table" id="tableMetaPna"></table></div>
       </div>
     </div>
-    <p class="sub" style="margin-top:14px;margin-bottom:6px;">Efectividad (ventas con lead del mismo mes ÷ leads del mes, ambos a la fecha de corte)</p>
-    <div class="table-wrap" style="max-width:560px;"><table class="data-table" id="tableMetaEfectividad"></table></div>
+    <div class="grid-2" style="margin-top:14px;">
+      <div>
+        <p class="sub" style="margin-bottom:6px;">Efectividad (ventas con lead del mismo mes ÷ leads del mes, ambos a la fecha de corte)</p>
+        <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
+      </div>
+      <div>
+        <p class="sub" style="margin-bottom:6px;">Leads (meta del mes = meta diaria de "Metas_Diarias" × días del mes)</p>
+        <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
+      </div>
+    </div>
     <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
+    <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
   </section>
 
   <section>
@@ -598,8 +609,8 @@
     <section>
       <h2 id="tituloSeguimiento">Seguimiento diario de leads — julio</h2>
       <p class="sub" id="subSeguimiento">Meta cargada en la pestaña "Metas_Diarias" del Google Sheet. La meta de cada día es plana (no se reduce en fines de semana ni feriados); la proyección de cierre sí usa el modelo de días de gestión (feriados y sábado medio día incluidos), igual que el resto del dashboard.</p>
+      <div class="insight-box" id="boxProyeccionLeads">–</div>
       <div class="table-wrap"><table class="data-table" id="tableSeguimientoDiario"></table></div>
-      <p class="note" id="notaSeguimientoProy"></p>
       <p class="note" id="notaSinMetaDiaria" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento.</p>
     </section>
   </div>
@@ -902,23 +913,59 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
   buildMetaTable('tableMetaEfectividad', ['Call','Meta','Real (corte)','% vs meta'], rowsEfect);
 }
 
-// Tabla "Seguimiento diario" (pestaña propia): leads reales por día del mes actual vs. la
-// meta diaria PLANA cargada en "Metas_Diarias" (no se reduce en fin de semana/feriado, tal
-// como se pidió), más un resumen de la proyección de cierre del mes (esa sí usa el modelo de
-// días de gestión — feriados y medio-día de sábado incluidos — para ser realista). Se escribe
-// de forma genérica según cuántos productos traiga "Metas_Diarias": en Vida son 2 (Vida Cash /
-// Endoso, separados via leads_by_subproducto); en Rumbo es 1 solo (Rumbo, se usa el total de
-// leads_daily directamente porque no hay una pestaña "Metas_Diarias" con más de un producto).
-function renderSeguimientoDiario(corte){
+// Tabla "Leads" al costado de Efectividad en el Resumen: meta del mes completo (meta diaria de
+// "Metas_Diarias" x días del mes), real acumulado a la fecha de corte, proyección de cierre
+// (mismo modelo de días de gestión que el resto del dashboard) y % de cumplimiento. Una fila
+// por producto si "Metas_Diarias" trae más de uno (Vida Cash / Endoso, vía leads_by_subproducto),
+// más una fila "Total" que reusa leadsActual/leadsProy ya calculados en render() (misma fuente
+// que las tarjetas KPI de arriba, para no tener 2 numeros distintos del mismo dato).
+function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
+  if(!mesActual) return;
+  const metasDiarias = DATA.metas_diarias || [];
+  const nota = document.getElementById('notaSinMetaLeads');
+  const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
+  if(nota) nota.style.display = hayMetaDiaria ? 'none' : 'block';
+  if(!hayMetaDiaria){ buildMetaTable('tableMetaLeads', ['Producto'], []); return; }
+
+  const diasDelMes = diasEnMes(mesActual);
+  const productos = metasDiarias.map(m => m.producto);
+  const rows = [];
+
+  if(productos.length > 1){
+    productos.forEach(prod => {
+      const metaDiariaProd = (metasDiarias.find(m => m.producto===prod)||{}).meta || 0;
+      const metaMesProd = metaDiariaProd * diasDelMes;
+      const realProd = (DATA.leads_by_subproducto||[]).filter(r => r[0]===mesActual && r[2]===prod && r[1]<=corte).reduce((s,r)=>s+r[3],0);
+      const proyProd = proyectarGenerico(realProd, corte, m => (DATA.leads_by_subproducto||[]).filter(r=>r[0]===m && r[2]===prod).reduce((s,r)=>s+r[3],0));
+      rows.push([prod, fmtMetaN(metaMesProd), fmtMetaN(realProd), fmtMetaN(proyProd), cumplimientoMeta(proyProd, metaMesProd)]);
+    });
+    const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
+    rows.push(['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)]);
+  } else {
+    const metaMesTotal = (metasDiarias[0].meta||0) * diasDelMes;
+    rows.push([metasDiarias[0].producto, fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)]);
+  }
+
+  buildMetaTable('tableMetaLeads', ['Producto','Meta del mes','Real (corte)','Proyección','% vs meta'], rows);
+}
+
+// Tabla "Seguimiento diario" (pestaña propia): días del mes en columnas, productos en filas
+// (más "Meta día" y "Cumplimiento día"), y un box arriba con la proyección de cierre del mes al
+// ritmo actual de leads. Ya no depende del slider "Día de corte" (se oculta en esta pestaña):
+// el "corte" para la proyección se calcula solo, como el último día del mes con datos reales.
+// Se escribe de forma genérica según cuántos productos traiga "Metas_Diarias": en Vida son 2
+// (Vida Cash / Endoso, separados vía leads_by_subproducto); en Rumbo es 1 solo (Rumbo, se usa
+// el total de leads_daily directamente).
+function renderSeguimientoDiario(){
   if(!mesActual) return;
   const metasDiarias = DATA.metas_diarias || [];
   const notaSinMeta = document.getElementById('notaSinMetaDiaria');
   const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
   if(notaSinMeta) notaSinMeta.style.display = hayMetaDiaria ? 'none' : 'block';
+  const box = document.getElementById('boxProyeccionLeads');
   if(!hayMetaDiaria){
     buildMetaTable('tableSeguimientoDiario', ['Día'], []);
-    const notaProyVacia = document.getElementById('notaSeguimientoProy');
-    if(notaProyVacia) notaProyVacia.textContent = '';
+    if(box) box.textContent = 'Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet.';
     return;
   }
 
@@ -942,54 +989,74 @@ function renderSeguimientoDiario(corte){
     });
   }
 
+  // "Hoy" para esta pestaña = el último día del mes con datos reales de leads (ya no depende
+  // del slider de corte, que se oculta en esta vista). Solo se usa para la proyección y para
+  // saber a partir de qué día mostrar "–" en vez de 0 (día futuro sin datos todavía).
+  const diasConDatos = Object.keys(leadsPorDiaProducto).map(Number).filter(d => productos.some(p => (leadsPorDiaProducto[d][p]||0) > 0));
+  const corteReal = diasConDatos.length ? Math.max(...diasConDatos) : 0;
+
   const dgMes = diasGestionDeMes(mesActual);
-  const headers = ['Día', ...productos, 'Total día', 'Meta día', 'Cumplimiento día', 'Acumulado real', 'Acumulado meta', 'Cumplimiento acumulado'];
-  const rows = [];
-  let acumReal = 0, acumMeta = 0;
-  const ultimoDia = Math.min(corte, diasDelMes);
-  for(let d=1; d<=ultimoDia; d++){
-    const porProd = leadsPorDiaProducto[d] || {};
-    const totalDia = productos.reduce((s,p) => s + (porProd[p]||0), 0);
-    acumReal += totalDia;
-    acumMeta += metaTotalDiaria;
+  const diasArr = Array.from({length: diasDelMes}, (_,i) => i+1);
+  const etiquetaDia = d => {
     const dg = dgMes.find(x => x.dia===d);
     let etiqueta = String(d);
     if(dg && dg.feriado) etiqueta += ' 🔴';
     else if(dg && dg.dow===0) etiqueta += ' (dom)';
     else if(dg && dg.peso===0.5) etiqueta += ' (sáb)';
-    rows.push([
-      etiqueta,
-      ...productos.map(p => fmtMetaN(porProd[p]||0)),
-      fmtMetaN(totalDia),
-      fmtMetaN(metaTotalDiaria),
-      cumplimientoMeta(totalDia, metaTotalDiaria),
-      fmtMetaN(acumReal),
-      fmtMetaN(acumMeta),
-      cumplimientoMeta(acumReal, acumMeta)
-    ]);
+    return etiqueta;
+  };
+  const totalDelDia = d => productos.reduce((s,p) => s + ((leadsPorDiaProducto[d]||{})[p]||0), 0);
+
+  const headers = ['', ...diasArr.map(etiquetaDia)];
+  const rows = [];
+  productos.forEach(p => {
+    rows.push([p, ...diasArr.map(d => {
+      const v = (leadsPorDiaProducto[d]||{})[p];
+      return (d>corteReal || v===undefined) ? '–' : fmtMetaN(v);
+    })]);
+  });
+  if(productos.length > 1){
+    rows.push(['Total', ...diasArr.map(d => d>corteReal ? '–' : fmtMetaN(totalDelDia(d)))]);
   }
+  rows.push(['Meta día', ...diasArr.map(() => fmtMetaN(metaTotalDiaria))]);
+  rows.push(['Cumplimiento día', ...diasArr.map(d => d>corteReal ? '–' : cumplimientoMeta(totalDelDia(d), metaTotalDiaria))]);
   buildMetaTable('tableSeguimientoDiario', headers, rows);
 
-  // Proyección de cierre del mes en leads (modelo de días de gestión, con feriados/sábado
-  // incluidos) vs. la meta plana del mes completo (meta diaria x días del mes).
-  const leadsActualTotal = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
-  const leadsProyTotal = proyectarCierre('leads', leadsActualTotal, corte);
+  // Box de arriba: proyección de cierre del mes en leads, al ritmo real de los días que ya
+  // pasaron (modelo de días de gestión — feriados y sábado medio día incluidos), por producto.
   const metaMesCompleto = metaTotalDiaria * diasDelMes;
-  const notaProy = document.getElementById('notaSeguimientoProy');
-  if(notaProy){
-    const pctProy = metaMesCompleto>0 ? Math.round((leadsProyTotal/metaMesCompleto)*1000)/10 : null;
-    notaProy.textContent = 'Proyectando cerrar ' + Math.round(leadsProyTotal).toLocaleString() + ' leads en ' + labelFull(mesActual) +
-      (pctProy!==null ? (' (' + pctProy + '% de la meta del mes: ' + metaMesCompleto.toLocaleString() + ' leads = ' + metaTotalDiaria.toLocaleString() + '/día × ' + diasDelMes + ' días).') : '.');
+  let textoBox;
+  if(productos.length > 1){
+    const partes = productos.map(p => {
+      const realProd = diasArr.filter(d => d<=corteReal).reduce((s,d) => s + ((leadsPorDiaProducto[d]||{})[p]||0), 0);
+      const proyProd = Math.round(proyectarGenerico(realProd, corteReal, m => (DATA.leads_by_subproducto||[]).filter(r=>r[0]===m && r[2]===p).reduce((s,r)=>s+r[3],0)));
+      const metaProd = (metasDiarias.find(m=>m.producto===p)||{}).meta || 0;
+      const metaMesProd = metaProd * diasDelMes;
+      const pct = metaMesProd>0 ? Math.round((proyProd/metaMesProd)*1000)/10 : null;
+      return '<strong>' + p + ':</strong> ' + proyProd.toLocaleString() + ' leads' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesProd.toLocaleString() + ')' : '');
+    });
+    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': ' + partes.join(' &nbsp;·&nbsp; ') + '.';
+  } else {
+    const realTotal = diasArr.filter(d => d<=corteReal).reduce((s,d) => s + ((leadsPorDiaProducto[d]||{})[productos[0]]||0), 0);
+    const proyTotal = Math.round(proyectarCierre('leads', realTotal, corteReal));
+    const pct = metaMesCompleto>0 ? Math.round((proyTotal/metaMesCompleto)*1000)/10 : null;
+    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': <strong>' + proyTotal.toLocaleString() + ' leads</strong>' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesCompleto.toLocaleString() + ')' : '') + '.';
   }
+  if(box) box.innerHTML = textoBox;
 }
 
 // ---------- TABS ----------
+// El slider "Día de corte" y el buscador de rango de fechas no aplican a "Seguimiento diario"
+// (esa pestaña ya muestra el mes completo, día por día, sin necesidad de elegir un corte), así
+// que se ocultan solo mientras esa pestaña está activa.
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    const corteControls = document.getElementById('corteControls');
+    if(corteControls) corteControls.style.display = (btn.dataset.tab === 'seguimiento') ? 'none' : '';
   });
 });
 
@@ -1188,7 +1255,8 @@ function render(corte){
   intentar('renderInsights', () => renderInsights(corte));
   intentar('renderComite', () => renderComite(corte));
   intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActual, ventasProy));
-  intentar('renderSeguimientoDiario', () => renderSeguimientoDiario(corte));
+  intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActual, leadsProy));
+  intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
 }
 
 // Canal composition (ahora corte-aware)
