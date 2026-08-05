@@ -125,6 +125,7 @@
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
     <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
     <button class="tab-btn" data-tab="comite">Comité</button>
+    <button class="tab-btn" data-tab="seguimiento">Seguimiento diario</button>
   </div>
 </header>
 
@@ -167,6 +168,24 @@
       <div class="kpi accent"><p class="label">Proyección cierre — prima</p><p class="value" id="kProyPrima">–</p></div>
       <div class="kpi accent2"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
     </div>
+  </section>
+
+  <section>
+    <h2 id="tituloMetas">Cómo vamos vs. la meta de julio</h2>
+    <p class="sub">Metas cargadas a mano en la pestaña "Metas" del Google Sheet (por call center y total). "Real" = acumulado hasta el día de corte de arriba. "Proyección" = cierre estimado del mes completo, con el mismo modelo de días de gestión (feriados incluidos) que el resto del dashboard.</p>
+    <div class="grid-2">
+      <div>
+        <p class="sub" style="margin-bottom:6px;">Unidades (ventas)</p>
+        <div class="table-wrap"><table class="data-table" id="tableMetaUnidades"></table></div>
+      </div>
+      <div>
+        <p class="sub" style="margin-bottom:6px;">PNA</p>
+        <div class="table-wrap"><table class="data-table" id="tableMetaPna"></table></div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:14px;margin-bottom:6px;">Efectividad (ventas con lead del mismo mes ÷ leads del mes, ambos a la fecha de corte)</p>
+    <div class="table-wrap" style="max-width:560px;"><table class="data-table" id="tableMetaEfectividad"></table></div>
+    <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
   </section>
 
   <section>
@@ -574,6 +593,17 @@
     <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
   </div>
 
+  <!-- ===== TAB: SEGUIMIENTO DIARIO ===== -->
+  <div class="tabpanel" id="tab-seguimiento">
+    <section>
+      <h2 id="tituloSeguimiento">Seguimiento diario de leads — julio</h2>
+      <p class="sub" id="subSeguimiento">Meta cargada en la pestaña "Metas_Diarias" del Google Sheet. La meta de cada día es plana (no se reduce en fines de semana ni feriados); la proyección de cierre sí usa el modelo de días de gestión (feriados y sábado medio día incluidos), igual que el resto del dashboard.</p>
+      <div class="table-wrap"><table class="data-table" id="tableSeguimientoDiario"></table></div>
+      <p class="note" id="notaSeguimientoProy"></p>
+      <p class="note" id="notaSinMetaDiaria" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento.</p>
+    </section>
+  </div>
+
 </main>
 
 <footer>
@@ -659,7 +689,7 @@ fetch(OUTPUT_URL)
       'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
-      'sales_tri_campana_rangoprima_call'];
+      'sales_tri_campana_rangoprima_call','metas','metas_diarias'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -768,8 +798,27 @@ function feriadosDeMes(mes){ return diasGestionDeMes(mes).filter(d=>d.feriado); 
 // Últimos hasta 3 meses de venta ya cerrados (antes del mes actual), en orden cronológico —
 // base histórica para la proyección por días de gestión.
 const mesesCerradosRecientes = mesesV.slice(0, mesesV.indexOf(mesActual)).slice(-3);
+// Proyección de cierre del mes actual: mezcla el ritmo real a la fecha de corte con la tasa
+// histórica de los últimos meses cerrados (pasada como funcion, para poder reusar esto con
+// cualquier corte de datos: total, por call, por producto, etc.), ponderando cada vez más el
+// ritmo real a medida que avanza el mes (más días de gestión ya transcurridos = más peso al
+// ritmo real).
+function proyectarGenerico(valorActual, corte, historicoPorMesFn){
+  if(!mesActual) return valorActual;
+  const dgTranscurridos = sumaDiasGestion(mesActual, corte);
+  const dgTotales = sumaDiasGestion(mesActual, null);
+  if(dgTotales<=0) return valorActual;
+  const weight = Math.min(1, dgTranscurridos/dgTotales);
+  const tasaActual = dgTranscurridos>0 ? valorActual/dgTranscurridos : 0;
+  let totalHist = 0, totalDG = 0;
+  mesesCerradosRecientes.forEach(m => { totalHist += historicoPorMesFn(m); totalDG += sumaDiasGestion(m, null); });
+  const tasaHist = totalDG>0 ? totalHist/totalDG : 0;
+  const tasaBlend = weight*tasaActual + (1-weight)*tasaHist;
+  return tasaBlend * dgTotales;
+}
 // Tasa histórica pooled (suma de todo el valor ÷ suma de todos los días de gestión de esos
-// meses cerrados) para un campo dado: 'ventas', 'prima' (de sales_daily) o 'leads' (de leads_daily).
+// meses cerrados) para un campo dado: 'ventas', 'prima', 'pna' (de sales_daily) o 'leads' (de
+// leads_daily). Se mantiene solo para no tocar otros usos existentes de proyectarCierre.
 function tasaHistorica(field){
   let totalVal = 0, totalDG = 0;
   mesesCerradosRecientes.forEach(m => {
@@ -779,19 +828,159 @@ function tasaHistorica(field){
   });
   return totalDG>0 ? totalVal/totalDG : 0;
 }
-// Proyección de cierre del mes actual: mezcla el ritmo real a la fecha de corte con la tasa
-// histórica de los últimos meses cerrados, ponderando cada vez más el ritmo real a medida
-// que avanza el mes (más días de gestión ya transcurridos = más peso al ritmo real).
 function proyectarCierre(field, valorActual, corte){
-  if(!mesActual) return valorActual;
-  const dgTranscurridos = sumaDiasGestion(mesActual, corte);
-  const dgTotales = sumaDiasGestion(mesActual, null);
-  if(dgTotales<=0) return valorActual;
-  const weight = Math.min(1, dgTranscurridos/dgTotales);
-  const tasaActual = dgTranscurridos>0 ? valorActual/dgTranscurridos : 0;
-  const tasaHist = tasaHistorica(field);
-  const tasaBlend = weight*tasaActual + (1-weight)*tasaHist;
-  return tasaBlend * dgTotales;
+  return proyectarGenerico(valorActual, corte, m => field==='leads' ? aggMonth(DATA.leads_daily, m, 'leads', null) : aggMonth(DATA.sales_daily, m, field, null));
+}
+
+// ---------- METAS (pestañas "Metas" y "Metas_Diarias" del Google Sheet) ----------
+function buildMetaTable(tableId, headers, rows){
+  let html = '<thead><tr>' + headers.map(h=>'<th>'+h+'</th>').join('') + '</tr></thead><tbody>';
+  rows.forEach(r => { html += '<tr>' + r.map(c => '<td>'+c+'</td>').join('') + '</tr>'; });
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+function fmtMetaN(v){ return (v===null || v===undefined) ? '–' : Math.round(v).toLocaleString(); }
+function fmtMetaMoney(v){ return (v===null || v===undefined) ? '–' : 'S/ ' + Math.round(v).toLocaleString(); }
+function fmtMetaPct(v){ return (v===null || v===undefined) ? '–' : pctFmt(v); }
+function cumplimientoMeta(real, meta){
+  if(meta===null || meta===undefined || meta<=0 || real===null || real===undefined) return '–';
+  return pctFmt((real/meta)*100);
+}
+
+// Tabla "Cómo vamos vs. la meta" del Resumen: Interno / Biznes / Total, para Unidades, PNA y
+// Efectividad. Interno/Biznes salen de sales_by_call/leads_by_call filtrando por callBucket();
+// Total reusa exactamente los mismos totales que ya muestran las tarjetas KPI de arriba (para
+// que no haya 2 fuentes de verdad del mismo numero), salvo la PNA (esa tarjeta muestra "Prima",
+// no PNA, asi que el total de PNA se calcula aparte con el campo 'pna' de sales_daily).
+function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
+  if(!mesActual) return;
+  const metasPorCall = {};
+  (DATA.metas||[]).forEach(m => { metasPorCall[m.call] = m; });
+  const hayAlgunaMeta = (DATA.metas||[]).some(m => m.unidades!==null || m.pna!==null || m.efectividad!==null);
+  const nota = document.getElementById('notaSinMetas');
+  if(nota) nota.style.display = hayAlgunaMeta ? 'none' : 'block';
+
+  const pnaActualTotal = aggMonth(DATA.sales_daily, mesActual, 'pna', corte);
+  const pnaProyTotal = proyectarCierre('pna', pnaActualTotal, corte);
+  const leadsActualTotal = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
+  const mismoMesActualTotal = aggMonth(DATA.sales_daily, mesActual, 'mismoMes', corte);
+  const efectTotal = leadsActualTotal>0 ? (mismoMesActualTotal/leadsActualTotal)*100 : null;
+
+  function datosPorBucket(bucket){
+    if(bucket==='Total'){
+      return { real: {ventas: ventasActualTotal, pna: pnaActualTotal}, proy: {ventas: ventasProyTotal, pna: pnaProyTotal}, efect: efectTotal };
+    }
+    const rowsVentas = DATA.sales_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===bucket);
+    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===bucket);
+    const real = {
+      ventas: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0),
+      pna: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[8],0)
+    };
+    const proy = {
+      ventas: proyectarGenerico(real.ventas, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucket(r[2])===bucket).reduce((s,r)=>s+r[3],0)),
+      pna: proyectarGenerico(real.pna, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucket(r[2])===bucket).reduce((s,r)=>s+r[8],0))
+    };
+    const leadsBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
+    const mismoMesBucket = rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[5],0);
+    const efect = leadsBucket>0 ? (mismoMesBucket/leadsBucket)*100 : null;
+    return { real, proy, efect };
+  }
+
+  const buckets = ['Interno','Biznes','Total'];
+  const rowsUnidades = [], rowsPna = [], rowsEfect = [];
+  buckets.forEach(b => {
+    const d = datosPorBucket(b);
+    const meta = metasPorCall[b] || {};
+    rowsUnidades.push([b, fmtMetaN(meta.unidades), fmtMetaN(d.real.ventas), fmtMetaN(d.proy.ventas), cumplimientoMeta(d.proy.ventas, meta.unidades)]);
+    rowsPna.push([b, fmtMetaMoney(meta.pna), fmtMetaMoney(d.real.pna), fmtMetaMoney(d.proy.pna), cumplimientoMeta(d.proy.pna, meta.pna)]);
+    rowsEfect.push([b, fmtMetaPct(meta.efectividad), fmtMetaPct(d.efect), cumplimientoMeta(d.efect, meta.efectividad)]);
+  });
+
+  buildMetaTable('tableMetaUnidades', ['Call','Meta','Real (corte)','Proyección','% vs meta'], rowsUnidades);
+  buildMetaTable('tableMetaPna', ['Call','Meta PNA','Real (corte)','Proyección','% vs meta'], rowsPna);
+  buildMetaTable('tableMetaEfectividad', ['Call','Meta','Real (corte)','% vs meta'], rowsEfect);
+}
+
+// Tabla "Seguimiento diario" (pestaña propia): leads reales por día del mes actual vs. la
+// meta diaria PLANA cargada en "Metas_Diarias" (no se reduce en fin de semana/feriado, tal
+// como se pidió), más un resumen de la proyección de cierre del mes (esa sí usa el modelo de
+// días de gestión — feriados y medio-día de sábado incluidos — para ser realista). Se escribe
+// de forma genérica según cuántos productos traiga "Metas_Diarias": en Vida son 2 (Vida Cash /
+// Endoso, separados via leads_by_subproducto); en Rumbo es 1 solo (Rumbo, se usa el total de
+// leads_daily directamente porque no hay una pestaña "Metas_Diarias" con más de un producto).
+function renderSeguimientoDiario(corte){
+  if(!mesActual) return;
+  const metasDiarias = DATA.metas_diarias || [];
+  const notaSinMeta = document.getElementById('notaSinMetaDiaria');
+  const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
+  if(notaSinMeta) notaSinMeta.style.display = hayMetaDiaria ? 'none' : 'block';
+  if(!hayMetaDiaria){
+    buildMetaTable('tableSeguimientoDiario', ['Día'], []);
+    const notaProyVacia = document.getElementById('notaSeguimientoProy');
+    if(notaProyVacia) notaProyVacia.textContent = '';
+    return;
+  }
+
+  const productos = metasDiarias.map(m => m.producto);
+  const metaTotalDiaria = metasDiarias.reduce((s,m) => s + (m.meta||0), 0);
+  const diasDelMes = diasEnMes(mesActual);
+
+  // leads reales por día y por producto: con más de un producto se separan con
+  // leads_by_subproducto (dim = nombre del producto); con uno solo se usa leads_daily total.
+  const leadsPorDiaProducto = {};
+  if(productos.length > 1){
+    (DATA.leads_by_subproducto||[]).filter(r => r[0]===mesActual).forEach(r => {
+      const dia = r[1], prod = r[2], leads = r[3];
+      leadsPorDiaProducto[dia] = leadsPorDiaProducto[dia] || {};
+      leadsPorDiaProducto[dia][prod] = (leadsPorDiaProducto[dia][prod]||0) + leads;
+    });
+  } else if(productos.length === 1){
+    (DATA.leads_daily||[]).filter(r => r.mes===mesActual).forEach(r => {
+      leadsPorDiaProducto[r.dia] = leadsPorDiaProducto[r.dia] || {};
+      leadsPorDiaProducto[r.dia][productos[0]] = (leadsPorDiaProducto[r.dia][productos[0]]||0) + r.leads;
+    });
+  }
+
+  const dgMes = diasGestionDeMes(mesActual);
+  const headers = ['Día', ...productos, 'Total día', 'Meta día', 'Cumplimiento día', 'Acumulado real', 'Acumulado meta', 'Cumplimiento acumulado'];
+  const rows = [];
+  let acumReal = 0, acumMeta = 0;
+  const ultimoDia = Math.min(corte, diasDelMes);
+  for(let d=1; d<=ultimoDia; d++){
+    const porProd = leadsPorDiaProducto[d] || {};
+    const totalDia = productos.reduce((s,p) => s + (porProd[p]||0), 0);
+    acumReal += totalDia;
+    acumMeta += metaTotalDiaria;
+    const dg = dgMes.find(x => x.dia===d);
+    let etiqueta = String(d);
+    if(dg && dg.feriado) etiqueta += ' 🔴';
+    else if(dg && dg.dow===0) etiqueta += ' (dom)';
+    else if(dg && dg.peso===0.5) etiqueta += ' (sáb)';
+    rows.push([
+      etiqueta,
+      ...productos.map(p => fmtMetaN(porProd[p]||0)),
+      fmtMetaN(totalDia),
+      fmtMetaN(metaTotalDiaria),
+      cumplimientoMeta(totalDia, metaTotalDiaria),
+      fmtMetaN(acumReal),
+      fmtMetaN(acumMeta),
+      cumplimientoMeta(acumReal, acumMeta)
+    ]);
+  }
+  buildMetaTable('tableSeguimientoDiario', headers, rows);
+
+  // Proyección de cierre del mes en leads (modelo de días de gestión, con feriados/sábado
+  // incluidos) vs. la meta plana del mes completo (meta diaria x días del mes).
+  const leadsActualTotal = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
+  const leadsProyTotal = proyectarCierre('leads', leadsActualTotal, corte);
+  const metaMesCompleto = metaTotalDiaria * diasDelMes;
+  const notaProy = document.getElementById('notaSeguimientoProy');
+  if(notaProy){
+    const pctProy = metaMesCompleto>0 ? Math.round((leadsProyTotal/metaMesCompleto)*1000)/10 : null;
+    notaProy.textContent = 'Proyectando cerrar ' + Math.round(leadsProyTotal).toLocaleString() + ' leads en ' + labelFull(mesActual) +
+      (pctProy!==null ? (' (' + pctProy + '% de la meta del mes: ' + metaMesCompleto.toLocaleString() + ' leads = ' + metaTotalDiaria.toLocaleString() + '/día × ' + diasDelMes + ' días).') : '.');
+  }
 }
 
 // ---------- TABS ----------
@@ -820,6 +1009,8 @@ function actualizarTextosMes(){
   document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
   document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
+  document.getElementById('tituloMetas').textContent = 'Cómo vamos vs. la meta de ' + actualFull;
+  document.getElementById('tituloSeguimiento').textContent = 'Seguimiento diario de leads — ' + actualFull;
   // El subtitulo del header ya no muestra el rango de meses (enero-julio, enero-agosto...):
   // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
   // pedir este cambio cuando pase a "enero-septiembre" el mes que viene.
@@ -996,6 +1187,8 @@ function render(corte){
   intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
   intentar('renderInsights', () => renderInsights(corte));
   intentar('renderComite', () => renderComite(corte));
+  intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActual, ventasProy));
+  intentar('renderSeguimientoDiario', () => renderSeguimientoDiario(corte));
 }
 
 // Canal composition (ahora corte-aware)
