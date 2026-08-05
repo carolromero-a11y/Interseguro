@@ -62,8 +62,16 @@
   table.data-table th, table.data-table td{ padding:9px 10px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
   table.data-table thead th.div-left{ border-left:2px solid rgba(255,255,255,.55); }
   table.data-table tbody td.div-left{ border-left:2px solid var(--navy-2); }
-  table.data-table th:first-child, table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
-  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+  table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
+  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; text-align:center; }
+  /* Solo la celda de esquina (primera fila del thead) va alineada a la izquierda -- antes esta
+     regla usaba "th:first-child" a secas, que tambien agarraba la primera columna de mes en
+     tablas con 2 filas de encabezado (ej. "Mar" en las tablas con call center como columna),
+     y ademas le ponia texto color:var(--navy) -- el mismo color que el fondo navy del
+     encabezado, dejando ese texto invisible (navy sobre navy). Por eso no se veia "Marzo".
+     Ahora solo alinea a la izquierda la celda de esquina real y no le toca el color (se queda
+     blanco, heredado de thead th de arriba). */
+  table.data-table thead tr:first-child > th:first-child{ text-align:left; }
   table.data-table thead tr.sub-h th{ background:var(--navy-2); font-size:10.5px; font-weight:400; color:#C3D2DE; }
   table.data-table tbody tr:hover{ background:var(--bg); }
   table.data-table tbody tr:last-child td{ border-bottom:none; }
