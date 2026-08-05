@@ -60,6 +60,8 @@
   .tag.mundial{ background:#EFEBFA; border-color:#D6CDF0; color:#4A3D8F; }
   table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
   table.data-table th, table.data-table td{ padding:9px 10px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.data-table thead th.div-left{ border-left:2px solid rgba(255,255,255,.55); }
+  table.data-table tbody td.div-left{ border-left:2px solid var(--navy-2); }
   table.data-table th:first-child, table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
   table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
   table.data-table thead tr.sub-h th{ background:var(--navy-2); font-size:10.5px; font-weight:400; color:#C3D2DE; }
@@ -333,7 +335,11 @@
         <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
       </div>
-      <span class="filter-hint">Por defecto, últimos 3 meses con datos. Aplica a todas las tablas de esta pestaña (fuente y subfuente).</span>
+      <div class="dropdown-filter" data-tab="fuente-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Ambos filtros aplican a todas las tablas de esta pestaña (fuente y subfuente).</span>
     </div>
     <section>
       <h2>Leads y % Participación por fuente — todos los meses</h2>
@@ -405,6 +411,7 @@
       <div class="table-wrap"><table class="data-table" id="tableCampana"></table></div>
       <p class="note">% Participación = leads de esa campaña ÷ leads totales del mes. Efectividad = convertidos ÷ leads de esa campaña. Pasa el cursor sobre el nombre para ver la campaña completa.</p>
     </section>
+    <p class="note" id="notaCallOtrosFuente" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
   <!-- ===== TAB: ANTIGÜEDAD DEL LEAD (VINTAGE) ===== -->
@@ -595,7 +602,8 @@ fetch(OUTPUT_URL)
       'leads_cross_producto_call','sales_cross_producto_call','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
-      'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima'];
+      'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima',
+      'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -1227,6 +1235,17 @@ function pushCatchAllLast(arr){
   const catchall = arr.filter(d => esCatchAll(d));
   return normales.concat(catchall);
 }
+// Mismo orden que usa buildDimMatrices (mas leads primero, catch-all al final), pero expuesto
+// como funcion suelta para poder reutilizarlo en las tablas anidadas por call center.
+function dimsOrdenados(leadsKey, corte){
+  const leadsRowsAll = DATA[leadsKey]||[];
+  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
+  let dims = [...new Set(leadsRowsAll.map(r=>r[2]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = leadsRows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushCatchAllLast(dims);
+}
 
 function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, corte){
   const leadsRowsAll = DATA[leadsKey];
@@ -1366,6 +1385,10 @@ function construirDropdownMeses(tab, universo){
     '<label><input type="checkbox" value="'+m+'" '+(filtroMesesTab[tab].has(m)?'checked':'')+'> '+labelAbr(m)+'</label>'
   ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button><button type="button" data-act="ult3">Últimos 3</button></div>';
   panel.dataset.filled = '1';
+  // Evita que un clic dentro del panel (checkbox, boton) burbujee hasta el listener global
+  // del document (que cierra todos los desplegables), asi se pueden marcar/desmarcar varias
+  // opciones seguidas sin que el panel se cierre despues de cada clic.
+  panel.addEventListener('click', e => e.stopPropagation());
   panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => {
       if(cb.checked) filtroMesesTab[tab].add(cb.value); else filtroMesesTab[tab].delete(cb.value);
@@ -1452,8 +1475,9 @@ function renderAllMatrixSets(corte){
   renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], corte, 'calidad', true);
   renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true);
   renderCallFiltroProducto(corte);
+  renderCallFiltroFuente(corte);
 }
-// ---------- FILTRO DE CALL CENTER (pestaña Producto) ----------
+// ---------- FILTRO DE CALL CENTER (pestañas Producto y Fuente/Subfuente) ----------
 function callBucket(c){
   if(!c) return 'Otros';
   if(c.includes('Call Interno')) return 'Interno';
@@ -1461,9 +1485,12 @@ function callBucket(c){
   return 'Otros'; // A365, Inbound, Sin call - influencia directa, WhatsApp, etc.
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
-let callFiltroProducto = new Set(CALL_FILTER_BUCKETS);
-function construirDropdownCall(){
-  const wrap = document.querySelector('.dropdown-filter[data-tab="producto-call"]');
+// Un filtro de call independiente por pestaña (mismo patron que filtroMesesTab para los meses).
+const CALL_FILTRO_TABS = ['producto','fuente'];
+let callFiltroTab = {};
+CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
+function construirDropdownCall(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'-call"]');
   if(!wrap) return;
   const btn = wrap.querySelector('[data-role="call-filter-btn"]');
   const panel = wrap.querySelector('[data-role="call-filter-panel"]');
@@ -1473,16 +1500,19 @@ function construirDropdownCall(){
       '<label><input type="checkbox" value="'+b+'" checked> '+b+'</label>'
     ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
     panel.dataset.filled = '1';
+    // Igual que en el filtro de meses: evita que el clic en un checkbox cierre el panel antes
+    // de poder marcar/desmarcar otra opcion.
+    panel.addEventListener('click', e => e.stopPropagation());
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
-        if(cb.checked) callFiltroProducto.add(cb.value); else callFiltroProducto.delete(cb.value);
-        actualizarLabelCall(); render(corteActual);
+        if(cb.checked) callFiltroTab[tab].add(cb.value); else callFiltroTab[tab].delete(cb.value);
+        actualizarLabelCall(tab); render(corteActual);
       });
     });
     panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
-      callFiltroProducto = new Set(CALL_FILTER_BUCKETS);
+      callFiltroTab[tab] = new Set(CALL_FILTER_BUCKETS);
       panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
-      actualizarLabelCall(); render(corteActual);
+      actualizarLabelCall(tab); render(corteActual);
     });
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1490,24 +1520,45 @@ function construirDropdownCall(){
       panel.classList.toggle('open');
     });
   }
-  actualizarLabelCall();
+  actualizarLabelCall(tab);
 }
-function actualizarLabelCall(){
-  const wrap = document.querySelector('.dropdown-filter[data-tab="producto-call"]');
+function actualizarLabelCall(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'-call"]');
   if(!wrap) return;
   const label = wrap.querySelector('[data-role="call-filter-label"]');
   if(!label) return;
-  label.textContent = callFiltroProducto.size === CALL_FILTER_BUCKETS.length ? 'Todos' : (Array.from(callFiltroProducto).join(', ') || 'ninguno');
+  const set = callFiltroTab[tab];
+  label.textContent = set.size === CALL_FILTER_BUCKETS.length ? 'Todos' : (Array.from(set).join(', ') || 'ninguno');
 }
-construirDropdownCall();
+CALL_FILTRO_TABS.forEach(t => construirDropdownCall(t));
 
-// Reemplaza las tablas de Leads/Ventas/Ventas-mismo-mes/Efectividad de la pestaña Producto
-// (ya dibujadas por renderMatrixSet('Prod',...) mas arriba) por una version con el call
-// center como columna agrupadora, con los meses debajo de cada call elegido en el dropdown.
-// Venta Colchon / %Participacion Colchon de esa pestaña quedan tal cual (sin cruce por call).
+// Dibuja una tabla anidada: filas = dims (producto/fuente/subfuente), columnas = call center
+// (agrupador, con linea divisoria "div-left") x mes (sub-columna debajo de cada call).
+function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn){
+  let head1 = '<tr><th rowspan="2">'+rowLabel+'</th>', head2 = '<tr>';
+  buckets.forEach(b => {
+    head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+    head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+  });
+  head1 += '</tr>'; head2 += '</tr>';
+  let html = '<thead>'+head1+head2+'</thead><tbody>';
+  dims.forEach(d => {
+    html += '<tr><td>'+d+'</td>';
+    buckets.forEach(b => { cols.forEach((m,i) => { html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(cellFn(d,b,m), d, b, m)+'</td>'; }); });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+
+// Reemplaza las tablas de Leads/Ventas/Ventas-mismo-mes/Colchon/%Colchon/Efectividad de la
+// pestaña Producto (ya dibujadas por renderMatrixSet('Prod',...) mas arriba) por una version
+// con el call center como columna agrupadora, con los meses debajo de cada call elegido en
+// el dropdown.
 function renderCallFiltroProducto(corte){
   const nota = document.getElementById('notaCallOtros');
-  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroProducto.has(b));
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['producto'].has(b));
   if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
   if(!buckets.length) return;
   const cols = mesesVisiblesV('producto');
@@ -1520,27 +1571,74 @@ function renderCallFiltroProducto(corte){
     const ssub = salesCross.filter(r => r[2]===prod && callBucket(r[3])===bucket && r[0]===mes);
     return {
       l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
-      v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+      v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0),
+      vColchon: ssub.reduce((s,r)=>s+(r[6]||0),0)
     };
   }
-  function buildNested(tableId, valueFn){
-    let head1 = '<tr><th rowspan="2">Producto</th>', head2 = '<tr>';
-    buckets.forEach(b => { head1 += '<th colspan="'+cols.length+'">'+b+'</th>'; head2 += cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join(''); });
-    head1 += '</tr>'; head2 += '</tr>';
-    let html = '<thead>'+head1+head2+'</thead><tbody>';
-    productos.forEach(p => {
-      html += '<tr><td>'+p+'</td>';
-      buckets.forEach(b => { cols.forEach(m => { html += '<td>'+valueFn(aggCelda(p,b,m))+'</td>'; }); });
-      html += '</tr>';
+  // Total de leads por call+mes (sumando ambos productos), base del % participación de la
+  // tabla de Leads: ej. si Vida Cash tuvo 1030 leads en Marzo dentro de "Interno" y ese mismo
+  // call+mes sumo 1212 leads entre Vida Cash y Endoso, Vida Cash muestra "1,030 (85%)".
+  const totalLeadsPorBucketMes = {};
+  buckets.forEach(b => { cols.forEach(m => {
+    totalLeadsPorBucketMes[b+'|'+m] = productos.reduce((s,p)=>s+aggCelda(p,b,m).l,0);
+  }); });
+
+  buildCallNestedTable('tableProdLeadsMatrix', 'Producto', productos, buckets, cols, aggCelda, (a,d,b,m) => {
+    if(a.l===0) return '–';
+    const total = totalLeadsPorBucketMes[b+'|'+m];
+    const part = total>0 ? (a.l/total)*100 : 0;
+    return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+  });
+  buildCallNestedTable('tableProdVentasMatrix', 'Producto', productos, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+  buildCallNestedTable('tableProdMismoMesMatrix', 'Producto', productos, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+  buildCallNestedTable('tableProdColchonMatrix', 'Producto', productos, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+  buildCallNestedTable('tableProdColchonPartMatrix', 'Producto', productos, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
+  buildCallNestedTable('tableProdEfectMatrix', 'Producto', productos, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+}
+
+// Igual que renderCallFiltroProducto, pero para las 12 tablas de la pestaña "Por fuente y
+// subfuente" (6 de Fuente + 6 de Subfuente), usando los nuevos cruces leads/sales_cross_
+// fuente_call y leads/sales_cross_subfuente_call del .gs.
+function renderCallFiltroFuente(corte){
+  const nota = document.getElementById('notaCallOtrosFuente');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const cols = mesesVisiblesV('fuente');
+
+  function renderGrupo(idPrefix, rowLabel, leadsKeyPlano, leadsCrossKey, salesCrossKey){
+    const dims = dimsOrdenados(leadsKeyPlano, corte);
+    const leadsCross = (DATA[leadsCrossKey]||[]).filter(r => r[1] <= corte);
+    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] <= corte);
+    function aggCelda(dim, bucket, mes){
+      const lsub = leadsCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      const ssub = salesCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
+      return {
+        l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
+        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0),
+        vColchon: ssub.reduce((s,r)=>s+(r[6]||0),0)
+      };
+    }
+    const totalLeadsPorBucketMes = {};
+    buckets.forEach(b => { cols.forEach(m => {
+      totalLeadsPorBucketMes[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
+    }); });
+
+    buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dims, buckets, cols, aggCelda, (a,d,b,m) => {
+      if(a.l===0) return '–';
+      const total = totalLeadsPorBucketMes[b+'|'+m];
+      const part = total>0 ? (a.l/total)*100 : 0;
+      return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
     });
-    html += '</tbody>';
-    const el = document.getElementById(tableId);
-    if(el) el.innerHTML = html;
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
   }
-  buildNested('tableProdLeadsMatrix', a => a.l>0 ? a.l.toLocaleString() : '–');
-  buildNested('tableProdVentasMatrix', a => a.v>0 ? a.v.toLocaleString() : '–');
-  buildNested('tableProdMismoMesMatrix', a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
-  buildNested('tableProdEfectMatrix', a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+
+  renderGrupo('Fuente', 'Fuente', 'leads_by_fuente', 'leads_cross_fuente_call', 'sales_cross_fuente_call');
+  renderGrupo('Subfuente', 'Subfuente', 'leads_by_subfuente', 'leads_cross_subfuente_call', 'sales_cross_subfuente_call');
 }
 
 // ---------- INSIGHTS DEL MES (Resumen) ----------
