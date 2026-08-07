@@ -191,7 +191,7 @@
         <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
       </div>
       <div>
-        <p class="sub" style="margin-bottom:6px;">Leads (meta del mes = meta diaria de "Metas_Diarias" × días del mes)</p>
+        <p class="sub" style="margin-bottom:6px;">Leads (meta del mes = meta diaria de "Metas_Diarias" × días del mes; Interno y Biznes se reparten esa meta 50% / 50%)</p>
         <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
       </div>
     </div>
@@ -937,9 +937,10 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
 // Tabla "Leads" al costado de Efectividad en el Resumen: mismas filas que las otras 3 tablas
 // de esta sección (Interno / Biznes / Total), para que las 4 se lean juntas de forma consistente.
 // Real y Proyección por call salen de leads_by_call (mismo patrón que datosPorBucket de arriba).
-// La Meta, en cambio, solo existe a nivel de mes completo (meta diaria de "Metas_Diarias" x
-// días del mes) -- no hay una meta de leads cargada por call center, así que Interno/Biznes
-// muestran "–" en Meta y % vs meta, y solo la fila Total compara contra la meta real.
+// La Meta solo existe cargada a nivel de mes completo (meta diaria de "Metas_Diarias" x días
+// del mes) -- no hay una meta de leads por call en el Sheet, así que, a pedido explícito, se
+// reparte la meta total entre Interno y Biznes según REPARTO_META_LEADS (en Vida, 50%/50%).
+const REPARTO_META_LEADS = { Interno: 0.5, Biznes: 0.5 };
 function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
   if(!mesActual) return;
   const metasDiarias = DATA.metas_diarias || [];
@@ -956,10 +957,11 @@ function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
     if(b==='Total'){
       return ['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
     }
+    const metaBucket = Math.round(metaMesTotal * REPARTO_META_LEADS[b]);
     const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===b);
     const realBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
     const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===b).reduce((s,r)=>s+r[3],0));
-    return [b, '–', fmtMetaN(realBucket), fmtMetaN(proyBucket), '–'];
+    return [b, fmtMetaN(metaBucket), fmtMetaN(realBucket), fmtMetaN(proyBucket), cumplimientoMeta(proyBucket, metaBucket)];
   });
 
   buildMetaTable('tableMetaLeads', ['Call','Meta del mes','Real (corte)','Proyección','% vs meta'], rows);
