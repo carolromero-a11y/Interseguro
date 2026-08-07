@@ -1035,9 +1035,27 @@ function renderSeguimientoDiario(){
   });
   if(productos.length > 1){
     rows.push(['Total', ...diasArr.map(d => d>corteReal ? '–' : fmtMetaN(totalDelDia(d)))]);
+    // Con más de un producto (Vida Cash + Endoso) se muestra la meta y el cumplimiento de
+    // cada producto por separado, además del total combinado, para poder ver si un producto
+    // en particular se está quedando corto aunque el total se vea bien.
+    productos.forEach(p => {
+      const metaProd = (metasDiarias.find(m=>m.producto===p)||{}).meta || 0;
+      rows.push(['Meta ' + p, ...diasArr.map(() => fmtMetaN(metaProd))]);
+    });
+    rows.push(['Meta diaria (total)', ...diasArr.map(() => fmtMetaN(metaTotalDiaria))]);
+    productos.forEach(p => {
+      const metaProd = (metasDiarias.find(m=>m.producto===p)||{}).meta || 0;
+      rows.push(['Cumplimiento ' + p, ...diasArr.map(d => {
+        if(d>corteReal) return '–';
+        const v = (leadsPorDiaProducto[d]||{})[p] || 0;
+        return cumplimientoMeta(v, metaProd);
+      })]);
+    });
+    rows.push(['Cumplimiento día total', ...diasArr.map(d => d>corteReal ? '–' : cumplimientoMeta(totalDelDia(d), metaTotalDiaria))]);
+  } else {
+    rows.push(['Meta día', ...diasArr.map(() => fmtMetaN(metaTotalDiaria))]);
+    rows.push(['Cumplimiento día', ...diasArr.map(d => d>corteReal ? '–' : cumplimientoMeta(totalDelDia(d), metaTotalDiaria))]);
   }
-  rows.push(['Meta día', ...diasArr.map(() => fmtMetaN(metaTotalDiaria))]);
-  rows.push(['Cumplimiento día', ...diasArr.map(d => d>corteReal ? '–' : cumplimientoMeta(totalDelDia(d), metaTotalDiaria))]);
   buildMetaTable('tableSeguimientoDiario', headers, rows);
 
   // Box de arriba: proyección de cierre del mes en leads, al ritmo real de los días que ya
