@@ -1546,11 +1546,40 @@ function actualizarLabelCall(tab){
 }
 CALL_FILTRO_TABS.forEach(t => construirDropdownCall(t));
 
+// Suma generica de "celdas" (objetos con campos numericos, ej. {l, conv, v, vMismoMes}) -- se
+// usa para armar la columna "Total" (Interno+Biznes+Otros) sin tener que saber de antemano que
+// campos trae cada tabla.
+function sumarCeldas(objs){
+  const out = {};
+  objs.forEach(o => {
+    Object.keys(o||{}).forEach(k => {
+      if(typeof o[k] === 'number') out[k] = (out[k]||0) + o[k];
+    });
+  });
+  return out;
+}
+// Agrega la clave "Total|<mes>" a un mapa de totales por bucket+mes (ej. totalLeadsPorBucketMes,
+// usado para el % de participacion de la tabla de Leads), sumando los buckets ya elegidos en el
+// filtro. Se llama despues de llenar el mapa con los buckets normales (Interno/Biznes/Otros).
+function agregarTotalAMapaBuckets(mapa, buckets, cols){
+  cols.forEach(m => { mapa['Total|'+m] = buckets.reduce((s,b) => s + (mapa[b+'|'+m]||0), 0); });
+  return mapa;
+}
 // Dibuja una tabla anidada: filas = dims (rango de prima/fuente/subfuente), columnas = call
-// center (agrupador, con linea divisoria "div-left") x mes (sub-columna debajo de cada call).
+// center (agrupador, con linea divisoria "div-left") x mes (sub-columna debajo de cada call). A
+// pedido explicito, si hay mas de 1 call elegido en el filtro se agrega una columna "Total" al
+// final que suma los calls elegidos (Interno+Biznes+Otros, o los que esten activos en el
+// desplegable) -- se calcula solo sumando cellFn de los buckets reales, sin que el llamador
+// tenga que hacer nada especial (salvo, si su valueFn usa un mapa externo de totales para armar
+// un %, agregarle tambien la clave "Total|<mes>" con agregarTotalAMapaBuckets()).
 function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn){
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  function cellFnConTotal(d, b, m){
+    if(b === 'Total') return sumarCeldas(buckets.map(bb => cellFn(d,bb,m)));
+    return cellFn(d,b,m);
+  }
   let head1 = '<tr><th rowspan="2">'+rowLabel+'</th>', head2 = '<tr>';
-  buckets.forEach(b => {
+  gruposMostrar.forEach(b => {
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
     head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
   });
@@ -1558,7 +1587,7 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
   let html = '<thead>'+head1+head2+'</thead><tbody>';
   dims.forEach(d => {
     html += '<tr><td>'+d+'</td>';
-    buckets.forEach(b => { cols.forEach((m,i) => { html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(cellFn(d,b,m), d, b, m)+'</td>'; }); });
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => { html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(cellFnConTotal(d,b,m), d, b, m)+'</td>'; }); });
     html += '</tr>';
   });
   html += '</tbody>';
@@ -1648,6 +1677,7 @@ function renderCallFiltroFuenteBasico(corte){
     buckets.forEach(b => { cols.forEach(m => {
       totalLeadsPorBucketMes[b+'|'+m] = dimsReales.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
     }); });
+    agregarTotalAMapaBuckets(totalLeadsPorBucketMes, buckets, cols);
 
     buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, (a,d,b,m) => {
       if(a.l===0) return '–';
@@ -1763,24 +1793,26 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
   const rowsAll = DATA[triKey]||[];
   const rows = rowsAll.filter(r => ventasEnRangoFechas(r, desde, hasta));
   function celda(d1, d2, bucket, m){
+    if(bucket === 'Total') return buckets.reduce((s,bb) => s + celda(d1,d2,bb,m), 0);
     return rows.filter(r => r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket && r[0]===m).reduce((s,r)=>s+r[5],0);
   }
   function totalDim1BucketMes(d1, bucket, m){
     return dim2s.reduce((s,d2)=>s+celda(d1,d2,bucket,m),0);
   }
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
-  buckets.forEach(b => {
+  gruposMostrar.forEach(b => {
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
     head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
   });
   head1 += '</tr>'; head2 += '</tr>';
-  const totalCols = buckets.length * cols.length;
+  const totalCols = gruposMostrar.length * cols.length;
   let html = '<thead>'+head1+head2+'</thead><tbody>';
   dim1s.forEach(d1 => {
     html += '<tr style="background:var(--bg);"><td colspan="'+(totalCols+1)+'" style="font-weight:700;color:var(--navy);">'+d1+'</td></tr>';
     dim2s.forEach(d2 => {
       html += '<tr><td style="padding-left:22px;">'+d2+'</td>';
-      buckets.forEach(b => { cols.forEach((m,i) => {
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const v = celda(d1,d2,b,m);
         const cls = i===0 ? ' class="div-left"' : '';
         if(v===0){ html += '<td'+cls+'>–</td>'; return; }
@@ -1791,7 +1823,7 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
       html += '</tr>';
     });
     html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+d1+'</td>';
-    buckets.forEach(b => { cols.forEach((m,i) => {
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
       const t = totalDim1BucketMes(d1,b,m);
       const cls = i===0 ? ' class="div-left"' : '';
       html += '<td'+cls+'>'+(t>0?t.toLocaleString():'–')+'</td>';
@@ -1799,7 +1831,7 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
     html += '</tr>';
   });
   html += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
-  buckets.forEach(b => { cols.forEach((m,i) => {
+  gruposMostrar.forEach(b => { cols.forEach((m,i) => {
     const t = dim1s.reduce((s,d1)=>s+totalDim1BucketMes(d1,b,m),0);
     const cls = i===0 ? ' class="div-left"' : '';
     html += '<td'+cls+'>'+(t>0?t.toLocaleString():'–')+'</td>';
@@ -1849,7 +1881,7 @@ function renderVentasTab(){
     buckets.forEach(b => { cols.forEach(m => {
       t[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(crossKey,d,b,m).v,0);
     }); });
-    return t;
+    return agregarTotalAMapaBuckets(t, buckets, cols);
   }
   function valueConPct(totales){
     return (a,d,b,m) => {
