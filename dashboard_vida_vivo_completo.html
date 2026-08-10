@@ -2241,6 +2241,14 @@ function renderInsights(corte){
   const box = document.getElementById('insightsBox');
   if(!box || !mesActual || !mesAnterior) { if(box) box.innerHTML = 'Sin suficientes meses para comparar todavía.'; return; }
   const candidatos = [];
+
+  // Total de ventas al día de corte, vs. mes anterior al MISMO día de corte -- base para "cómo
+  // vamos vs. mes anterior misma fecha" y para la atribución por dimensión de más abajo (qué
+  // explica ese cambio). Se calcula primero porque el resto de insights lo reutiliza.
+  const vA = aggMonth(DATA.sales_daily, mesActual, 'ventas', corte);
+  const vP = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', corte);
+  const relVentasTotal = vP>0 ? (vA-vP)/vP : null;
+
   const DIMS_INSIGHT = [
     {label:'call', prefix:'Call', leadsKey:'leads_by_call', salesKey:'sales_by_call', excludeSubstr:['WhatsApp'], excludeFromEfect:['Sin call']},
     {label:'producto', prefix:'Prod', leadsKey:'leads_by_subproducto', salesKey:'sales_by_subproducto', excludeSubstr:[], excludeFromEfect:[]},
@@ -2253,15 +2261,20 @@ function renderInsights(corte){
     try { M = buildDimMatrices(cfg.prefix, cfg.leadsKey, cfg.salesKey, cfg.excludeSubstr, corte); } catch(e){ return; }
     const efectFilter = cfg.excludeFromEfect.length ? (d => !cfg.excludeFromEfect.some(ex => d.includes(ex))) : null;
     const dims = efectFilter ? M.dims.filter(efectFilter) : M.dims;
+    // El valor de esta dimension que más aporta (en unidades de venta, positivas o negativas)
+    // al cambio total de ventas del mes -- se usa abajo para explicar "por qué" cambió la venta,
+    // no solo reportar cambios de efectividad/participación sueltos por su cuenta.
+    let mejorContribuyente = null;
     dims.forEach(d => {
       if(esCatchAll(d)) return;
       const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
       const avgPart = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
       if(avgPart < 0.08) return; // no relevante, mismo umbral que las tablas
-      const vA = M.agg[d][mesActual], vP = M.agg[d][mesAnterior];
+      const vAd = M.agg[d][mesActual], vPd = M.agg[d][mesAnterior];
       // Efectividad
-      if(vA && vP && vA.l>0 && vP.l>0){
-        const eA = vA.vMismoMes/vA.l, eP = vP.vMismoMes/vP.l;
+      let eA=null, eP=null;
+      if(vAd && vPd && vAd.l>0 && vPd.l>0){
+        eA = vAd.vMismoMes/vAd.l; eP = vPd.vMismoMes/vPd.l;
         if(eP>0){
           const rel = (eA-eP)/eP;
           if(Math.abs(rel)>=0.15){
@@ -2271,8 +2284,9 @@ function renderInsights(corte){
         }
       }
       // Participacion de leads
-      if(vA && vP && M.totalLeadsPorMes[mesActual]>0 && M.totalLeadsPorMes[mesAnterior]>0){
-        const pA = vA.l/M.totalLeadsPorMes[mesActual], pP = vP.l/M.totalLeadsPorMes[mesAnterior];
+      let pA=null, pP=null;
+      if(vAd && vPd && M.totalLeadsPorMes[mesActual]>0 && M.totalLeadsPorMes[mesAnterior]>0){
+        pA = vAd.l/M.totalLeadsPorMes[mesActual]; pP = vPd.l/M.totalLeadsPorMes[mesAnterior];
         if(pP>0){
           const rel = (pA-pP)/pP;
           if(Math.abs(rel)>=0.15){
@@ -2281,22 +2295,39 @@ function renderInsights(corte){
           }
         }
       }
+      // Contribución de esta dimensión al cambio total de ventas (para el insight de atribución)
+      if(vAd && vPd){
+        const deltaV = vAd.v - vPd.v;
+        if(!mejorContribuyente || Math.abs(deltaV) > Math.abs(mejorContribuyente.deltaV)){
+          mejorContribuyente = {dim:d, deltaV, eA, eP, pA, pP};
+        }
+      }
     });
+    // Insight de atribución: "¿por qué cambió la venta total?" -- solo si el cambio total ya es
+    // relevante (>=10%) y esta dimensión explica al menos 25% de ese cambio en unidades de venta.
+    if(mejorContribuyente && relVentasTotal!==null && Math.abs(relVentasTotal)>=0.10 && (vA-vP)!==0){
+      const fraccion = Math.min(1, Math.abs(mejorContribuyente.deltaV)/Math.abs(vA-vP));
+      if(fraccion >= 0.25){
+        const c = mejorContribuyente;
+        const detalle = [];
+        if(c.eA!==null && c.eP!==null) detalle.push('efectividad '+pctFmt(c.eP*100)+' → '+pctFmt(c.eA*100));
+        if(c.pA!==null && c.pP!==null) detalle.push('participación '+pctFmt(c.pP*100)+' → '+pctFmt(c.pA*100));
+        candidatos.push({cat:'atribucion', mag: Math.abs(relVentasTotal)*fraccion,
+          text:'La venta de '+labelFull(mesActual)+' vs. '+labelFull(mesAnterior)+' (mismo día de corte) '+(c.deltaV>=0?'subió':'bajó')+' principalmente por <strong>'+c.dim+'</strong> ('+cfg.label+'): aportó '+Math.abs(Math.round(c.deltaV))+' ventas '+(c.deltaV>=0?'más':'menos')+(detalle.length?' ('+detalle.join(', ')+')':'')+'.'});
+      }
+    }
   });
   // KPIs generales del mes
-  const vA = aggMonth(DATA.sales_daily, mesActual, 'ventas', corte);
-  const vP = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', corte);
   if(vP>0){
-    const rel = (vA-vP)/vP;
-    candidatos.push({cat:'kpi', mag:Math.abs(rel),
-      text:'Ventas de '+labelFull(mesActual)+' al día '+corte+': '+vA.toLocaleString()+' vs. '+vP.toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+    candidatos.push({cat:'kpi', mag:Math.abs(relVentasTotal),
+      text:'Ventas de '+labelFull(mesActual)+' al día '+corte+': '+vA.toLocaleString()+' vs. '+vP.toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(relVentasTotal>=0?'+':'')+Math.round(relVentasTotal*1000)/10+'%).'});
   }
-  const pA = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
-  const pP = aggMonth(DATA.sales_daily, mesAnterior, 'prima', corte);
-  if(pP>0){
-    const rel = (pA-pP)/pP;
+  const primaActualIns = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+  const primaAnteriorIns = aggMonth(DATA.sales_daily, mesAnterior, 'prima', corte);
+  if(primaAnteriorIns>0){
+    const rel = (primaActualIns-primaAnteriorIns)/primaAnteriorIns;
     candidatos.push({cat:'kpi', mag:Math.abs(rel),
-      text:'Prima de '+labelFull(mesActual)+' al día '+corte+': S/ '+Math.round(pA).toLocaleString()+' vs. S/ '+Math.round(pP).toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+      text:'Prima de '+labelFull(mesActual)+' al día '+corte+': S/ '+Math.round(primaActualIns).toLocaleString()+' vs. S/ '+Math.round(primaAnteriorIns).toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
   }
   const ventasProyIns = proyectarCierre('ventas', vA, corte);
   const ventasMesAntCompleto = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', null);
@@ -2304,6 +2335,44 @@ function renderInsights(corte){
     const rel = (ventasProyIns-ventasMesAntCompleto)/ventasMesAntCompleto;
     candidatos.push({cat:'kpi', mag:Math.abs(rel),
       text:'Proyección de cierre de '+labelFull(mesActual)+': '+Math.round(ventasProyIns).toLocaleString()+' ventas vs. '+ventasMesAntCompleto.toLocaleString()+' cerradas en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+
+  // ---------- Cómo vamos con la proyección vs. la meta cargada (a pedido explícito) ----------
+  // Estos insights se recalculan cada vez que cambia el día de corte (por eso cambian día a
+  // día): al ritmo real del mes hasta la fecha, ¿cómo se ve el cierre proyectado frente a la
+  // meta cargada en la pestaña "Metas" / "Metas_Diarias" del Sheet? Se les da un pequeño boost
+  // fijo (+0.2) para que no se pierdan entre insights de dimensiones menores, ya que "vamos
+  // bien/mal vs. la meta" es la pregunta más importante del tablero.
+  const metaTotal = (DATA.metas||[]).find(m=>m.call==='Total') || {};
+  if(metaTotal.unidades>0){
+    const pct = (ventasProyIns/metaTotal.unidades)*100;
+    const desvio = Math.abs(pct-100)/100;
+    if(desvio>=0.05){
+      candidatos.push({cat:'proyeccion', mag: desvio+0.2,
+        text:'Proyectando '+labelFull(mesActual)+' en '+Math.round(ventasProyIns).toLocaleString()+' ventas al ritmo actual: '+pctFmt(pct)+' de la meta de '+Math.round(metaTotal.unidades).toLocaleString()+(pct>=100?' -- vamos por encima':' -- por debajo, hace falta acelerar')+'.'});
+    }
+  }
+  const pnaActualIns = aggMonth(DATA.sales_daily, mesActual, 'pna', corte);
+  const pnaProyIns = proyectarCierre('pna', pnaActualIns, corte);
+  if(metaTotal.pna>0){
+    const pct = (pnaProyIns/metaTotal.pna)*100;
+    const desvio = Math.abs(pct-100)/100;
+    if(desvio>=0.05){
+      candidatos.push({cat:'proyeccion', mag: desvio+0.2,
+        text:'Proyectando PNA de '+labelFull(mesActual)+' en S/ '+Math.round(pnaProyIns).toLocaleString()+' al ritmo actual: '+pctFmt(pct)+' de la meta de S/ '+Math.round(metaTotal.pna).toLocaleString()+(pct>=100?' -- vamos por encima':' -- por debajo, hace falta acelerar')+'.'});
+    }
+  }
+  const leadsActualIns = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
+  const leadsProyIns = proyectarCierre('leads', leadsActualIns, corte);
+  const metasDiariasIns = DATA.metas_diarias || [];
+  const metaLeadsMesIns = metasDiariasIns.reduce((s,m)=>s+(m.meta||0),0) * diasEnMes(mesActual);
+  if(metaLeadsMesIns>0){
+    const pct = (leadsProyIns/metaLeadsMesIns)*100;
+    const desvio = Math.abs(pct-100)/100;
+    if(desvio>=0.05){
+      candidatos.push({cat:'proyeccion', mag: desvio+0.2,
+        text:'Proyectando leads de '+labelFull(mesActual)+' en '+Math.round(leadsProyIns).toLocaleString()+' al ritmo actual: '+pctFmt(pct)+' de la meta de '+Math.round(metaLeadsMesIns).toLocaleString()+(pct>=100?' -- vamos por encima':' -- por debajo, hace falta acelerar')+'.'});
+    }
   }
 
   candidatos.sort((a,b)=>b.mag-a.mag);
