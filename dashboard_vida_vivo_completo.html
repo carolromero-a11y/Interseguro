@@ -193,7 +193,7 @@
         <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
       </div>
       <div>
-        <p class="sub" style="margin-bottom:6px;">Leads por voz (meta del mes = meta diaria de "Metas_Diarias" × días del mes; Interno y Biznes se reparten esa meta 55% / 45%)</p>
+        <p class="sub" style="margin-bottom:6px;">Leads de Interno y Biznes (meta del mes = meta diaria de "Metas_Diarias" × días del mes, repartida 55% / 45%); el Total es el total real de leads de todo el dashboard.</p>
         <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
       </div>
     </div>
@@ -890,17 +890,21 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
   const nota = document.getElementById('notaSinMetas');
   if(nota) nota.style.display = hayAlgunaMeta ? 'none' : 'block';
 
-  // A pedido explícito: esta sección ("Cómo vamos vs. la meta") solo debe contar ventas/leads
-  // de los canales de CALL por voz -- Call Interno y Biznes -- sin mezclar con "Call Interno
-  // WhatsApp" / "Biznes WhatsApp" ni con Otros (A365, Inbound, directa). Por eso usa
+  // A pedido explícito: esta sección ("Cómo vamos vs. la meta") solo debe contar ventas de los
+  // canales de CALL por voz -- Call Interno y Biznes -- sin mezclar con "Call Interno WhatsApp"
+  // / "Biznes WhatsApp" ni con Otros (A365, Inbound, directa). Por eso las VENTAS usan
   // callBucketVoz (match exacto, sin WhatsApp) en vez del callBucket general que sí usa el
-  // resto del dashboard (ej. la pestaña "Por call center"). El "Total" de esta sección ya NO
-  // reusa ventasActualTotal (que es el total de TODO el dashboard, todos los canales) -- se
-  // recalcula como Interno(voz) + Biznes(voz), para que quede consistente con las dos filas
-  // de arriba y con las metas cargadas (que son específicamente para estos dos calls).
+  // resto del dashboard (ej. la pestaña "Por call center"). Los LEADS, en cambio, usan
+  // callBucket (el general): según lo aclarado, los leads solo llegan por Call Interno o
+  // Biznes -- no hay un canal de leads por WhatsApp separado (eso se mide aparte, en
+  // "sesiones", y no entra en este análisis) -- así que no hace falta el filtro estricto ahí.
+  // El "Total" de esta sección ya NO reusa ventasActualTotal (que es el total de TODO el
+  // dashboard, todos los canales) -- se recalcula como Interno(voz) + Biznes(voz), para que
+  // quede consistente con las dos filas de arriba y con las metas cargadas (que son
+  // específicamente para estos dos calls).
   function datosPorBucketVoz(bucket){
     const rowsVentas = DATA.sales_by_call.filter(r => r[0]===mesActual && callBucketVoz(r[2])===bucket);
-    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucketVoz(r[2])===bucket);
+    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===bucket);
     const real = {
       ventas: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0),
       pna: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[8],0)
@@ -961,25 +965,25 @@ function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
   const diasDelMes = diasEnMes(mesActual);
   const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
 
-  // A pedido explícito, igual que en renderMetasResumen: solo leads de los canales de call por
-  // voz (Interno/Biznes, sin WhatsApp) -- y el Total de esta tabla es la suma de esos dos, no
-  // leadsActualTotal (que es el total de TODO el dashboard, todos los canales).
-  function datosLeadsVoz(b){
+  // Interno/Biznes: leads de esos calls, según el bucket general (callBucket) -- a diferencia
+  // de las ventas de "Cómo vamos vs. la meta", los leads no tienen un canal WhatsApp aparte que
+  // haya que excluir (eso se mide en "sesiones", no en leads_by_call), así que no hace falta el
+  // filtro estricto callBucketVoz aquí. El "Total" usa directamente leadsActualTotal/
+  // leadsProyTotal/metaMesTotal (los mismos totales de "Seguimiento diario" y el gráfico de
+  // proyección de leads) para garantizar que siempre coincidan, en vez de sumar Interno+Biznes.
+  function datosLeadsPorCall(b){
     const metaBucket = Math.round(metaMesTotal * REPARTO_META_LEADS[b]);
-    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucketVoz(r[2])===b);
+    const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===b);
     const realBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
-    const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===b).reduce((s,r)=>s+r[3],0));
+    const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===b).reduce((s,r)=>s+r[3],0));
     return { metaBucket, realBucket, proyBucket };
   }
-  const dInterno = datosLeadsVoz('Interno'), dBiznes = datosLeadsVoz('Biznes');
+  const dInterno = datosLeadsPorCall('Interno'), dBiznes = datosLeadsPorCall('Biznes');
 
   const buckets = ['Interno','Biznes','Total'];
   const rows = buckets.map(b => {
     if(b==='Total'){
-      const metaTot = dInterno.metaBucket + dBiznes.metaBucket;
-      const realTot = dInterno.realBucket + dBiznes.realBucket;
-      const proyTot = dInterno.proyBucket + dBiznes.proyBucket;
-      return ['Total', fmtMetaN(metaTot), fmtMetaN(realTot), fmtMetaN(proyTot), cumplimientoMeta(proyTot, metaTot)];
+      return ['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
     }
     const d = b==='Interno' ? dInterno : dBiznes;
     return [b, fmtMetaN(d.metaBucket), fmtMetaN(d.realBucket), fmtMetaN(d.proyBucket), cumplimientoMeta(d.proyBucket, d.metaBucket)];
