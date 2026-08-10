@@ -135,6 +135,7 @@
     <span class="hint">Aplica al resumen</span>
   </div>
 
+  <div id="rangoFechasBlock" style="display:none;">
   <div class="controls" style="margin-top:8px;">
     <label for="rangoDesde">Ver un rango de fechas específico</label>
     <input type="date" id="rangoDesde">
@@ -144,6 +145,7 @@
     <span class="hint">Independiente del día de corte — funciona con cualquier ventana de días, incluso cruzando meses</span>
   </div>
   <div id="rangoResultado" style="display:none;"></div>
+  </div>
   </div>
 
   <!-- ===== TAB: RESUMEN ===== -->
@@ -1029,9 +1031,10 @@ function renderSeguimientoDiario(){
   if(box) box.innerHTML = textoBox;
 }
 
-// El slider "Día de corte" y el buscador de rango de fechas no aplican a "Seguimiento diario"
-// (esa pestaña ya muestra el mes completo, día por día, sin necesidad de elegir un corte), así
-// que se ocultan solo mientras esa pestaña está activa.
+// El slider "Día de corte" no aplica a "Seguimiento diario" (esa pestaña ya muestra el mes
+// completo, día por día, sin necesidad de elegir un corte), así que se oculta solo mientras
+// esa pestaña está activa. El buscador de "Ver un rango de fechas específico" solo tiene
+// sentido en la pestaña "Ventas" (a pedido explícito), así que se muestra únicamente ahí.
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1040,6 +1043,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     const corteControls = document.getElementById('corteControls');
     if(corteControls) corteControls.style.display = (btn.dataset.tab === 'seguimiento') ? 'none' : '';
+    const rangoFechasBlock = document.getElementById('rangoFechasBlock');
+    if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
   });
 });
 
