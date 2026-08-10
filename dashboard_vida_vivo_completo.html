@@ -176,7 +176,7 @@
 
   <section>
     <h2 id="tituloMetas">Cómo vamos vs. la meta de julio</h2>
-    <p class="sub">Metas cargadas a mano en la pestaña "Metas" del Google Sheet (por call center y total). "Real" = acumulado hasta el día de corte de arriba, solo canales de call por voz (Call Interno y Biznes, sin WhatsApp). "Proyección" = cierre estimado del mes completo, con el mismo modelo de días de gestión (feriados incluidos) que el resto del dashboard.</p>
+    <p class="sub">Metas cargadas a mano en la pestaña "Metas" del Google Sheet (por call center y total). "Real" = acumulado hasta el día de corte de arriba. Interno y Biznes son solo canales de call por voz (sin WhatsApp); "Total (todos los canales)" es el total real del mes, todos los canales incluidos. "Proyección" = cierre estimado del mes completo, con el mismo modelo de días de gestión (feriados incluidos) que el resto del dashboard.</p>
     <div class="grid-2">
       <div>
         <p class="sub" style="margin-bottom:6px;">Unidades (ventas)</p>
@@ -189,7 +189,7 @@
     </div>
     <div class="grid-2" style="margin-top:14px;">
       <div>
-        <p class="sub" style="margin-bottom:6px;">Efectividad (todas las ventas del mes por voz, sin importar el mes del lead, ÷ leads del mes por voz, ambos a la fecha de corte)</p>
+        <p class="sub" style="margin-bottom:6px;">Efectividad (todas las ventas del mes, sin importar el mes del lead, ÷ leads del mes, ambos a la fecha de corte; Interno/Biznes solo voz, "Total (todos los canales)" con todo)</p>
         <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
       </div>
       <div>
@@ -502,6 +502,11 @@
       <p class="sub">Rango de clics en el cotizador del lead que originó la venta (o "Sin dato" si fue venta directa o el lead no tiene ese dato).</p>
       <div class="table-wrap"><table class="data-table" id="tableVentasCotizadorMatrix"></table></div>
     </section>
+    <section>
+      <h2>Ventas y % participación por rango de edad</h2>
+      <p class="sub">Edad al momento de la venta (calculada desde la fecha de nacimiento en Ventas_Raw; "Sin dato" si esa fecha no está disponible).</p>
+      <div class="table-wrap"><table class="data-table" id="tableVentasEdadMatrix"></table></div>
+    </section>
     <p class="note" id="notaCallOtrosVentas" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
@@ -718,7 +723,7 @@ fetch(OUTPUT_URL)
       'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
-      'sales_tri_campana_rangoprima_call','metas','metas_diarias'];
+      'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -890,18 +895,18 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
   const nota = document.getElementById('notaSinMetas');
   if(nota) nota.style.display = hayAlgunaMeta ? 'none' : 'block';
 
-  // A pedido explícito: esta sección ("Cómo vamos vs. la meta") solo debe contar ventas de los
-  // canales de CALL por voz -- Call Interno y Biznes -- sin mezclar con "Call Interno WhatsApp"
-  // / "Biznes WhatsApp" ni con Otros (A365, Inbound, directa). Por eso las VENTAS usan
-  // callBucketVoz (match exacto, sin WhatsApp) en vez del callBucket general que sí usa el
-  // resto del dashboard (ej. la pestaña "Por call center"). Los LEADS, en cambio, usan
-  // callBucket (el general): según lo aclarado, los leads solo llegan por Call Interno o
-  // Biznes -- no hay un canal de leads por WhatsApp separado (eso se mide aparte, en
-  // "sesiones", y no entra en este análisis) -- así que no hace falta el filtro estricto ahí.
-  // El "Total" de esta sección ya NO reusa ventasActualTotal (que es el total de TODO el
-  // dashboard, todos los canales) -- se recalcula como Interno(voz) + Biznes(voz), para que
-  // quede consistente con las dos filas de arriba y con las metas cargadas (que son
-  // específicamente para estos dos calls).
+  // A pedido explícito: las filas Interno/Biznes de esta sección ("Cómo vamos vs. la meta")
+  // solo cuentan ventas de los canales de CALL por voz -- Call Interno y Biznes -- sin mezclar
+  // con "Call Interno WhatsApp" / "Biznes WhatsApp" ni con Otros (A365, Inbound, directa). Por
+  // eso las VENTAS usan callBucketVoz (match exacto, sin WhatsApp) en vez del callBucket
+  // general que sí usa el resto del dashboard. Los LEADS, en cambio, usan callBucket (el
+  // general): los leads solo llegan por Call Interno o Biznes -- no hay un canal de leads por
+  // WhatsApp separado (eso se mide aparte, en "sesiones") -- así que no hace falta el filtro
+  // estricto ahí.
+  // La fila "Total (todos los canales)", a pedido explícito, SÍ es el total real de TODO el
+  // dashboard -- ventasActualTotal/ventasProyTotal (mismos que las tarjetas KPI de arriba) y
+  // leads/PNA calculados directo de leads_daily/sales_daily -- para poder ver cómo va el mes
+  // completo, no solo Interno+Biznes por voz.
   function datosPorBucketVoz(bucket){
     const rowsVentas = DATA.sales_by_call.filter(r => r[0]===mesActual && callBucketVoz(r[2])===bucket);
     const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===bucket);
@@ -921,12 +926,11 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
   }
   function datosPorBucket(bucket){
     if(bucket==='Total'){
-      const dI = datosPorBucketVoz('Interno'), dB = datosPorBucketVoz('Biznes');
-      const real = { ventas: dI.real.ventas + dB.real.ventas, pna: dI.real.pna + dB.real.pna };
-      const proy = { ventas: dI.proy.ventas + dB.proy.ventas, pna: dI.proy.pna + dB.proy.pna };
-      const leadsTotal = dI._leads + dB._leads;
-      const efect = leadsTotal>0 ? (real.ventas/leadsTotal)*100 : null;
-      return { real, proy, efect };
+      const leadsTotalTodos = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
+      const pnaTotalTodos = aggMonth(DATA.sales_daily, mesActual, 'pna', corte);
+      const pnaProyTotalTodos = proyectarCierre('pna', pnaTotalTodos, corte);
+      const efect = leadsTotalTodos>0 ? (ventasActualTotal/leadsTotalTodos)*100 : null;
+      return { real: {ventas: ventasActualTotal, pna: pnaTotalTodos}, proy: {ventas: ventasProyTotal, pna: pnaProyTotalTodos}, efect };
     }
     return datosPorBucketVoz(bucket);
   }
@@ -936,9 +940,10 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
   buckets.forEach(b => {
     const d = datosPorBucket(b);
     const meta = metasPorCall[b] || {};
-    rowsUnidades.push([b, fmtMetaN(meta.unidades), fmtMetaN(d.real.ventas), fmtMetaN(d.proy.ventas), cumplimientoMeta(d.proy.ventas, meta.unidades)]);
-    rowsPna.push([b, fmtMetaMoney(meta.pna), fmtMetaMoney(d.real.pna), fmtMetaMoney(d.proy.pna), cumplimientoMeta(d.proy.pna, meta.pna)]);
-    rowsEfect.push([b, fmtMetaPct(meta.efectividad), fmtMetaPct(d.efect), cumplimientoMeta(d.efect, meta.efectividad)]);
+    const label = b==='Total' ? 'Total (todos los canales)' : b;
+    rowsUnidades.push([label, fmtMetaN(meta.unidades), fmtMetaN(d.real.ventas), fmtMetaN(d.proy.ventas), cumplimientoMeta(d.proy.ventas, meta.unidades)]);
+    rowsPna.push([label, fmtMetaMoney(meta.pna), fmtMetaMoney(d.real.pna), fmtMetaMoney(d.proy.pna), cumplimientoMeta(d.proy.pna, meta.pna)]);
+    rowsEfect.push([label, fmtMetaPct(meta.efectividad), fmtMetaPct(d.efect), cumplimientoMeta(d.efect, meta.efectividad)]);
   });
 
   buildMetaTable('tableMetaUnidades', ['Call','Meta','Real (corte)','Proyección','% vs meta'], rowsUnidades);
@@ -983,7 +988,7 @@ function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
   const buckets = ['Interno','Biznes','Total'];
   const rows = buckets.map(b => {
     if(b==='Total'){
-      return ['Total', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
+      return ['Total (todos los canales)', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
     }
     const d = b==='Interno' ? dInterno : dBiznes;
     return [b, fmtMetaN(d.metaBucket), fmtMetaN(d.realBucket), fmtMetaN(d.proyBucket), cumplimientoMeta(d.proyBucket, d.metaBucket)];
@@ -2093,6 +2098,11 @@ function dimsOrdenadosVentas(salesKey, desde, hasta){
 // Orden fijo de los bins de clics en el cotizador (igual que clicsBin() del .gs).
 const ORDEN_CLICS_COTIZADOR = ['0','1-2','3-5','6-10','11-20','20+','Sin dato'];
 
+// Orden fijo de rango de edad para la pestaña Ventas (mismos rangos que Rumbo, generados por
+// rangoEdad() del .gs -- edad al momento de la venta, calculada desde "Fecha Nacimiento" de
+// Ventas_Raw).
+const ORDEN_EDAD_VENTAS = ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'];
+
 // ---- Filtro desglosable de "Rango de prima" (mismo mecanismo que el filtro de call center,
 // pero standalone porque solo se usa en esta pestaña). Controla que rangos de prima aparecen
 // como sub-fila en las tablas de Fuente/Subfuente/Campaña/Cotizador, y tambien que filas
@@ -2264,6 +2274,10 @@ function renderVentasTab(){
   buildCallNestedSubfilas('tableVentasCampanaMatrix', dimsCampana, primas, 'sales_tri_campana_rangoprima_call', buckets, cols, desde, hasta);
 
   buildCallNestedSubfilas('tableVentasCotizadorMatrix', ORDEN_CLICS_COTIZADOR, primas, 'sales_tri_clics_rangoprima_call', buckets, cols, desde, hasta);
+
+  // Edad va en orden fijo (es un rango ordinal, no una dimension libre como fuente o campaña),
+  // igual que en Rumbo.
+  buildCallNestedSubfilas('tableVentasEdadMatrix', ORDEN_EDAD_VENTAS, primas, 'sales_tri_edad_rangoprima_call', buckets, cols, desde, hasta);
 }
 
 // ---------- INSIGHTS DEL MES (Resumen) ----------
@@ -2289,6 +2303,14 @@ function renderInsights(corte){
     {label:'subfuente', prefix:'Subfuente', leadsKey:'leads_by_subfuente', salesKey:'sales_by_subfuente', excludeSubstr:[], excludeFromEfect:[]},
     {label:'tipo de lead', prefix:'TipoLead', leadsKey:'leads_by_tipolead', salesKey:'sales_by_tipolead', excludeSubstr:[], excludeFromEfect:[]}
   ];
+  // A pedido explícito: cuando un valor de una dimensión es, en la práctica, un alias exacto de
+  // un valor de otra dimensión ya procesada (ej. una fuente que tiene una sola subfuente debajo
+  // -- "Facebook" y "PSocial" terminan siendo exactamente el mismo grupo de leads mes a mes, dos
+  // nombres para lo mismo), no queremos dos insights idénticos repitiendo el mismo dato con
+  // etiquetas distintas. "firmasVistas" guarda, por cada valor ya usado, sus leads mes a mes; si
+  // otro valor (de cualquier dimensión) tiene exactamente la misma firma, se salta -- así solo
+  // queda uno de los dos (el de la dimensión procesada primero, según el orden de arriba).
+  const firmasVistas = new Map();
   DIMS_INSIGHT.forEach(cfg => {
     let M;
     try { M = buildDimMatrices(cfg.prefix, cfg.leadsKey, cfg.salesKey, cfg.excludeSubstr, corte); } catch(e){ return; }
@@ -2303,6 +2325,9 @@ function renderInsights(corte){
       const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
       const avgPart = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
       if(avgPart < 0.08) return; // no relevante, mismo umbral que las tablas
+      const firma = mesesV.map(m => (M.agg[d] && M.agg[d][m]) ? M.agg[d][m].l : 0).join('|');
+      if(firmasVistas.has(firma)) return; // alias exacto de un valor ya mostrado -- no duplicar
+      firmasVistas.set(firma, {dim:d, label:cfg.label});
       const vAd = M.agg[d][mesActual], vPd = M.agg[d][mesAnterior];
       // Efectividad
       let eA=null, eP=null;
@@ -2409,9 +2434,9 @@ function renderInsights(corte){
   }
 
   candidatos.sort((a,b)=>b.mag-a.mag);
-  const top = candidatos.slice(0,5);
-  if(top.length < 3 && candidatos.length > top.length){
-    top.push(...candidatos.slice(top.length, 3));
+  const top = candidatos.slice(0,6);
+  if(top.length < 4 && candidatos.length > top.length){
+    top.push(...candidatos.slice(top.length, 4));
   }
   if(!top.length){
     box.innerHTML = 'Sin cambios de al menos 15% en efectividad, participación o KPIs generales entre '+labelFull(mesAnterior)+' y '+labelFull(mesActual)+' al día de corte actual.';
