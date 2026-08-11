@@ -899,7 +899,12 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, pnaActual
   const rowsUnidades = [], rowsPna = [], rowsEfect = [];
   buckets.forEach(b => {
     const d = datosPorBucket(b);
-    const meta = metasPorCall[b] || {};
+    // La meta de la fila "Total" sale de una fila DISTINTA en la hoja "Metas" a la de
+    // Interno/Biznes: el equipo carga ahí dos totales distintos (uno que es solo la suma de
+    // los call centers, y otro que es el total real de todos los canales) -- para no
+    // confundirlos, el Call de esta fila debe decir exactamente "Total (todos los canales)"
+    // en la hoja "Metas" del Sheet.
+    const meta = b==='Total' ? (metasPorCall['Total (todos los canales)'] || {}) : (metasPorCall[b] || {});
     const label = b==='Total' ? 'Total (todos los canales)' : b;
     rowsUnidades.push([label, fmtMetaN(meta.unidades), fmtMetaN(d.real.ventas), fmtMetaN(d.proy.ventas), cumplimientoMeta(d.proy.ventas, meta.unidades)]);
     rowsPna.push([label, fmtMetaMoney(meta.pna), fmtMetaMoney(d.real.pna), fmtMetaMoney(d.proy.pna), cumplimientoMeta(d.proy.pna, meta.pna)]);
