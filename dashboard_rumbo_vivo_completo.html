@@ -1634,6 +1634,7 @@ function renderCallFiltroPerfil(corte){
     buckets.forEach(b => { cols.forEach(m => {
       totalLeadsPorBucketMes[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
     }); });
+    agregarTotalAMapaBuckets(totalLeadsPorBucketMes, buckets, cols);
 
     buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dims, buckets, cols, aggCelda, (a,d,b,m) => {
       if(a.l===0) return '–';
