@@ -507,6 +507,11 @@
       <p class="sub">Edad al momento de la venta (calculada desde la fecha de nacimiento en Ventas_Raw; "Sin dato" si esa fecha no está disponible).</p>
       <div class="table-wrap"><table class="data-table" id="tableVentasEdadMatrix"></table></div>
     </section>
+    <section>
+      <h2>Ventas y % participación por rango de devolución</h2>
+      <p class="sub">Según la columna "% Dev." de Ventas_Raw ("Sin dato" si esa venta no tiene ese dato). El % de cada celda es dentro de ese call center y mes.</p>
+      <div class="table-wrap"><table class="data-table" id="tableVentasDevolucionMatrix"></table></div>
+    </section>
     <p class="note" id="notaCallOtrosVentas" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
@@ -721,7 +726,7 @@ fetch(OUTPUT_URL)
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima',
       'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
-      'sales_by_rango_prima_venta','sales_cross_rangoprima_call',
+      'sales_by_rango_prima_venta','sales_cross_rangoprima_call','sales_cross_rangodevolucion_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
       'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
@@ -2080,6 +2085,10 @@ function renderCallFiltroFuente(corte){
 // ambos extremos) que el usuario elige con un calendario -- independiente del dia de corte.
 const RANGOS_PRIMA_VENTA = ['P1 (0 a 349)','P2 (350 a 500)','P3 (501 a 800)','P4 (801 a 1000)','P5 (1001 a más)','Sin dato'];
 
+// Rango de "% Dev." de Ventas_Raw, para la tabla "Ventas y % participación por rango de
+// devolución" de esta hoja (solo Vida, a pedido explícito). Mismo orden fijo que rango de edad.
+const RANGOS_DEVOLUCION = ['0-100','101-125','126-135','136-145','146-155','156-170','171 a más','Sin dato'];
+
 // Mismo criterio de deteccion de rango que ya usa el boton "Ver rango" de arriba: arma una
 // fecha con hora fija (12:00) a partir de mes+dia para evitar problemas de huso horario.
 function fechaDeFila(mes, dia){ return new Date(mes + '-' + String(dia).padStart(2,'0') + 'T12:00:00'); }
@@ -2318,6 +2327,12 @@ function renderVentasTab(){
   // Edad va en orden fijo (es un rango ordinal, no una dimension libre como fuente o campaña),
   // igual que en Rumbo.
   buildCallNestedSubfilas('tableVentasEdadMatrix', ORDEN_EDAD_VENTAS, primas, 'sales_tri_edad_rangoprima_call', buckets, cols, desde, hasta);
+
+  // Rango de devolución ("% Dev." de Ventas_Raw) x call: tabla simple (no cruzada con rango de
+  // prima), igual patrón que la de rango de prima de arriba. Orden fijo, sin desplegable propio.
+  const totDevolucion = totalesPorBucketMes('sales_cross_rangodevolucion_call', RANGOS_DEVOLUCION);
+  buildCallNestedTable('tableVentasDevolucionMatrix', 'Rango de devolución', RANGOS_DEVOLUCION, buckets, cols,
+    (d,b,m) => aggCelda('sales_cross_rangodevolucion_call', d, b, m), valueConPct(totDevolucion));
 }
 
 // ---------- INSIGHTS DEL MES (Resumen) ----------
