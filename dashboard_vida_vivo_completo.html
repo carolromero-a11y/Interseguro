@@ -95,7 +95,28 @@
   .dropdown-filter-panel .df-actions{ display:flex; gap:8px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
   .dropdown-filter-panel .df-actions button{ font-size:11px; background:none; border:none; color:var(--teal); cursor:pointer; padding:2px 4px; }
   .filter-hint{ font-size:12px; color:var(--text-3); }
+  /* ---------- BUSCADOR DE TABLAS (por hoja) ---------- */
+  #tableFinderBtn{ position:fixed; bottom:24px; right:24px; z-index:9999; width:52px; height:52px; border-radius:50%;
+    background:var(--navy); color:#fff; border:none; box-shadow:0 4px 14px rgba(0,0,0,0.25); cursor:pointer;
+    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  #tableFinderBtn:hover{ background:var(--navy-2); }
+  #tableFinderOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10000;
+    align-items:flex-start; justify-content:center; padding-top:10vh; }
+  #tableFinderOverlay.open{ display:flex; }
+  #tableFinderModal{ background:#fff; border-radius:12px; width:92%; max-width:520px; max-height:70vh; display:flex; flex-direction:column;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3); overflow:hidden; }
+  #tableFinderModal h3{ margin:0; padding:16px 18px 4px; font-size:15px; color:var(--navy); font-family:'IBM Plex Sans',sans-serif; }
+  #tableFinderModal p.tf-sub{ margin:0; padding:0 18px 12px; font-size:12px; color:var(--text-3); }
+  #tableFinderInput{ margin:0 18px 12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; }
+  #tableFinderInput:focus{ outline:none; border-color:var(--amber); }
+  #tableFinderResults{ overflow-y:auto; border-top:1px solid var(--border); }
+  #tableFinderResults .tf-item{ display:block; width:100%; text-align:left; padding:10px 18px; border:none; background:none; cursor:pointer; font-size:13px; color:var(--text); border-bottom:1px solid var(--border); font-family:inherit; }
+  #tableFinderResults .tf-item:hover, #tableFinderResults .tf-item.tf-active{ background:var(--bg); }
+  #tableFinderResults .tf-empty{ padding:16px 18px; font-size:13px; color:var(--text-3); }
+  .tf-flash{ animation:tfFlash 1.6s ease; border-radius:10px; }
+  @keyframes tfFlash{ 0%{ box-shadow:0 0 0 4px var(--amber); } 100%{ box-shadow:0 0 0 0 rgba(217,142,59,0); } }
 </style>
+
 </head>
 <body>
 <div id="passwordGate" style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif;background:#F4F1EA;">
@@ -111,6 +132,16 @@
   <p style="font-size:16px;">Conectando con el Google Sheet…</p>
 </div>
 <div id="dashboardRoot" style="display:none;">
+
+<button id="tableFinderBtn" type="button" title="Buscar tabla en esta hoja (tecla &quot;/&quot;)">🔍</button>
+<div id="tableFinderOverlay">
+  <div id="tableFinderModal">
+    <h3>Buscar tabla — <span id="tableFinderHoja">—</span></h3>
+    <p class="tf-sub">Escribe para filtrar, o elige una tabla para ir directo a ella. Solo busca dentro de la hoja que tienes abierta.</p>
+    <input type="text" id="tableFinderInput" placeholder="Buscar tabla en esta hoja..." autocomplete="off">
+    <div id="tableFinderResults"></div>
+  </div>
+</div>
 
 <header>
   <p class="eyebrow">InterSeguro · Productos digitales</p>
@@ -1225,103 +1256,112 @@ configurarRangoFechas();
 function render(corte){
   corteActual = corte;
   document.getElementById('corteVal').textContent = 'Día ' + corte;
-
-  const idxActual = mesesV.indexOf(mesActual);
-  const idxAnterior = idxActual - 1;
-  const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
-  const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-  const ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
-  const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
-  const primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'prima', corte) : 0;
-  const leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
-
-  document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
-  const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
-  const diffEl = document.getElementById('kVsJun');
-  diffEl.textContent = (diff>=0?'+':'') + diff + '%';
-  diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
-  document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
-
-  if(!chVentasCorte){
-    chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
-      type:'bar',
-      data:{ labels:labelsV, datasets:[
-        {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
-        {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
-        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-    });
-  } else {
-    chVentasCorte.data.datasets[0].data = ventasCompleto;
-    chVentasCorte.data.datasets[1].data = ventasCorte;
-    chVentasCorte.update();
-  }
-
-  const ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
-  const primaProy = proyectarCierre('prima', primaActual, corte);
-  const leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
-  const ventasRestante = Math.max(0, ventasProy - ventasActual);
-  const leadsRestante = Math.max(0, leadsProy - leadsActual);
-
-  document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
-  document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
-  document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
-
-  const mesesCerradosProy = mesesV.slice(0, -1);
-  const labelsCerradosProy = labelsV.slice(0, -1);
-  const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
-  const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-  const proyLabels = [...labelsCerradosProy, actualAbrCorto];
-  const proyReal = [...ventasCerradosArr, ventasActual];
-  const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
-
-  if(!chProyeccion){
-    chProyeccion = new Chart(document.getElementById('chProyeccion'), {
-      type:'bar',
-      data:{ labels:proyLabels, datasets:[
-        {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-        {label:'Proyección resto del mes', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-        scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-    });
-  } else {
-    chProyeccion.data.datasets[0].data = proyReal;
-    chProyeccion.data.datasets[1].data = proyRestoArr;
-    chProyeccion.update();
-  }
-
-  const dgTranscurridos = mesActual ? sumaDiasGestion(mesActual, corte) : 0;
-  const dgTotales = mesActual ? sumaDiasGestion(mesActual, null) : 0;
-  const pctAvance = dgTotales>0 ? Math.round((dgTranscurridos/dgTotales)*1000)/10 : 0;
-  document.getElementById('proyNote').textContent =
-    'Van ' + dgTranscurridos + ' de ' + dgTotales + ' días de gestión de ' + (mesActual?labelFull(mesActual):'') + ' (' + pctAvance + '% del mes) — a mayor avance, más peso tiene el ritmo real de este mes en la proyección.';
-
-  const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
-  const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
-  const proyLeadsReal = [...leadsCerradosArr, leadsActual];
-  const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
-
-  if(!chProyeccionLeads){
-    chProyeccionLeads = new Chart(document.getElementById('chProyeccionLeads'), {
-      type:'bar',
-      data:{ labels:proyLeadsLabels, datasets:[
-        {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-        {label:'Proyección resto del mes', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-        scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-    });
-  } else {
-    chProyeccionLeads.data.datasets[0].data = proyLeadsReal;
-    chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
-    chProyeccionLeads.update();
-  }
-
   // Cada tabla/grafico se ejecuta de forma aislada: si una falla (por ejemplo por un dato
   // faltante puntual), las demas se siguen dibujando con normalidad en vez de quedar en blanco.
   function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+
+  // Los KPIs y las 3 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
+  // resto de secciones de abajo -- antes NO lo tenían, y si algo fallaba aquí (ej. Chart.js sin
+  // cargar por un problema de red) toda la función se cortaba en seco y ninguna pestaña de abajo
+  // (Comité, Ventas, etc.) se llegaba a actualizar para ese corte, dejando la pestaña Resumen
+  // con el número nuevo pero Comité con uno viejo -- justo el tipo de "no es el mismo número"
+  // que se reportó. Con esto, un error aquí ya no le puede congelar los datos a las demás
+  // pestañas (y el error queda visible en la consola en vez de generar un numero desincronizado).
+  let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
+  intentar('renderResumenKPIs', () => {
+    const idxActual = mesesV.indexOf(mesActual);
+    const idxAnterior = idxActual - 1;
+    const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+    const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
+    ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+    const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'prima', corte) : 0;
+    leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+
+    document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+    const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
+    const diffEl = document.getElementById('kVsJun');
+    diffEl.textContent = (diff>=0?'+':'') + diff + '%';
+    diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
+    document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
+
+    if(!chVentasCorte){
+      chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
+        type:'bar',
+        data:{ labels:labelsV, datasets:[
+          {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
+          {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+      });
+    } else {
+      chVentasCorte.data.datasets[0].data = ventasCompleto;
+      chVentasCorte.data.datasets[1].data = ventasCorte;
+      chVentasCorte.update();
+    }
+
+    ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+    primaProy = proyectarCierre('prima', primaActual, corte);
+    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+    const ventasRestante = Math.max(0, ventasProy - ventasActual);
+    const leadsRestante = Math.max(0, leadsProy - leadsActual);
+
+    document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
+    document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
+    document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
+
+    const mesesCerradosProy = mesesV.slice(0, -1);
+    const labelsCerradosProy = labelsV.slice(0, -1);
+    const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+    const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+    const proyLabels = [...labelsCerradosProy, actualAbrCorto];
+    const proyReal = [...ventasCerradosArr, ventasActual];
+    const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+
+    if(!chProyeccion){
+      chProyeccion = new Chart(document.getElementById('chProyeccion'), {
+        type:'bar',
+        data:{ labels:proyLabels, datasets:[
+          {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+          {label:'Proyección resto del mes', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+      });
+    } else {
+      chProyeccion.data.datasets[0].data = proyReal;
+      chProyeccion.data.datasets[1].data = proyRestoArr;
+      chProyeccion.update();
+    }
+
+    const dgTranscurridos = mesActual ? sumaDiasGestion(mesActual, corte) : 0;
+    const dgTotales = mesActual ? sumaDiasGestion(mesActual, null) : 0;
+    const pctAvance = dgTotales>0 ? Math.round((dgTranscurridos/dgTotales)*1000)/10 : 0;
+    document.getElementById('proyNote').textContent =
+      'Van ' + dgTranscurridos + ' de ' + dgTotales + ' días de gestión de ' + (mesActual?labelFull(mesActual):'') + ' (' + pctAvance + '% del mes) — a mayor avance, más peso tiene el ritmo real de este mes en la proyección.';
+
+    const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
+    const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
+    const proyLeadsReal = [...leadsCerradosArr, leadsActual];
+    const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
+
+    if(!chProyeccionLeads){
+      chProyeccionLeads = new Chart(document.getElementById('chProyeccionLeads'), {
+        type:'bar',
+        data:{ labels:proyLeadsLabels, datasets:[
+          {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+          {label:'Proyección resto del mes', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+      });
+    } else {
+      chProyeccionLeads.data.datasets[0].data = proyLeadsReal;
+      chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
+      chProyeccionLeads.update();
+    }
+  });
   intentar('renderVintageTable', () => renderVintageTable(corte));
   intentar('renderCampanaTable', () => renderCampanaTable());
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
@@ -2649,6 +2689,102 @@ if(corteDefault < 1) corteDefault = 1;
 if(corteDefault > 31) corteDefault = 31;
 document.getElementById('corteSlider').value = corteDefault;
 render(corteDefault);
+
+// ---------- BUSCADOR DE TABLAS POR HOJA ----------
+// Escanea los <h2> dentro de la hoja (tabpanel) activa -- son los titulos de cada tabla/seccion --
+// y arma un buscador rapido: al escribir, filtra las tablas de esa hoja; al elegir una, hace scroll
+// hasta ahi y la resalta un momento. Se arma solo a partir de los <h2> que ya existen, asi que si
+// mas adelante se agrega o se quita una tabla, el buscador se actualiza sin tocar este codigo.
+(function initBuscadorTablas(){
+  const tfBtn = document.getElementById('tableFinderBtn');
+  const tfOverlay = document.getElementById('tableFinderOverlay');
+  const tfInput = document.getElementById('tableFinderInput');
+  const tfResults = document.getElementById('tableFinderResults');
+  const tfHojaLabel = document.getElementById('tableFinderHoja');
+  if(!tfBtn || !tfOverlay || !tfInput || !tfResults || !tfHojaLabel) return;
+  let tfFiltradas = [];
+  let tfActiveIndex = -1;
+
+  function tfNormalizar(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+  function tfTablasDeHojaActiva(){
+    const panel = document.querySelector('.tabpanel.active');
+    if(!panel) return [];
+    return Array.from(panel.querySelectorAll('h2')).map(h2 => ({
+      titulo: h2.textContent.trim(),
+      el: h2.closest('section') || h2
+    })).filter(t => t.titulo);
+  }
+  function tfNombreHojaActiva(){
+    const btn = document.querySelector('.tab-btn.active');
+    return btn ? btn.textContent.trim() : '';
+  }
+  function tfPintarResultados(filtro){
+    const tablas = tfTablasDeHojaActiva();
+    const fNorm = tfNormalizar(filtro);
+    tfFiltradas = fNorm ? tablas.filter(t => tfNormalizar(t.titulo).includes(fNorm)) : tablas;
+    tfActiveIndex = tfFiltradas.length ? 0 : -1;
+    if(!tfFiltradas.length){
+      tfResults.innerHTML = '<div class="tf-empty">No hay tablas que coincidan en esta hoja.</div>';
+      return;
+    }
+    tfResults.innerHTML = tfFiltradas.map((t,i) =>
+      '<button type="button" class="tf-item'+(i===0?' tf-active':'')+'" data-idx="'+i+'">'+
+      t.titulo.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</button>'
+    ).join('');
+    Array.from(tfResults.querySelectorAll('.tf-item')).forEach((btn,i) => {
+      btn.addEventListener('click', () => tfIrA(tfFiltradas[i]));
+    });
+  }
+  function tfIrA(t){
+    if(!t) return;
+    tfCerrar();
+    t.el.scrollIntoView({behavior:'smooth', block:'start'});
+    t.el.classList.remove('tf-flash');
+    void t.el.offsetWidth; // fuerza reflow para poder reiniciar la animacion si se elige la misma tabla dos veces seguidas
+    t.el.classList.add('tf-flash');
+    setTimeout(() => t.el.classList.remove('tf-flash'), 1700);
+  }
+  function tfAbrir(){
+    tfHojaLabel.textContent = tfNombreHojaActiva();
+    tfInput.value = '';
+    tfOverlay.classList.add('open');
+    tfPintarResultados('');
+    setTimeout(() => tfInput.focus(), 30);
+  }
+  function tfCerrar(){
+    tfOverlay.classList.remove('open');
+  }
+  tfBtn.addEventListener('click', tfAbrir);
+  tfOverlay.addEventListener('click', e => { if(e.target === tfOverlay) tfCerrar(); });
+  tfInput.addEventListener('input', () => tfPintarResultados(tfInput.value));
+  tfInput.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ tfCerrar(); return; }
+    if(e.key === 'Enter'){
+      if(tfActiveIndex >= 0 && tfFiltradas[tfActiveIndex]) tfIrA(tfFiltradas[tfActiveIndex]);
+      return;
+    }
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      if(!tfFiltradas.length) return;
+      const items = tfResults.querySelectorAll('.tf-item');
+      if(items[tfActiveIndex]) items[tfActiveIndex].classList.remove('tf-active');
+      tfActiveIndex = e.key === 'ArrowDown' ? Math.min(tfActiveIndex+1, tfFiltradas.length-1) : Math.max(tfActiveIndex-1, 0);
+      if(items[tfActiveIndex]){ items[tfActiveIndex].classList.add('tf-active'); items[tfActiveIndex].scrollIntoView({block:'nearest'}); }
+    }
+  });
+  // Atajo de teclado: "/" abre el buscador (salvo que ya se este escribiendo en otro campo).
+  document.addEventListener('keydown', e => {
+    if(e.key === '/' && !tfOverlay.classList.contains('open')){
+      const tag = (document.activeElement && document.activeElement.tagName) || '';
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      tfAbrir();
+    }
+  });
+})();
+
 
 }
 </script>
