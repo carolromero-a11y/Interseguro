@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Inversión Segura — InterSeguro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root{
+    --navy:#132A46; --navy-2:#1D3A5F; --teal:#0F8B7D; --teal-light:#E3F3F0;
+    --amber:#D98E3B; --violet:#6C5CC4; --red:#C24B4B;
+    --bg:#F5F3EE; --card:#FFFFFF; --border:#E3E0D6;
+    --text:#1D1D1B; --text-2:#615F58; --text-3:#8B8880;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
+  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--amber); }
+  header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
+  header h1{ margin:0; font-size:26px; font-weight:600; }
+  header p.desc{ margin:6px 0 20px; color:#C3D2DE; font-size:14px; }
+  .tabs{ display:flex; gap:4px; flex-wrap:wrap; }
+  .tab-btn{ background:transparent; border:none; color:#B7C6D4; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:500;
+    padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; }
+  .tab-btn.active{ color:#fff; border-bottom-color:var(--amber); }
+  .tab-btn:hover{ color:#fff; }
+  main{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
+  .tabpanel{ display:none; }
+  .tabpanel.active{ display:block; }
+  .controls{ display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; flex-wrap:wrap; }
+  .controls label{ font-size:13px; color:var(--text-2); font-weight:500; white-space:nowrap;}
+  .controls input[type=range]{ flex:1; min-width:180px; accent-color:var(--amber);}
+  .controls select{ font-family:'IBM Plex Sans',sans-serif; font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:#fff; color:var(--text); }
+  .controls .val{ font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--navy); min-width:130px;}
+  .controls .hint{ font-size:12px; color:var(--text-3); }
+  .filter-bar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .filter-hint{ font-size:12px; color:var(--text-3); }
+  .dropdown-filter{ position:relative; margin-bottom:16px; }
+  .dropdown-filter-btn{ font-family:'IBM Plex Sans',sans-serif; font-size:13px; padding:8px 14px; border-radius:7px; border:1px solid var(--border); background:#fff; color:var(--navy); cursor:pointer; font-weight:500; }
+  .dropdown-filter-btn:hover{ border-color:var(--amber); }
+  .dropdown-filter-panel{ display:none; position:absolute; z-index:20; top:calc(100% + 4px); left:0; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,0.12); padding:10px; min-width:170px; }
+  .dropdown-filter-panel.open{ display:block; }
+  .dropdown-filter-panel label{ display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; color:var(--text); }
+  .dropdown-filter-panel label:hover{ background:var(--bg); border-radius:5px; }
+  .dropdown-filter-panel .df-actions{ display:flex; gap:8px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+  .dropdown-filter-panel .df-actions button{ font-size:11px; background:none; border:none; color:var(--amber); cursor:pointer; padding:2px 4px; }
+  section{ margin-bottom:32px; }
+  section h2{ font-size:15px; font-weight:600; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em;}
+  section .sub{ font-size:13px; color:var(--text-3); margin:0 0 14px; }
+  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .kpi{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .kpi .label{ font-size:12px; color:var(--text-3); margin:0 0 6px; }
+  .kpi .value{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--navy); margin:0;}
+  .kpi.accent{ background:#FBF0DE; border-color:#F0DBB0;}
+  .kpi.accent .value{ color:var(--amber);}
+  .kpi.danger{ background:#FBE4E1; border-color:#F0C4BE;}
+  .kpi.danger .value{ color:var(--red);}
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:820px){ .grid-2{ grid-template-columns:1fr; } }
+  .chart-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; }
+  .chart-wrap{ position:relative; width:100%; height:260px; }
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--text-2); margin-bottom:10px;}
+  .legend span{ display:flex; align-items:center; gap:5px; }
+  .dot{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .note{ font-size:12px; color:var(--text-3); margin-top:12px; line-height:1.55; border-top:1px solid var(--border); padding-top:10px;}
+  .insight-box{ background:#FBF8EF; border:1px solid #E8DCB0; border-left:4px solid var(--red); border-radius:8px; padding:14px 18px; margin-top:14px; font-size:13px; line-height:1.6; color:var(--text); }
+  .insight-box.critical{ border-left-color:var(--red); background:#FDF0EE; }
+  .insight-box strong{ color:var(--navy); }
+  .insight-box ul{ margin:4px 0 0; padding-left:18px; }
+  .insight-box li{ margin-bottom:4px; }
+  table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  table.data-table th, table.data-table td{ padding:9px 10px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.data-table thead th.div-left{ border-left:2px solid rgba(255,255,255,.55); }
+  table.data-table tbody td.div-left{ border-left:2px solid var(--navy-2); }
+  table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
+  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; text-align:center; }
+  table.data-table thead tr:first-child > th:first-child{ text-align:left; }
+  table.data-table tbody tr:hover{ background:var(--bg); }
+  table.data-table tbody tr:last-child td{ border-bottom:none; }
+  .table-wrap{ overflow-x:auto; border-radius:10px; }
+  td.up{ background:#DEF2E6; color:#0F6B45; font-weight:600; }
+  td.down{ background:#FBE4E1; color:#A32E20; font-weight:600; }
+  footer{ max-width:1180px; margin:0 auto; padding:0 24px 40px; color:var(--text-3); font-size:12px; line-height:1.6;}
+  footer strong{ color:var(--text-2); }
+  /* ---------- BUSCADOR DE TABLAS (por hoja) ---------- */
+  #tableFinderBtn{ position:fixed; bottom:24px; right:24px; z-index:9999; width:52px; height:52px; border-radius:50%;
+    background:var(--navy); color:#fff; border:none; box-shadow:0 4px 14px rgba(0,0,0,0.25); cursor:pointer;
+    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  #tableFinderBtn:hover{ background:var(--navy-2); }
+  #tableFinderOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10000;
+    align-items:flex-start; justify-content:center; padding-top:10vh; }
+  #tableFinderOverlay.open{ display:flex; }
+  #tableFinderModal{ background:#fff; border-radius:12px; width:92%; max-width:520px; max-height:70vh; display:flex; flex-direction:column;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3); overflow:hidden; }
+  #tableFinderModal h3{ margin:0; padding:16px 18px 4px; font-size:15px; color:var(--navy); font-family:'IBM Plex Sans',sans-serif; }
+  #tableFinderModal p.tf-sub{ margin:0; padding:0 18px 12px; font-size:12px; color:var(--text-3); }
+  #tableFinderInput{ margin:0 18px 12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; }
+  #tableFinderInput:focus{ outline:none; border-color:var(--amber); }
+  #tableFinderResults{ overflow-y:auto; border-top:1px solid var(--border); }
+  #tableFinderResults .tf-item{ display:block; width:100%; text-align:left; padding:10px 18px; border:none; background:none; cursor:pointer; font-size:13px; color:var(--text); border-bottom:1px solid var(--border); font-family:inherit; }
+  #tableFinderResults .tf-item:hover, #tableFinderResults .tf-item.tf-active{ background:var(--bg); }
+  #tableFinderResults .tf-empty{ padding:16px 18px; font-size:13px; color:var(--text-3); }
+  .tf-flash{ animation:tfFlash 1.6s ease; border-radius:10px; }
+  @keyframes tfFlash{ 0%{ box-shadow:0 0 0 4px var(--amber); } 100%{ box-shadow:0 0 0 0 rgba(217,142,59,0); } }
+</style>
+
+</head>
+<body>
+<div id="passwordGate" style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif;background:#F4F1EA;">
+  <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:360px;width:90%;text-align:center;">
+    <p style="font-weight:700;color:#1D3A5F;font-size:14px;letter-spacing:0.06em;margin:0 0 4px;">INTERSEGURO · PRODUCTOS DIGITALES</p>
+    <h2 style="margin:0 0 20px;color:#1D3A5F;">Dashboard Inversión Segura</h2>
+    <input type="password" id="passwordInput" placeholder="Contraseña" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D8D4C8;border-radius:6px;font-size:14px;margin-bottom:12px;">
+    <button id="passwordSubmit" style="width:100%;padding:10px 12px;background:#1D3A5F;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Entrar</button>
+    <p id="passwordError" style="display:none;color:#C24B4B;font-size:13px;margin:12px 0 0;">Contraseña incorrecta, intenta de nuevo.</p>
+  </div>
+</div>
+<div id="loadingOverlay" style="display:none;padding:100px 20px;text-align:center;font-family:'IBM Plex Sans',sans-serif;color:#615F58;">
+  <p style="font-size:16px;">Conectando con el Google Sheet…</p>
+</div>
+<div id="dashboardRoot" style="display:none;">
+
+<button id="tableFinderBtn" type="button" title="Buscar tabla en esta hoja (tecla &quot;/&quot;)">🔍</button>
+<div id="tableFinderOverlay">
+  <div id="tableFinderModal">
+    <h3>Buscar tabla — <span id="tableFinderHoja">—</span></h3>
+    <p class="tf-sub">Escribe para filtrar, o elige una tabla para ir directo a ella. Solo busca dentro de la hoja que tienes abierta.</p>
+    <input type="text" id="tableFinderInput" placeholder="Buscar tabla en esta hoja..." autocomplete="off">
+    <div id="tableFinderResults"></div>
+  </div>
+</div>
+
+<header>
+  <p class="eyebrow">InterSeguro · Productos digitales</p>
+  <h1>Dashboard de ventas — Inversión Segura</h1>
+  <p class="desc" id="headerDesc">Producto Inversión Segura · 2026</p>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="resumen">Resumen</button>
+    <button class="tab-btn" data-tab="asesor">Por asesor</button>
+    <button class="tab-btn" data-tab="fuente">Por fuente</button>
+    <button class="tab-btn" data-tab="ventas">Ventas</button>
+    <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
+    <button class="tab-btn" data-tab="comite">Comité</button>
+  </div>
+</header>
+
+<main>
+
+  <div id="corteControls">
+  <div class="controls">
+    <label for="corteSlider">Día de corte</label>
+    <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
+    <span class="val" id="corteVal">Día 20</span>
+    <span class="hint">Aplica al resumen</span>
+  </div>
+
+  <div id="rangoFechasBlock" style="display:none;">
+  <div class="controls" style="margin-top:8px;">
+    <label for="rangoDesde">Ver un rango de fechas específico</label>
+    <input type="date" id="rangoDesde">
+    <span style="padding:0 4px;color:#8B8880;">a</span>
+    <input type="date" id="rangoHasta">
+    <button id="rangoBtn" style="padding:6px 14px;background:#1D3A5F;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Ver rango</button>
+    <span class="hint">Independiente del día de corte — funciona con cualquier ventana de días, incluso cruzando meses</span>
+  </div>
+  <div id="rangoResultado" style="display:none;"></div>
+  </div>
+  </div>
+
+  <!-- ===== TAB: RESUMEN ===== -->
+  <div class="tabpanel active" id="tab-resumen">
+
+  <section>
+    <h2>Insights del mes</h2>
+    <p class="sub">Los cambios más grandes al día de corte actual, comparando el mes en curso contra el anterior — efectividad, participación y KPIs generales</p>
+    <div class="insight-box" id="insightsBox">–</div>
+  </section>
+
+  <section>
+    <h2>Resumen al corte</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><p class="label" id="lblVentas">Ventas del mes (real)</p><p class="value" id="kVentas">–</p></div>
+      <div class="kpi"><p class="label" id="lblVsAnt">vs. mes anterior (mismo corte)</p><p class="value" id="kVsAnt">–</p></div>
+      <div class="kpi"><p class="label" id="lblPrima">PNA del mes (real)</p><p class="value" id="kPrima">–</p></div>
+      <div class="kpi accent"><p class="label">Proyección cierre — ventas</p><p class="value" id="kProyVentas">–</p></div>
+      <div class="kpi accent"><p class="label">Proyección cierre — PNA</p><p class="value" id="kProyPrima">–</p></div>
+      <div class="kpi accent"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ventas por mes: completo vs. a la fecha de corte</h2>
+    <div class="legend">
+      <span><span class="dot" style="background:#1D3A5F"></span>Mes completo</span>
+      <span><span class="dot" style="background:#D98E3B"></span>A la fecha de corte</span>
+    </div>
+    <div class="chart-card"><div class="chart-wrap"><canvas id="chVentasCorte"></canvas></div></div>
+  </section>
+
+  <section>
+    <h2 id="tituloProyVentas">Proyección de cierre de mes — ventas</h2>
+    <p class="sub">Ajustada por calendario: sábados con gestión solo hasta mediodía, domingos sin gestión, feriados nacionales del Perú</p>
+    <div class="legend">
+      <span><span class="dot" style="background:#1D3A5F"></span>Real a la fecha</span>
+      <span><span class="dot" style="background:#0F8B7D"></span>Proyección resto del mes</span>
+    </div>
+    <div class="chart-card"><div class="chart-wrap"><canvas id="chProyeccion"></canvas></div></div>
+  </section>
+
+  <section>
+    <h2>Composición de la venta por rango de monto</h2>
+    <p class="sub">Rangos de S/25,000: 10,000-34,999 / 35,000-59,999 / 60,000-84,999 / 85,000-109,999 / 110,000 a más</p>
+    <div class="legend" id="legendMontoResumen"></div>
+    <div class="chart-card"><div class="chart-wrap" style="height:220px;"><canvas id="chMontoResumen"></canvas></div></div>
+  </section>
+
+  <section>
+    <div class="filter-bar" style="margin-bottom:12px;">
+      <div class="dropdown-filter" data-tab="resumen">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Este filtro de meses solo aplica a la tabla de abajo (efectividad por cohorte) — el resto de la pestaña "Resumen" no lo usa.</span>
+    </div>
+    <h2>Efectividad del mes con leads del mes</h2>
+    <p class="sub">Ventas de ese mes con lead también de ese mismo mes ÷ leads de ese mes</p>
+    <div class="table-wrap"><table class="data-table" id="tableCohortEfect"></table></div>
+  </section>
+
+  <section>
+    <h2>Pólizas por cliente</h2>
+    <p class="sub" id="multiSub">—</p>
+    <div class="kpi-grid">
+      <div class="kpi"><p class="label">1 póliza</p><p class="value" id="kMulti1">–</p></div>
+      <div class="kpi"><p class="label">2 pólizas</p><p class="value" id="kMulti2">–</p></div>
+      <div class="kpi"><p class="label">3+ pólizas</p><p class="value" id="kMulti3">–</p></div>
+    </div>
+  </section>
+
+  </div>
+
+  <!-- ===== TAB: POR ASESOR ===== -->
+  <div class="tabpanel" id="tab-asesor">
+    <div class="dropdown-filter" data-tab="asesor">
+      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Leads y % Participación por asesor — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableAsesorLeadsMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Ventas por asesor — todos los meses</h2>
+        <div class="table-wrap"><table class="data-table" id="tableAsesorVentasMatrix"></table></div>
+      </section>
+    </div>
+    <section>
+      <h2>Efectividad (ventas con leads del mes) por asesor — todos los meses</h2>
+      <p class="sub">Ventas de ese asesor con lead también de ese mismo mes ÷ leads de ese asesor, mismo mes.</p>
+      <div class="table-wrap"><table class="data-table" id="tableAsesorEfectMatrix"></table></div>
+      <p class="note">"Sin asignar" agrupa los leads del canal Digital (Leads de TRAD a DIG) que todavía no tienen un asesor asociado. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, con participación ≥8%.</p>
+    </section>
+  </div>
+
+  <!-- ===== TAB: POR FUENTE ===== -->
+  <div class="tabpanel" id="tab-fuente">
+    <div class="dropdown-filter" data-tab="fuente">
+      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <section>
+      <h2>Leads y % Participación por fuente — todos los meses</h2>
+      <p class="sub">Tradicional = hoja "Gestión Leads" (con asesor asignado). Digital = hoja "Leads de TRAD a DIG".</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por fuente</h2>
+      <p class="sub">Cuando la venta cruza con un lead real (por DNI), la fuente es Tradicional/Digital. Cuando no hay lead previo (venta directa o referida), la fuente sale de la propia hoja "Ventas" (Leads base, Referido, Leads facebook, etc.).</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad (ventas con leads del mes) por fuente</h2>
+      <p class="sub">Ventas de esa fuente con lead también de ese mismo mes ÷ leads de esa fuente, mismo mes.</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas y % participación por subfuente (detalle de ventas directas/referidas)</h2>
+      <p class="sub">Columna "fuente de la venta" de la hoja Ventas, tal como viene, sin agrupar en Tradicional/Digital.</p>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
+    </section>
+  </div>
+
+  <!-- ===== TAB: VENTAS (por rango de monto y edad) ===== -->
+  <div class="tabpanel" id="tab-ventas">
+    <div class="filter-bar">
+      <label for="ventasDesde" style="font-size:13px;color:var(--text-2);font-weight:500;">Desde</label>
+      <input type="date" id="ventasDesde">
+      <label for="ventasHasta" style="font-size:13px;color:var(--text-2);font-weight:500;">Hasta</label>
+      <input type="date" id="ventasHasta">
+      <span class="filter-hint">Filtra las tablas de esta pestaña por fecha de venta. Independiente del día de corte de arriba.</span>
+    </div>
+    <div class="dropdown-filter" data-tab="ventasmonto">
+      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses (tablas de abajo): <span data-role="month-filter-label">—</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <section>
+      <h2>Leads y % Participación por rango de monto — todos los meses</h2>
+      <div class="table-wrap"><table class="data-table" id="tableMontoLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por rango de monto</h2>
+      <div class="table-wrap"><table class="data-table" id="tableMontoVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad (ventas con leads del mes) por rango de monto</h2>
+      <div class="table-wrap"><table class="data-table" id="tableMontoEfectMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Leads y % Participación por rango de edad</h2>
+      <div class="table-wrap"><table class="data-table" id="tableEdadLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por rango de edad</h2>
+      <div class="table-wrap"><table class="data-table" id="tableEdadVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad (ventas con leads del mes) por rango de edad</h2>
+      <p class="sub">"Sin dato" = no se pudo determinar la edad (venta directa/referida, sin lead con fecha de nacimiento para completar).</p>
+      <div class="table-wrap"><table class="data-table" id="tableEdadEfectMatrix"></table></div>
+    </section>
+  </div>
+
+  <!-- ===== TAB: VINTAGE ===== -->
+  <div class="tabpanel" id="tab-vintage">
+    <div class="dropdown-filter" data-tab="vintage">
+      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Composición de la venta — cantidad</h2>
+        <p class="sub">Filas: mes en que se generó el lead. Columnas: mes en que se concretó la venta.</p>
+        <div class="table-wrap"><table class="data-table" id="tableVintageCant"></table></div>
+      </section>
+      <section>
+        <h2>Composición de la venta — % participación</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintagePart"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Composición de la venta — efectividad</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintageEfect"></table></div>
+      </section>
+      <section>
+        <h2>Composición de los leads</h2>
+        <div class="table-wrap"><table class="data-table" id="tableVintageLeads"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ===== TAB: COMITÉ ===== -->
+  <div class="tabpanel" id="tab-comite">
+    <div class="dropdown-filter" data-tab="comite-asesor" style="margin-bottom:16px;">
+      <button type="button" class="dropdown-filter-btn" data-role="asesor-filter-btn">Asesor: <span data-role="asesor-filter-label">Consolidado</span> ▾</button>
+      <div class="dropdown-filter-panel" data-role="asesor-filter-panel"></div>
+    </div>
+    <section>
+      <h2 id="tituloComite">Consolidado — todos los asesores</h2>
+      <p class="sub">Leads, Ventas, Efectividad y PNA al mismo día de corte en los últimos 3 meses cerrados + el mes actual, más proyección de cierre por días de gestión</p>
+      <div class="table-wrap"><table class="data-table" id="tableComite"></table></div>
+    </section>
+    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). PNA = suma de "Prima (Soles)" de la hoja Ventas. Las filas de arriba siempre están cortadas al mismo día de corte en las columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
+  </div>
+
+</main>
+
+<footer>
+  <p><strong>Notas de metodología:</strong> mismas reglas base que Vida y Rumbo (dedup por póliza, cruce por DNI con el lead más reciente antes de la venta, ventas sin lead previo se cuentan como lead sintético del mismo mes). Diferencias propias de Inversión Segura: el "asesor" reemplaza al call center (no hay call center en este producto); los leads de la hoja "Gestión Leads" (fuente Tradicional) y "Leads de TRAD a DIG" (fuente Digital) se unen en un solo universo de leads (se verificó que no comparten ningún DNI); la efectividad se calcula cruzando por DNI contra la hoja "Ventas" real, no con las columnas BASE/CV/CNV/NOC/VENTA de "Gestión Leads" (que están incompletas). El DNI se normaliza (sin ceros a la izquierda) porque llega en formatos distintos en cada hoja.</p>
+  <p>Generado para el equipo de Productos Digitales — Inversión Segura. Última actualización de datos: <span id="fechaHoy">—</span>.</p>
+</footer>
+
+<script>
+let DATA;
+const SHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET_DE_INVERSION_SEGURA';
+const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
+
+// ---------- PANTALLA DE CONTRASEÑA ----------
+// Aviso honesto: esto bloquea el acceso casual (alguien que caiga en el link sin querer),
+// pero NO es seguridad real -- el HTML y la clave se pueden ver en el codigo fuente de la
+// pagina. Si necesitas que el contenido este realmente protegido, hay que mover esto a un
+// hosting con autenticacion de verdad (ver la guia que te compartimos aparte).
+const CLAVE_ACCESO = 'InvSeg2026$';
+function intentarEntrar(){
+  const val = document.getElementById('passwordInput').value;
+  if (val === CLAVE_ACCESO) {
+    try { sessionStorage.setItem('invSeguraAccesoOK', '1'); } catch(e) {}
+    document.getElementById('passwordGate').style.display = 'none';
+    document.getElementById('loadingOverlay').style.display = 'block';
+    iniciarCarga();
+  } else {
+    document.getElementById('passwordError').style.display = 'block';
+  }
+}
+document.getElementById('passwordSubmit').addEventListener('click', intentarEntrar);
+document.getElementById('passwordInput').addEventListener('keydown', e => { if (e.key === 'Enter') intentarEntrar(); });
+
+let yaAccedio = false;
+try { yaAccedio = sessionStorage.getItem('invSeguraAccesoOK') === '1'; } catch(e) {}
+if (yaAccedio) {
+  document.getElementById('passwordGate').style.display = 'none';
+  document.getElementById('loadingOverlay').style.display = 'block';
+  iniciarCarga();
+}
+
+function iniciarCarga(){
+fetch(OUTPUT_URL)
+  .then(r => r.text())
+  .then(text => {
+    const match = text.match(/setResponse\(([\s\S]*)\);/);
+    if (!match) throw new Error('Formato de respuesta inesperado del Sheet');
+    const json = JSON.parse(match[1]);
+    // Reensamblar tablas que Google Sheets partio en varios "pedazos" (limite de 50,000
+    // caracteres por celda). Cada fila trae: tabla, pedazo de texto, total de pedazos, numero de pedazo.
+    const pedazosPorTabla = {};
+    json.table.rows.forEach(r => {
+      const tabla = r.c[0] ? r.c[0].v : null;
+      const pedazo = r.c[1] ? r.c[1].v : null;
+      const numPedazo = r.c[3] ? Number(r.c[3].v) : 1;
+      if (!tabla || pedazo === null) return;
+      pedazosPorTabla[tabla] = pedazosPorTabla[tabla] || [];
+      pedazosPorTabla[tabla][numPedazo - 1] = pedazo;
+    });
+    const data = {};
+    Object.keys(pedazosPorTabla).forEach(tabla => {
+      const textoCompleto = pedazosPorTabla[tabla].join('');
+      try { data[tabla] = JSON.parse(textoCompleto); }
+      catch(e) { console.error('No se pudo parsear la tabla', tabla, e); }
+    });
+    if (Object.keys(data).length === 0) {
+      throw new Error('El Sheet respondio pero la pestaña "Output" esta vacia. Lo mas probable es que falte correr "Dashboard InterSeguro > Actualizar dashboard" en el Sheet despues de pegar el ultimo script, o que el SHEET_ID en este archivo no apunte al Sheet correcto.');
+    }
+    DATA = data;
+    const CLAVES_ARRAY = ['sales_daily','leads_daily','leads_by_asesor','sales_by_asesor',
+      'leads_by_fuente','sales_by_fuente','sales_by_subfuente','leads_by_rango_monto','sales_by_rango_monto',
+      'leads_by_edad','sales_by_edad','leads_cross_fuente_asesor','sales_cross_fuente_asesor',
+      'sales_cross_rangomonto_asesor','ventas_dni','dias_gestion_calendario','sales_vintage'];
+    const CLAVES_OBJETO = ['leads_total_mes','multi_dist'];
+    CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
+    CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('dashboardRoot').style.display = 'block';
+    initDashboard();
+  })
+  .catch(err => {
+    document.getElementById('loadingOverlay').innerHTML =
+      '<div style="max-width:520px;margin:80px auto;text-align:center;font-family:sans-serif;color:#C24B4B;line-height:1.6;">' +
+      '<strong>No se pudo cargar la información.</strong><br>Revisa que el Google Sheet esté compartido como \'Cualquiera con el enlace puede ver\', ' +
+      'que la pestaña "Output" exista, y que el SHEET_ID en el código esté bien puesto.<br><br>' +
+      '<span style="font-size:12px;color:#8B8880;">Detalle técnico: ' + err.message + '</span></div>';
+    console.error(err);
+  });
+}
+
+function initDashboard(){
+(function(){
+  const el = document.getElementById('fechaHoy');
+  if (!el) return;
+  if (!DATA.actualizado) { el.textContent = '(fecha no disponible, corre "Actualizar dashboard" en el Sheet)'; return; }
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const f = new Date(DATA.actualizado);
+  el.textContent = f.getDate() + ' de ' + meses[f.getMonth()] + ' de ' + f.getFullYear() + ', ' + String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0');
+})();
+
+if (window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
+
+function abbrevNum(v){
+  if (v === null || v === undefined) return '';
+  const neg = v < 0; const av = Math.abs(v);
+  let out;
+  if (av >= 1000000) out = (av/1000000).toFixed(av>=10000000?0:1).replace(/\.0$/,'') + 'M';
+  else if (av >= 1000) out = (av/1000).toFixed(av>=10000?0:1).replace(/\.0$/,'') + 'k';
+  else out = Math.round(av).toString();
+  return (neg?'-':'') + out;
+}
+function dlPlain(fmt){
+  return {
+    display: (ctx) => { const v = ctx.dataset.data[ctx.dataIndex]; return v !== null && v !== undefined && v !== 0; },
+    color: '#1D1D1B', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 2,
+    formatter: (v) => fmt ? fmt(v) : (typeof v === 'number' ? abbrevNum(v) : v)
+  };
+}
+function dlStackPct(fmt){
+  return {
+    display: (ctx) => { const v = ctx.dataset.data[ctx.dataIndex]; return v !== null && v !== undefined && v !== 0; },
+    color: '#fff', font: { size: 10, weight: '700' }, anchor: 'center', align: 'center', textAlign: 'center',
+    formatter: (v, ctx) => {
+      let total = 0;
+      ctx.chart.data.datasets.forEach(ds => { total += (ds.data[ctx.dataIndex]||0); });
+      const pct = total>0 ? Math.round((v/total)*1000)/10 : 0;
+      return pct + '%';
+    }
+  };
+}
+
+const MESES_ES_ABR = {'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
+const MESES_ES_FULL = {'01':'enero','02':'febrero','03':'marzo','04':'abril','05':'mayo','06':'junio','07':'julio','08':'agosto','09':'septiembre','10':'octubre','11':'noviembre','12':'diciembre'};
+function labelAbr(m){ return MESES_ES_ABR[m.split('-')[1]] || m; }
+function labelFull(m){ return MESES_ES_FULL[m.split('-')[1]] || m; }
+function anioDe(m){ return m.split('-')[0]; }
+function mesesEnRango(desde, hasta){
+  const out = [];
+  let y = parseInt(desde.slice(0,4),10), m = parseInt(desde.slice(5,7),10);
+  const yh = parseInt(hasta.slice(0,4),10), mh = parseInt(hasta.slice(5,7),10);
+  while (y < yh || (y===yh && m<=mh)) { out.push(y+'-'+String(m).padStart(2,'0')); m++; if(m>12){m=1;y++;} }
+  return out;
+}
+function diasEnMes(m){ const [y,mm] = m.split('-').map(Number); return new Date(y, mm, 0).getDate(); }
+function pctFmt(v){
+  return v < 10 ? (Math.round(v*100)/100) + '%' : (Math.round(v*10)/10) + '%';
+}
+
+const mesesConVentas = [...new Set(DATA.sales_daily.map(r=>r.mes))].sort();
+const mesesConLeads = [...new Set(DATA.leads_daily.map(r=>r.mes))].sort();
+const mesesTodos = [...mesesConVentas, ...mesesConLeads].sort();
+const mesesV = mesesConVentas.length ? mesesEnRango(mesesConVentas[0], mesesConVentas[mesesConVentas.length-1]) : [];
+const mesesL = mesesTodos.length ? mesesEnRango(mesesTodos[0], mesesTodos[mesesTodos.length-1]) : mesesV;
+const labelsV = mesesV.map(labelAbr);
+const labelsL = mesesL.map(labelAbr);
+const mesEsLabel = {}; mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
+const mesActual = DATA.mes_actual || mesesV[mesesV.length-1] || null;
+const mesAnterior = mesesV[mesesV.indexOf(mesActual)-1] || null;
+
+function aggMonth(rows, mes, field, maxDia){
+  return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
+}
+
+// ---------- DÍAS DE GESTIÓN ----------
+const diasGestionPorMes = {};
+(DATA.dias_gestion_calendario||[]).forEach(([mes,dia,dow,peso,feriado]) => {
+  diasGestionPorMes[mes] = diasGestionPorMes[mes] || [];
+  diasGestionPorMes[mes].push({dia,dow,peso,feriado});
+});
+function diasGestionDeMes(mes){ return diasGestionPorMes[mes] || []; }
+function sumaDiasGestion(mes, hastaDia){
+  return diasGestionDeMes(mes).filter(d => hastaDia===null || hastaDia===undefined || d.dia<=hastaDia).reduce((s,d)=>s+d.peso,0);
+}
+const mesesCerradosRecientes = mesesV.slice(0, mesesV.indexOf(mesActual)).slice(-3);
+function proyectarGenerico(valorActual, corte, historicoPorMesFn){
+  if(!mesActual) return valorActual;
+  const dgTranscurridos = sumaDiasGestion(mesActual, corte);
+  const dgTotales = sumaDiasGestion(mesActual, null);
+  if(dgTotales<=0) return valorActual;
+  const weight = Math.min(1, dgTranscurridos/dgTotales);
+  const tasaActual = dgTranscurridos>0 ? valorActual/dgTranscurridos : 0;
+  let totalHist = 0, totalDG = 0;
+  mesesCerradosRecientes.forEach(m => { totalHist += historicoPorMesFn(m); totalDG += sumaDiasGestion(m, null); });
+  const tasaHist = totalDG>0 ? totalHist/totalDG : 0;
+  const tasaBlend = weight*tasaActual + (1-weight)*tasaHist;
+  return tasaBlend * dgTotales;
+}
+function proyectarCierre(field, valorActual, corte){
+  return proyectarGenerico(valorActual, corte, m => field==='leads' ? aggMonth(DATA.leads_daily, m, 'leads', null) : aggMonth(DATA.sales_daily, m, field, null));
+}
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    const rangoFechasBlock = document.getElementById('rangoFechasBlock');
+    if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
+  });
+});
+
+// ---------- FILTRO DE MESES POR HOJA ----------
+const TABS_CON_FILTRO_MESES = ['resumen','asesor','fuente','ventasmonto','vintage'];
+const filtroMesesTab = {};
+function ultimosN(lista, n){ return lista.slice(Math.max(0, lista.length-n)); }
+function mesesDefaultTab(){
+  const set = new Set(ultimosN(mesesV, 3));
+  return set;
+}
+TABS_CON_FILTRO_MESES.forEach(tab => { filtroMesesTab[tab] = mesesDefaultTab(); });
+function mesesVisiblesV(tab){
+  const sel = filtroMesesTab[tab];
+  const filtrados = mesesV.filter(m => sel && sel.has(m));
+  return filtrados.length ? filtrados : mesesV;
+}
+function mesesVisiblesL(tab){
+  const sel = filtroMesesTab[tab];
+  const filtrados = mesesL.filter(m => sel && sel.has(m));
+  return filtrados.length ? filtrados : mesesL;
+}
+function construirDropdownMeses(tab, universo){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="month-filter-btn"]');
+  const panel = wrap.querySelector('[data-role="month-filter-panel"]');
+  if(!btn || !panel || panel.dataset.filled) { actualizarLabelMeses(tab); return; }
+  panel.innerHTML = universo.map(m =>
+    '<label><input type="checkbox" value="'+m+'" '+(filtroMesesTab[tab].has(m)?'checked':'')+'> '+labelAbr(m)+'</label>'
+  ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button><button type="button" data-act="ult3">Últimos 3</button></div>';
+  panel.dataset.filled = '1';
+  panel.addEventListener('click', e => e.stopPropagation());
+  panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if(cb.checked) filtroMesesTab[tab].add(cb.value); else filtroMesesTab[tab].delete(cb.value);
+      actualizarLabelMeses(tab);
+      render(corteActual);
+    });
+  });
+  panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+    filtroMesesTab[tab] = new Set(universo);
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+    actualizarLabelMeses(tab); render(corteActual);
+  });
+  panel.querySelector('[data-act="ult3"]').addEventListener('click', () => {
+    filtroMesesTab[tab] = new Set(ultimosN(universo,3));
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = filtroMesesTab[tab].has(cb.value));
+    actualizarLabelMeses(tab); render(corteActual);
+  });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+  actualizarLabelMeses(tab);
+}
+function actualizarLabelMeses(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="month-filter-label"]');
+  if(!label) return;
+  const elegidos = mesesL.filter(m => filtroMesesTab[tab].has(m));
+  label.textContent = elegidos.length ? elegidos.map(labelAbr).join(', ') : 'ninguno';
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => p.classList.remove('open'));
+});
+TABS_CON_FILTRO_MESES.forEach(tab => construirDropdownMeses(tab, mesesL));
+
+// ---------- FILTRO DE ASESOR (pestaña Comité) ----------
+let filtroAsesorComite = null; // null = consolidado
+function construirDropdownAsesorComite(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="comite-asesor"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="asesor-filter-btn"]');
+  const label = wrap.querySelector('[data-role="asesor-filter-label"]');
+  const panel = wrap.querySelector('[data-role="asesor-filter-panel"]');
+  if(!btn || !panel) return;
+  const asesores = DATA.asesores || [];
+  panel.innerHTML = ['<label><input type="radio" name="comiteAsesor" value="" checked> Consolidado (todos)</label>']
+    .concat(asesores.map(a => '<label><input type="radio" name="comiteAsesor" value="'+a+'"> '+a+'</label>'))
+    .join('');
+  panel.addEventListener('click', e => e.stopPropagation());
+  panel.querySelectorAll('input[type=radio]').forEach(rb => {
+    rb.addEventListener('change', () => {
+      filtroAsesorComite = rb.value || null;
+      label.textContent = rb.value || 'Consolidado';
+      document.getElementById('tituloComite').textContent = rb.value ? ('Solo ' + rb.value) : 'Consolidado — todos los asesores';
+      render(corteActual);
+    });
+  });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+}
+construirDropdownAsesorComite();
+
+let chVentasCorte, chProyeccion, chMontoResumen;
+let corteActual = 16;
+
+function actualizarTextosMes(){
+  if(!mesActual) return;
+  const actualFull = labelFull(mesActual);
+  const anteriorFull = mesAnterior ? labelFull(mesAnterior) : '–';
+  document.getElementById('lblVentas').textContent = 'Ventas ' + actualFull + ' (real)';
+  document.getElementById('lblVsAnt').textContent = 'vs. ' + anteriorFull + ' (mismo corte)';
+  document.getElementById('lblPrima').textContent = 'PNA ' + actualFull + ' (real)';
+  document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
+  document.getElementById('headerDesc').textContent = 'Producto Inversión Segura · ' + anioDe(mesActual);
+}
+actualizarTextosMes();
+
+function configurarRangoFechas(){
+  const rangoDesdeEl = document.getElementById('rangoDesde');
+  const rangoHastaEl = document.getElementById('rangoHasta');
+  if(!rangoDesdeEl || !rangoHastaEl || !mesesL.length) return;
+  const primerMes = mesesL[0];
+  const ultimoMes = mesesV.length ? mesesV[mesesV.length-1] : mesesL[mesesL.length-1];
+  const fechaMin = primerMes + '-01';
+  const fechaMax = ultimoMes + '-' + String(diasEnMes(ultimoMes)).padStart(2,'0');
+  rangoDesdeEl.min = fechaMin; rangoDesdeEl.max = fechaMax;
+  rangoHastaEl.min = fechaMin; rangoHastaEl.max = fechaMax;
+  const diasConDatos = [
+    ...DATA.sales_daily.filter(r=>r.mes===mesActual).map(r=>r.dia),
+    ...DATA.leads_daily.filter(r=>r.mes===mesActual).map(r=>r.dia)
+  ];
+  const ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  rangoDesdeEl.value = mesActual ? (mesActual + '-01') : fechaMin;
+  rangoHastaEl.value = mesActual ? (mesActual + '-' + String(ultimoDiaConDatos).padStart(2,'0')) : fechaMax;
+}
+configurarRangoFechas();
+
+// ---------- MATRICES POR DIMENSION (genérico, reusado para asesor/fuente/monto/edad) ----------
+function esCatchAll(d){
+  return d === 'Sin asignar' || d === 'Sin dato';
+}
+function pushCatchAllLast(arr){
+  const normales = arr.filter(d => !esCatchAll(d));
+  const catchall = arr.filter(d => esCatchAll(d));
+  return normales.concat(catchall);
+}
+function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
+  const leadsRowsAll = DATA[leadsKey] || []; const salesRowsAll = DATA[salesKey] || [];
+  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
+  const salesRows = salesRowsAll.filter(r => r[1] <= corte);
+  let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
+  if(excludeSubstr) dims = dims.filter(d => !excludeSubstr.some(ex => d.includes(ex)));
+  if(customOrder){
+    dims = customOrder.filter(d => dims.includes(d)).concat(dims.filter(d => !customOrder.includes(d)));
+  } else {
+    const totalsLeadsByDim = {};
+    dims.forEach(d => { totalsLeadsByDim[d] = leadsRows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
+    dims = dims.sort((a,b)=> totalsLeadsByDim[b]-totalsLeadsByDim[a]);
+    dims = pushCatchAllLast(dims);
+  }
+  const totalLeadsPorMes = {};
+  mesesV.forEach(m => { totalLeadsPorMes[m] = leadsRows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
+  const agg = {};
+  dims.forEach(d => {
+    agg[d] = {};
+    mesesV.forEach(m => {
+      const lsub = leadsRows.filter(r=>r[0]===m && r[2]===d);
+      const ssub = salesRows.filter(r=>r[0]===m && r[2]===d);
+      agg[d][m] = { l: lsub.reduce((s,r)=>s+r[3],0), conv: lsub.reduce((s,r)=>s+r[4],0),
+        v: ssub.reduce((s,r)=>s+r[3],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0), vColchon: ssub.reduce((s,r)=>s+r[6],0) };
+    });
+  });
+  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride, colsOverride){
+    let rowDims = rowOrderOverride ? rowOrderOverride : dims;
+    if(rowFilter) rowDims = rowDims.filter(rowFilter);
+    const cols = colsOverride && colsOverride.length ? colsOverride : mesesV;
+    let html = '<thead><tr><th>' + prefix + '</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+    rowDims.forEach(d => {
+      html += '<tr><td>'+d+'</td>' + cols.map(m => {
+        const res = valueFn(agg[d][m], m, d);
+        if(res && typeof res === 'object') return '<td class="'+(res.cls||'')+'">'+res.text+'</td>';
+        return '<td>'+res+'</td>';
+      }).join('') + '</tr>';
+    });
+    if(totalFn){
+      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
+    }
+    html += '</tbody>';
+    const el = document.getElementById(tableId); if(el) el.innerHTML = html;
+  }
+  return {build, dims, agg, totalLeadsPorMes};
+}
+function ordenarPorEfectividad(dims, agg){
+  const conEfect = dims.map(d => {
+    const totL = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].l:0), 0);
+    const totC = mesesV.reduce((s,m)=> s + (agg[d][m]?agg[d][m].vMismoMes:0), 0);
+    return { d, efect: totL>0 ? totC/totL : -1 };
+  });
+  conEfect.sort((a,b) => b.efect - a.efect);
+  return pushCatchAllLast(conEfect.map(x=>x.d));
+}
+function efectCellColored(agg_d, m, mesesArr, esRelevante){
+  const v = agg_d[m]; if(!v || v.l===0) return '–';
+  const efect = pctFmt((v.vMismoMes/v.l)*100);
+  if(!esRelevante) return efect;
+  const idx = mesesArr.indexOf(m); if(idx===0) return efect;
+  const vPrev = agg_d[mesesArr[idx-1]]; if(!vPrev || vPrev.l===0) return efect;
+  const efectPrev = vPrev.vMismoMes/vPrev.l; if(efectPrev<=0) return efect;
+  const relChange = ((v.vMismoMes/v.l)-efectPrev)/efectPrev;
+  if(relChange >= 0.15) return {text: efect, cls:'up'};
+  if(relChange <= -0.15) return {text: efect, cls:'down'};
+  return efect;
+}
+function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, customOrder, corte, tabFiltro){
+  const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, customOrder, corte);
+  const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
+  M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
+    if(v.l===0) return '–';
+    const part = M.totalLeadsPorMes[m]>0 ? (v.l/M.totalLeadsPorMes[m])*100 : 0;
+    return v.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+  }, null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
+    return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
+  }, null, cols);
+  M.build('table'+idPrefix+'VentasMatrix', (v) => v.v>0 ? v.v.toLocaleString() : '–', null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
+    return total>0 ? total.toLocaleString() : '–';
+  }, null, cols);
+  const efectFilter = excludeFromEfect ? (d => !excludeFromEfect.some(ex => d.includes(ex))) : null;
+  const dimsParaEfect = efectFilter ? M.dims.filter(efectFilter) : M.dims;
+  const relevancia = {};
+  dimsParaEfect.forEach(d => {
+    const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
+    relevancia[d] = (parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0) >= 0.08;
+  });
+  const ordenEfect = ordenarPorEfectividad(dimsParaEfect, M.agg);
+  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, relevancia[d]), null, null, ordenEfect, cols);
+  return M;
+}
+function renderAllMatrixSets(corte){
+  renderMatrixSet('Asesor', 'leads_by_asesor', 'sales_by_asesor', [], [], null, corte, 'asesor');
+  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente');
+  renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto');
+  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'ventasmonto');
+  // Subfuente: solo hay tabla de VENTAS (no hay "leads de esa subfuente" -- la subfuente solo
+  // existe para ventas directas/referidas que nunca pasaron por Gestión Leads/TRAD a DIG).
+  renderSubfuenteVentasSolo(corte);
+}
+function renderSubfuenteVentasSolo(corte){
+  const rows = (DATA.sales_by_subfuente||[]).filter(r => r[1] <= corte);
+  const dims = [...new Set(rows.map(r=>r[2]))];
+  const totalPorMes = {};
+  mesesV.forEach(m => { totalPorMes[m] = rows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
+  dims.sort((a,b) => {
+    const ta = rows.filter(r=>r[2]===a).reduce((s,r)=>s+r[3],0);
+    const tb = rows.filter(r=>r[2]===b).reduce((s,r)=>s+r[3],0);
+    return tb-ta;
+  });
+  let html = '<thead><tr><th>Subfuente</th>' + mesesV.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  dims.forEach(d => {
+    html += '<tr><td>'+d+'</td>' + mesesV.map(m => {
+      const v = rows.filter(r=>r[0]===m && r[2]===d).reduce((s,r)=>s+r[3],0);
+      if(v===0) return '<td>–</td>';
+      const part = totalPorMes[m]>0 ? (v/totalPorMes[m])*100 : 0;
+      return '<td>'+v.toLocaleString()+' (<strong>'+pctFmt(part)+'</strong>)</td>';
+    }).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  const el = document.getElementById('tableSubfuenteVentasMatrix'); if(el) el.innerHTML = html;
+}
+
+// ---------- PÓLIZAS POR CLIENTE ----------
+function renderPolizasCliente(corte){
+  const porDni = {};
+  (DATA.ventas_dni||[]).forEach(([mes,dia,dni]) => {
+    if(dia > corte) return;
+    porDni[dni] = (porDni[dni]||0) + 1;
+  });
+  const counts = Object.values(porDni);
+  const c1 = counts.filter(c=>c===1).length;
+  const c2 = counts.filter(c=>c===2).length;
+  const c3 = counts.filter(c=>c>=3).length;
+  const total = c1 + c2 + c3;
+  document.getElementById('kMulti1').textContent = c1.toLocaleString();
+  document.getElementById('kMulti2').textContent = c2.toLocaleString();
+  document.getElementById('kMulti3').textContent = c3.toLocaleString();
+  const pct1 = total>0 ? Math.round((c1/total)*1000)/10 : 0;
+  document.getElementById('multiSub').textContent = pct1 + '% de los clientes compra una sola vez (al día de corte actual)';
+}
+
+// ---------- COHORTE (RESUMEN) ----------
+function renderCohortTable(corte){
+  const cols = mesesVisiblesL('resumen');
+  const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte));
+  const convs = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte));
+  let html = '<thead><tr><th>Cohorte</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Todos los leads</td>';
+  cols.forEach(m => {
+    const i = mesesL.indexOf(m);
+    const total = totales[i], conv = convs[i];
+    if(!total){ html += '<td>–</td>'; return; }
+    const efect = Math.round((conv/total)*1000)/10;
+    if(i===0){ html += '<td>'+efect+'%</td>'; return; }
+    const prevTotal = totales[i-1], prevConv = convs[i-1];
+    if(!prevTotal){ html += '<td>'+efect+'%</td>'; return; }
+    const efectPrev = prevConv/prevTotal;
+    const relChange = efectPrev>0 ? ((conv/total)-efectPrev)/efectPrev : 0;
+    let cls = '';
+    if(relChange>=0.15) cls='up'; else if(relChange<=-0.15) cls='down';
+    html += '<td class="'+cls+'">'+efect+'%</td>';
+  });
+  html += '</tr></tbody>';
+  document.getElementById('tableCohortEfect').innerHTML = html;
+}
+
+// ---------- COMPOSICIÓN POR RANGO DE MONTO (RESUMEN) ----------
+const paletaMonto = ['#1D3A5F','#0F8B7D','#D98E3B','#C24B4B','#6C5CC4','#999'];
+const ORDEN_MONTO = ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'];
+function renderMontoResumen(corte){
+  if(!mesActual) return;
+  const rows = (DATA.sales_by_rango_monto||[]).filter(r => r[0]===mesActual && r[1]<=corte);
+  const porRango = {};
+  ORDEN_MONTO.forEach(r => porRango[r] = 0);
+  rows.forEach(r => { porRango[r[2]] = (porRango[r[2]]||0) + r[3]; });
+  const dims = ORDEN_MONTO.filter(r => porRango[r] > 0);
+  document.getElementById('legendMontoResumen').innerHTML = dims.map((d,i) =>
+    '<span><span class="dot" style="background:'+paletaMonto[i%paletaMonto.length]+'"></span>'+d+'</span>').join('');
+  const ctx = document.getElementById('chMontoResumen');
+  if(!ctx) return;
+  if(chMontoResumen){ chMontoResumen.destroy(); chMontoResumen = null; }
+  chMontoResumen = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: dims, datasets: [{ data: dims.map(d=>porRango[d]), backgroundColor: dims.map((_,i)=>paletaMonto[i%paletaMonto.length]) }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, datalabels: dlPlain() } }
+  });
+}
+
+// ---------- VINTAGE ----------
+function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte, colsOverride){
+  const origenes = [...mesesL]; const ventaCols = colsOverride && colsOverride.length ? colsOverride : [...mesesV];
+  const matriz = {};
+  (DATA.sales_vintage||[]).forEach(([mv,dia,ml,v]) => { if(dia>corte) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
+  const totalPorCol = {};
+  ventaCols.forEach(mv => { totalPorCol[mv] = origenes.reduce((s,ml)=> s + ((matriz[ml]||{})[mv]||0), 0); });
+  let html = '<thead><tr><th>Mes lead / Mes venta</th>' + ventaCols.map(mv=>'<th>'+mesEsLabel[mv]+'</th>').join('') + (totalsRow?'<th>Total</th>':'') + '</tr></thead><tbody>';
+  origenes.forEach(ml => {
+    let rowTotal=0;
+    let cells = ventaCols.map(mv => { const v=(matriz[ml]||{})[mv]||0; rowTotal+=v; return '<td>'+valueFn(v,ml,mv,totalPorCol[mv])+'</td>'; }).join('');
+    if(rowTotal===0) return;
+    html += '<tr><td>'+mesEsLabel[ml]+'</td>' + cells + (totalsRow?'<td style="font-weight:600;">'+(isPercent?'':rowTotal.toLocaleString())+'</td>':'') + '</tr>';
+  });
+  if(totalsCol) html += '<tr style="font-weight:600;background:var(--bg);"><td>Total</td>' + ventaCols.map(mv=>'<td>'+(isPercent?'100%':totalPorCol[mv].toLocaleString())+'</td>').join('') + (totalsRow?'<td></td>':'') + '</tr>';
+  html += '</tbody>';
+  document.getElementById(tableId).innerHTML = html;
+}
+function renderVintageTable(corte){
+  const cols = mesesVisiblesV('vintage');
+  buildMatrixTable('tableVintageCant', (v)=> v>0?v.toLocaleString():'–', false, true, true, corte, cols);
+  buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte, cols);
+  buildMatrixTable('tableVintageEfect', (v,ml)=> {
+    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte);
+    if(!t||v===0) return v>0?'0%':'–';
+    return (Math.round((v/t)*1000)/10)+'%';
+  }, true, false, false, corte, cols);
+
+  let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
+  let totLeads=0, totConv=0;
+  mesesL.forEach(m => {
+    const total = aggMonth(DATA.leads_daily, m, 'leads', corte);
+    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte);
+    if(!total) return;
+    const noConv = total-conv; const pct = Math.round((conv/total)*1000)/10;
+    totLeads += total; totConv += conv;
+    html += '<tr><td>'+mesEsLabel[m]+'</td><td>'+total.toLocaleString()+'</td><td>'+conv.toLocaleString()+'</td><td>'+noConv.toLocaleString()+'</td><td>'+pct+'%</td></tr>';
+  });
+  const totPct = totLeads>0 ? Math.round((totConv/totLeads)*1000)/10 : 0;
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+(totLeads-totConv).toLocaleString()+'</td><td>'+totPct+'%</td></tr>';
+  html += '</tbody>';
+  document.getElementById('tableVintageLeads').innerHTML = html;
+}
+
+// ---------- COMITÉ ----------
+function filaComite(nombre, valores, fmt){
+  return '<tr><td>'+nombre+'</td>' + valores.map(v => '<td>'+(v===null||v===undefined?'–':fmt(v))+'</td>').join('') + '</tr>';
+}
+function renderComite(corte){
+  const filtroAsesor = filtroAsesorComite;
+  const cols = mesesCerradosRecientes.concat(mesActual ? [mesActual] : []);
+  const tableId = 'tableComite';
+  if(!cols.length) { const el = document.getElementById(tableId); if(el) el.innerHTML = ''; return; }
+  function ventasDeMes(m, corteDia){
+    if(!filtroAsesor) return {
+      v: aggMonth(DATA.sales_daily, m, 'ventas', corteDia),
+      pna: aggMonth(DATA.sales_daily, m, 'pna', corteDia),
+      mismoMes: aggMonth(DATA.sales_daily, m, 'mismoMes', corteDia)
+    };
+    const rows = (DATA.sales_by_asesor||[]).filter(r => r[0]===m && r[1]<=corteDia && r[2]===filtroAsesor);
+    return { v: rows.reduce((s,r)=>s+r[3],0), pna: rows.reduce((s,r)=>s+r[4],0), mismoMes: rows.reduce((s,r)=>s+r[5],0) };
+  }
+  function leadsDeMes(m, corteDia){
+    if(!filtroAsesor) return aggMonth(DATA.leads_daily, m, 'leads', corteDia);
+    return (DATA.leads_by_asesor||[]).filter(r => r[0]===m && r[1]<=corteDia && r[2]===filtroAsesor).reduce((s,r)=>s+r[3],0);
+  }
+  const leadsVals = cols.map(m => leadsDeMes(m, corte));
+  const ventasVals = cols.map(m => ventasDeMes(m, corte));
+  const efectVals = cols.map((m,i) => leadsVals[i]>0 ? pctFmt((ventasVals[i].mismoMes/leadsVals[i])*100) : '–');
+  const pnaVals = ventasVals.map(v => v.pna);
+
+  let html = '<thead><tr><th></th>' + cols.map(labelFull).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  html += filaComite('Leads', leadsVals, v=>v.toLocaleString());
+  html += filaComite('Ventas', ventasVals.map(v=>v.v), v=>v.toLocaleString());
+  html += filaComite('PNA', pnaVals, v=>'S/ '+Math.round(v).toLocaleString());
+  html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Proyección de cierre</td></tr>';
+  const proyRow = cols.map((m,i) => {
+    if(m === mesActual){
+      const ventasActualComite = ventasVals[i] ? ventasVals[i].v : 0;
+      const mismoMesActualComite = ventasVals[i] ? ventasVals[i].mismoMes : 0;
+      const leadsActualComite = leadsVals[i] || 0;
+      const pnaActualComite = pnaVals[i] || 0;
+      const ventasProyC = Math.round(proyectarGenerico(ventasActualComite, corte, m2 => {
+        if(!filtroAsesor) return aggMonth(DATA.sales_daily, m2, 'ventas', null);
+        return (DATA.sales_by_asesor||[]).filter(r=>r[0]===m2 && r[2]===filtroAsesor).reduce((s,r)=>s+r[3],0);
+      }));
+      const mismoMesProyC = Math.round(proyectarGenerico(mismoMesActualComite, corte, m2 => {
+        if(!filtroAsesor) return aggMonth(DATA.sales_daily, m2, 'mismoMes', null);
+        return (DATA.sales_by_asesor||[]).filter(r=>r[0]===m2 && r[2]===filtroAsesor).reduce((s,r)=>s+r[5],0);
+      }));
+      const leadsProyC = Math.round(proyectarGenerico(leadsActualComite, corte, m2 => {
+        if(!filtroAsesor) return aggMonth(DATA.leads_daily, m2, 'leads', null);
+        return (DATA.leads_by_asesor||[]).filter(r=>r[0]===m2 && r[2]===filtroAsesor).reduce((s,r)=>s+r[3],0);
+      }));
+      const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
+      return { cerrado:false, pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((mismoMesProyC/leadsProyC)*100):'–', leads:leadsProyC };
+    }
+    const vFull = ventasDeMes(m, 9999);
+    const lFull = leadsDeMes(m, 9999);
+    return { cerrado:true, pna:vFull.pna, ventas:vFull.v, efect: lFull>0?pctFmt((vFull.mismoMes/lFull)*100):'–', leads:lFull };
+  });
+  const tagCerrado = '<div style="font-size:10px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Mes cerrado</div>';
+  html += '<tr><td>PNA</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+'S/ '+Math.round(r.pna).toLocaleString()+'</td>').join('') + '</tr>';
+  html += '<tr><td>Ventas</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.ventas.toLocaleString()+'</td>').join('') + '</tr>';
+  html += '<tr><td>Efectividad lead y venta mes</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.efect+'</td>').join('') + '</tr>';
+  html += '<tr><td>Leads</td>' + proyRow.map(r=>'<td>'+(r.cerrado?tagCerrado:'')+r.leads.toLocaleString()+'</td>').join('') + '</tr>';
+  html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Análisis de efectividad</td></tr>';
+  html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+
+// ---------- INSIGHTS DEL MES (Resumen) ----------
+function renderInsights(corte){
+  const box = document.getElementById('insightsBox');
+  if(!box || !mesActual || !mesAnterior) { if(box) box.innerHTML = 'Sin suficientes meses para comparar todavía.'; return; }
+  const candidatos = [];
+
+  const vA = aggMonth(DATA.sales_daily, mesActual, 'ventas', corte);
+  const vP = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', corte);
+  const relVentasTotal = vP>0 ? (vA-vP)/vP : null;
+
+  const DIMS_INSIGHT = [
+    {label:'asesor', prefix:'Asesor', leadsKey:'leads_by_asesor', salesKey:'sales_by_asesor', excludeSubstr:[], excludeFromEfect:['Sin asignar']},
+    {label:'fuente', prefix:'Fuente', leadsKey:'leads_by_fuente', salesKey:'sales_by_fuente', excludeSubstr:[], excludeFromEfect:[]},
+    {label:'rango de monto', prefix:'Monto', leadsKey:'leads_by_rango_monto', salesKey:'sales_by_rango_monto', excludeSubstr:[], excludeFromEfect:[]},
+    {label:'rango de edad', prefix:'Edad', leadsKey:'leads_by_edad', salesKey:'sales_by_edad', excludeSubstr:[], excludeFromEfect:[]}
+  ];
+  const firmasVistas = new Map();
+  DIMS_INSIGHT.forEach(cfg => {
+    let M;
+    try { M = buildDimMatrices(cfg.prefix, cfg.leadsKey, cfg.salesKey, cfg.excludeSubstr, null, corte); } catch(e){ return; }
+    const efectFilter = cfg.excludeFromEfect.length ? (d => !cfg.excludeFromEfect.some(ex => d.includes(ex))) : null;
+    const dims = efectFilter ? M.dims.filter(efectFilter) : M.dims;
+    let mejorContribuyente = null;
+    dims.forEach(d => {
+      if(esCatchAll(d)) return;
+      const parts = mesesV.map(m => M.totalLeadsPorMes[m]>0 ? M.agg[d][m].l/M.totalLeadsPorMes[m] : null).filter(x=>x!==null);
+      const avgPart = parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0;
+      if(avgPart < 0.08) return;
+      const firma = mesesV.map(m => (M.agg[d] && M.agg[d][m]) ? M.agg[d][m].l : 0).join('|');
+      if(firmasVistas.has(firma)) return;
+      firmasVistas.set(firma, {dim:d, label:cfg.label});
+      const vAd = M.agg[d][mesActual], vPd = M.agg[d][mesAnterior];
+      let eA=null, eP=null;
+      if(vAd && vPd && vAd.l>0 && vPd.l>0){
+        eA = vAd.vMismoMes/vAd.l; eP = vPd.vMismoMes/vPd.l;
+        if(eP>0){
+          const rel = (eA-eP)/eP;
+          if(Math.abs(rel)>=0.15){
+            candidatos.push({cat:'efectividad', mag:Math.abs(rel),
+              text:'Efectividad de <strong>'+d+'</strong> ('+cfg.label+') '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' ('+pctFmt(eP*100)+' → '+pctFmt(eA*100)+').'});
+          }
+        }
+      }
+      let pA=null, pP=null;
+      if(vAd && vPd && M.totalLeadsPorMes[mesActual]>0 && M.totalLeadsPorMes[mesAnterior]>0){
+        pA = vAd.l/M.totalLeadsPorMes[mesActual]; pP = vPd.l/M.totalLeadsPorMes[mesAnterior];
+        if(pP>0){
+          const rel = (pA-pP)/pP;
+          if(Math.abs(rel)>=0.15){
+            candidatos.push({cat:'participacion', mag:Math.abs(rel),
+              text:'Participación de leads de <strong>'+d+'</strong> ('+cfg.label+') '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' ('+pctFmt(pP*100)+' → '+pctFmt(pA*100)+').'});
+          }
+        }
+      }
+      if(vAd && vPd){
+        const deltaV = vAd.v - vPd.v;
+        if(!mejorContribuyente || Math.abs(deltaV) > Math.abs(mejorContribuyente.deltaV)){
+          mejorContribuyente = {dim:d, deltaV, eA, eP, pA, pP};
+        }
+      }
+    });
+    if(mejorContribuyente && relVentasTotal!==null && Math.abs(relVentasTotal)>=0.10 && (vA-vP)!==0){
+      const fraccion = Math.min(1, Math.abs(mejorContribuyente.deltaV)/Math.abs(vA-vP));
+      if(fraccion >= 0.25){
+        const c = mejorContribuyente;
+        const detalle = [];
+        if(c.eA!==null && c.eP!==null) detalle.push('efectividad '+pctFmt(c.eP*100)+' → '+pctFmt(c.eA*100));
+        if(c.pA!==null && c.pP!==null) detalle.push('participación '+pctFmt(c.pP*100)+' → '+pctFmt(c.pA*100));
+        candidatos.push({cat:'atribucion', mag: Math.abs(relVentasTotal)*fraccion,
+          text:'La venta de '+labelFull(mesActual)+' vs. '+labelFull(mesAnterior)+' (mismo día de corte) '+(c.deltaV>=0?'subió':'bajó')+' principalmente por <strong>'+c.dim+'</strong> ('+cfg.label+'): aportó '+Math.abs(Math.round(c.deltaV))+' ventas '+(c.deltaV>=0?'más':'menos')+(detalle.length?' ('+detalle.join(', ')+')':'')+'.'});
+      }
+    }
+  });
+  if(vP>0){
+    candidatos.push({cat:'kpi', mag:Math.abs(relVentasTotal),
+      text:'Ventas de '+labelFull(mesActual)+' al día '+corte+': '+vA.toLocaleString()+' vs. '+vP.toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(relVentasTotal>=0?'+':'')+Math.round(relVentasTotal*1000)/10+'%).'});
+  }
+  const pnaActual = aggMonth(DATA.sales_daily, mesActual, 'pna', corte);
+  const pnaAnterior = aggMonth(DATA.sales_daily, mesAnterior, 'pna', corte);
+  if(pnaAnterior>0){
+    const rel = (pnaActual-pnaAnterior)/pnaAnterior;
+    candidatos.push({cat:'kpi', mag:Math.abs(rel),
+      text:'PNA de '+labelFull(mesActual)+' al día '+corte+': S/ '+Math.round(pnaActual).toLocaleString()+' vs. S/ '+Math.round(pnaAnterior).toLocaleString()+' en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+  const ventasProyIns = proyectarCierre('ventas', vA, corte);
+  const ventasMesAntCompleto = aggMonth(DATA.sales_daily, mesAnterior, 'ventas', null);
+  if(ventasMesAntCompleto>0){
+    const rel = (ventasProyIns-ventasMesAntCompleto)/ventasMesAntCompleto;
+    candidatos.push({cat:'kpi', mag:Math.abs(rel),
+      text:'Proyección de cierre de '+labelFull(mesActual)+': '+Math.round(ventasProyIns).toLocaleString()+' ventas vs. '+ventasMesAntCompleto.toLocaleString()+' cerradas en '+labelFull(mesAnterior)+' ('+(rel>=0?'+':'')+Math.round(rel*1000)/10+'%).'});
+  }
+
+  candidatos.sort((a,b)=>b.mag-a.mag);
+  const top = candidatos.slice(0,6);
+  if(top.length < 4 && candidatos.length > top.length){
+    top.push(...candidatos.slice(top.length, 4));
+  }
+  if(!top.length){
+    box.innerHTML = 'Sin cambios de al menos 15% en efectividad, participación o KPIs generales entre '+labelFull(mesAnterior)+' y '+labelFull(mesActual)+' al día de corte actual.';
+    return;
+  }
+  box.innerHTML = '<ul>' + top.map(c=>'<li>'+c.text+'</li>').join('') + '</ul>';
+}
+
+// ---------- RANGO DE FECHAS ESPECÍFICO ----------
+document.getElementById('rangoBtn').addEventListener('click', () => {
+  const desdeVal = document.getElementById('rangoDesde').value;
+  const hastaVal = document.getElementById('rangoHasta').value;
+  if (!desdeVal || !hastaVal) return;
+  const desde = new Date(desdeVal + 'T00:00:00');
+  const hasta = new Date(hastaVal + 'T23:59:59');
+  function enRango(r) {
+    const d = new Date(r.mes + '-' + String(r.dia).padStart(2,'0') + 'T12:00:00');
+    return d >= desde && d <= hasta;
+  }
+  const ventasFiltradas = DATA.sales_daily.filter(enRango);
+  const leadsFiltrados = DATA.leads_daily.filter(enRango);
+  const ventas = ventasFiltradas.reduce((s,r)=>s+r.ventas,0);
+  const pna = ventasFiltradas.reduce((s,r)=>s+r.pna,0);
+  const leads = leadsFiltrados.reduce((s,r)=>s+r.leads,0);
+  const convertidos = leadsFiltrados.reduce((s,r)=>s+r.convertidos,0);
+  const efect = leads>0 ? (convertidos/leads*100) : 0;
+
+  function enRangoArr(r) {
+    const d = new Date(r[0] + '-' + String(r[1]).padStart(2,'0') + 'T12:00:00');
+    return d >= desde && d <= hasta;
+  }
+  const porAsesor = {};
+  (DATA.sales_by_asesor||[]).filter(enRangoArr).forEach(r => {
+    porAsesor[r[2]] = porAsesor[r[2]] || { ventas: 0, pna: 0 };
+    porAsesor[r[2]].ventas += r[3];
+    porAsesor[r[2]].pna += r[4];
+  });
+  const filasAsesor = Object.keys(porAsesor).sort((a,b)=>porAsesor[b].ventas-porAsesor[a].ventas)
+    .map(a => `<tr><td>${a}</td><td>${porAsesor[a].ventas.toLocaleString()}</td><td>S/ ${abbrevNum(porAsesor[a].pna)}</td></tr>`).join('');
+
+  const fmtFecha = (v) => { const [y,m,d] = v.split('-'); return d+'/'+m+'/'+y; };
+  document.getElementById('rangoResultado').innerHTML = `
+    <section style="margin-top:8px;">
+      <h2>Resultado del ${fmtFecha(desdeVal)} al ${fmtFecha(hastaVal)}</h2>
+      <div class="kpi-grid">
+        <div class="kpi"><p class="label">Ventas</p><p class="value">${ventas.toLocaleString()}</p></div>
+        <div class="kpi"><p class="label">PNA total</p><p class="value">S/ ${abbrevNum(pna)}</p></div>
+        <div class="kpi"><p class="label">Leads</p><p class="value">${leads.toLocaleString()}</p></div>
+        <div class="kpi"><p class="label">Efectividad</p><p class="value">${pctFmt(efect)}</p></div>
+      </div>
+      <div class="table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr><th>Asesor</th><th>Ventas</th><th>PNA</th></tr></thead><tbody>${filasAsesor || '<tr><td colspan="3">Sin ventas en este rango</td></tr>'}</tbody></table></div>
+    </section>`;
+  document.getElementById('rangoResultado').style.display = 'block';
+});
+
+// ---------- RENDER PRINCIPAL ----------
+function render(corte){
+  corteActual = corte;
+  document.getElementById('corteVal').textContent = 'Día ' + corte;
+  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+
+  let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
+  intentar('renderResumenKPIs', () => {
+    const idxActual = mesesV.indexOf(mesActual);
+    const idxAnterior = idxActual - 1;
+    const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+    const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
+    ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+    const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
+    leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+
+    document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+    const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
+    const diffEl = document.getElementById('kVsAnt');
+    diffEl.textContent = (diff>=0?'+':'') + diff + '%';
+    diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
+    document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
+
+    if(!chVentasCorte){
+      chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
+        type:'bar', data:{ labels:labelsV, datasets:[
+          {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
+          {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
+        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+      });
+    } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
+
+    ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+    primaProy = proyectarCierre('pna', primaActual, corte);
+    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+    const ventasRestante = ventasProy - ventasActual;
+    document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
+    document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
+    document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
+
+    const mesesCerradosProy = mesesV.slice(0, -1);
+    const labelsCerradosProy = labelsV.slice(0, -1);
+    const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+    const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+    const proyLabels=[...labelsCerradosProy, actualAbrCorto];
+    const proyReal=[...ventasCerradosArr, ventasActual];
+    const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+    if(!chProyeccion){
+      chProyeccion = new Chart(document.getElementById('chProyeccion'), {
+        type:'bar', data:{ labels:proyLabels, datasets:[
+          {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+          {label:'Proyección resto del mes', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+      });
+    } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
+  });
+  intentar('renderMontoResumen', () => renderMontoResumen(corte));
+  intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
+  intentar('renderCohortTable', () => renderCohortTable(corte));
+  intentar('renderVintageTable', () => renderVintageTable(corte));
+  intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
+  intentar('renderComite', () => renderComite(corte));
+  intentar('renderInsights', () => renderInsights(corte));
+}
+
+document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
+const hoyReal = new Date();
+let corteDefault = hoyReal.getDate() - 1;
+if(corteDefault < 1) corteDefault = 1;
+if(corteDefault > 31) corteDefault = 31;
+document.getElementById('corteSlider').value = corteDefault;
+render(corteDefault);
+
+// ---------- BUSCADOR DE TABLAS POR HOJA ----------
+(function initBuscadorTablas(){
+  const tfBtn = document.getElementById('tableFinderBtn');
+  const tfOverlay = document.getElementById('tableFinderOverlay');
+  const tfInput = document.getElementById('tableFinderInput');
+  const tfResults = document.getElementById('tableFinderResults');
+  const tfHojaLabel = document.getElementById('tableFinderHoja');
+  if(!tfBtn || !tfOverlay || !tfInput || !tfResults || !tfHojaLabel) return;
+  let tfFiltradas = [];
+  let tfActiveIndex = -1;
+
+  function tfNormalizar(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  }
+  function tfTablasDeHojaActiva(){
+    const panel = document.querySelector('.tabpanel.active');
+    if(!panel) return [];
+    return Array.from(panel.querySelectorAll('h2')).map(h2 => ({
+      titulo: h2.textContent.trim(),
+      el: h2.closest('section') || h2
+    })).filter(t => t.titulo);
+  }
+  function tfNombreHojaActiva(){
+    const btn = document.querySelector('.tab-btn.active');
+    return btn ? btn.textContent.trim() : '';
+  }
+  function tfPintarResultados(filtro){
+    const tablas = tfTablasDeHojaActiva();
+    const fNorm = tfNormalizar(filtro);
+    tfFiltradas = fNorm ? tablas.filter(t => tfNormalizar(t.titulo).includes(fNorm)) : tablas;
+    tfActiveIndex = tfFiltradas.length ? 0 : -1;
+    if(!tfFiltradas.length){
+      tfResults.innerHTML = '<div class="tf-empty">No hay tablas que coincidan en esta hoja.</div>';
+      return;
+    }
+    tfResults.innerHTML = tfFiltradas.map((t,i) =>
+      '<button type="button" class="tf-item'+(i===0?' tf-active':'')+'" data-idx="'+i+'">'+
+      t.titulo.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</button>'
+    ).join('');
+    Array.from(tfResults.querySelectorAll('.tf-item')).forEach((btn,i) => {
+      btn.addEventListener('click', () => tfIrA(tfFiltradas[i]));
+    });
+  }
+  function tfIrA(t){
+    if(!t) return;
+    tfCerrar();
+    t.el.scrollIntoView({behavior:'smooth', block:'start'});
+    t.el.classList.remove('tf-flash');
+    void t.el.offsetWidth;
+    t.el.classList.add('tf-flash');
+    setTimeout(() => t.el.classList.remove('tf-flash'), 1700);
+  }
+  function tfAbrir(){
+    tfHojaLabel.textContent = tfNombreHojaActiva();
+    tfInput.value = '';
+    tfOverlay.classList.add('open');
+    tfPintarResultados('');
+    setTimeout(() => tfInput.focus(), 30);
+  }
+  function tfCerrar(){
+    tfOverlay.classList.remove('open');
+  }
+  tfBtn.addEventListener('click', tfAbrir);
+  tfOverlay.addEventListener('click', e => { if(e.target === tfOverlay) tfCerrar(); });
+  tfInput.addEventListener('input', () => tfPintarResultados(tfInput.value));
+  tfInput.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ tfCerrar(); return; }
+    if(e.key === 'Enter'){
+      if(tfActiveIndex >= 0 && tfFiltradas[tfActiveIndex]) tfIrA(tfFiltradas[tfActiveIndex]);
+      return;
+    }
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      if(!tfFiltradas.length) return;
+      const items = tfResults.querySelectorAll('.tf-item');
+      if(items[tfActiveIndex]) items[tfActiveIndex].classList.remove('tf-active');
+      tfActiveIndex = e.key === 'ArrowDown' ? Math.min(tfActiveIndex+1, tfFiltradas.length-1) : Math.max(tfActiveIndex-1, 0);
+      if(items[tfActiveIndex]){ items[tfActiveIndex].classList.add('tf-active'); items[tfActiveIndex].scrollIntoView({block:'nearest'}); }
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === '/' && !tfOverlay.classList.contains('open')){
+      const tag = (document.activeElement && document.activeElement.tagName) || '';
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      tfAbrir();
+    }
+  });
+})();
+
+
+}
+</script>
+</div>
+</body>
+</html>
