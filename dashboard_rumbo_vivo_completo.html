@@ -493,6 +493,27 @@
       <div class="table-wrap"><table class="data-table" id="tableVentasEdadMatrix"></table></div>
     </section>
     <p class="note" id="notaCallOtrosVentas" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
+
+    <!-- Tabla independiente: prima cotizada del lead vs. prima final de venta. Tiene su propio
+         filtro de meses (checkboxes) y de call center -- no usa el calendario desde-hasta ni el
+         filtro de rango de prima de arriba, que son para las demás tablas de esta pestaña. -->
+    <section>
+      <div class="filter-bar" style="margin-bottom:12px;">
+        <div class="dropdown-filter" data-tab="ventasprima">
+          <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+          <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+        </div>
+        <div class="dropdown-filter" data-tab="ventasprima-call">
+          <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+          <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+        </div>
+        <span class="filter-hint">Esta tabla es independiente del resto de la pestaña: se controla solo con los desplegables de Meses y Call center de aquí (el día de corte de arriba a la derecha también aplica).</span>
+      </div>
+      <h2>Prima cotizada (lead) vs. prima final de venta</h2>
+      <p class="sub">Filas: rango de prima con el que cotizó el lead que originó la venta (columna "Prima" de Leads_Raw). Columnas: rango de prima final de esa venta (columna "Prima" de Ventas_Raw). El % de cada celda es sobre el total general de la tabla (todas las celdas suman 100%) — sirve para ver dónde se concentran más las ventas. La diagonal resaltada son las ventas que cerraron en el mismo rango de prima con el que cotizó el lead.</p>
+      <div class="table-wrap"><table class="data-table" id="tablePrimaCruceMatrix"></table></div>
+      <p class="note" id="notaCallOtrosPrimaCruce" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
+    </section>
   </div>
 
   <!-- ===== TAB: VINTAGE ===== -->
@@ -673,7 +694,8 @@ fetch(OUTPUT_URL)
       'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_campana_rangoprima_call',
-      'sales_tri_tasa_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias'];
+      'sales_tri_tasa_rangoprima_call','sales_tri_edad_rangoprima_call','sales_tri_leadprima_ventaprima_call',
+      'metas','metas_diarias'];
     const CLAVES_OBJETO = ['leads_total_mes','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -1071,7 +1093,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // columnas; los calculos (totales, comparacion vs. mes anterior, relevancia >=8%) siempre se
 // hacen sobre el historico completo. Mismo mecanismo que en el dashboard de Vida (alla usa
 // marzo como mes de referencia fijo; aca usa febrero).
-const TABS_CON_FILTRO_MESES = ['resumen','call','perfil','fuente','vintage','calidad'];
+const TABS_CON_FILTRO_MESES = ['resumen','call','perfil','fuente','vintage','calidad','ventasprima'];
 const filtroMesesTab = {};
 function ultimosN(lista, n){ return lista.slice(Math.max(0, lista.length-n)); }
 const mesFebreroRef = mesesL.find(m => m.endsWith('-02')) || mesesV.find(m => m.endsWith('-02')) || null;
@@ -1250,6 +1272,7 @@ function render(corte){
   intentar('renderAllCrossTabs', () => renderAllCrossTabs(corte));
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
   intentar('renderVentasTab', () => renderVentasTab());
+  intentar('renderPrimaCruceTab', () => renderPrimaCruceTab(corte));
   intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
   intentar('renderCohortTable', () => renderCohortTable(corte));
   intentar('renderVintageTable', () => renderVintageTable(corte));
@@ -1507,7 +1530,7 @@ function callBucketVoz(c){
   return 'Otros';
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
-const CALL_FILTRO_TABS = ['perfil','fuente','ventas'];
+const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -2040,6 +2063,62 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
 
 const ORDEN_TASA = ['T1','T2','T3','Sin dato'];
 const ORDEN_PRIMA = ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'];
+
+// ---------- TABLA "PRIMA COTIZADA (LEAD) VS. PRIMA FINAL DE VENTA" (pestaña Ventas) ----------
+// Doble entrada, independiente del resto de la pestaña "Ventas": su propio filtro de meses
+// (checkboxes, tab 'ventasprima') y de call center (tab 'ventasprima-call' / 'ventasprima'),
+// en vez del calendario desde-hasta que usan las demás tablas de esa pestaña. El día de corte
+// global sí aplica (mismo criterio que el resto del dashboard: r[1] <= corte).
+// Filas = rango de prima cotizada por el lead (Leads_Raw "Prima"); columnas = rango de prima
+// final de la venta (Ventas_Raw "Prima"); % de cada celda = sobre el TOTAL GENERAL de la tabla
+// (a pedido explícito, para ver dónde se concentran más las ventas -- no % por fila ni columna).
+function renderPrimaCruceTab(corte){
+  const el = document.getElementById('tablePrimaCruceMatrix');
+  if(!el) return;
+  const nota = document.getElementById('notaCallOtrosPrimaCruce');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['ventasprima'].has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const mesesSel = new Set(mesesVisiblesV('ventasprima'));
+
+  const filas = (DATA.sales_tri_leadprima_ventaprima_call||[]).filter(r =>
+    r[1] <= corte && mesesSel.has(r[0]) && buckets.includes(callBucket(r[4]))
+  );
+
+  const matriz = {};
+  ORDEN_PRIMA.forEach(r1 => { matriz[r1] = {}; ORDEN_PRIMA.forEach(r2 => { matriz[r1][r2] = 0; }); });
+  let total = 0;
+  filas.forEach(r => {
+    const d1 = ORDEN_PRIMA.includes(r[2]) ? r[2] : 'Sin dato';
+    const d2 = ORDEN_PRIMA.includes(r[3]) ? r[3] : 'Sin dato';
+    matriz[d1][d2] += r[5];
+    total += r[5];
+  });
+
+  const head = '<thead><tr><th>Prima lead \\ Prima venta</th>' +
+    ORDEN_PRIMA.map(c => '<th>'+c+'</th>').join('') + '<th>Total fila</th></tr></thead>';
+
+  const totalesCol = {}; ORDEN_PRIMA.forEach(c => { totalesCol[c] = 0; });
+  let body = '<tbody>';
+  ORDEN_PRIMA.forEach(r1 => {
+    let totalFila = 0;
+    body += '<tr><td>'+r1+'</td>';
+    ORDEN_PRIMA.forEach(r2 => {
+      const v = matriz[r1][r2];
+      totalFila += v; totalesCol[r2] += v;
+      const pct = total>0 ? (v/total)*100 : 0;
+      const cls = r1===r2 ? ' style="background:var(--teal-light);font-weight:600;"' : '';
+      body += '<td'+cls+'>'+(v>0 ? v.toLocaleString()+' (<strong>'+pctFmt(pct)+'</strong>)' : '–')+'</td>';
+    });
+    body += '<td style="font-weight:600;">'+(totalFila>0?totalFila.toLocaleString():'–')+'</td></tr>';
+  });
+  body += '<tr style="font-weight:700;background:var(--card);border-top:1px solid var(--border);"><td>Total columna</td>';
+  ORDEN_PRIMA.forEach(c => { body += '<td>'+(totalesCol[c]>0?totalesCol[c].toLocaleString():'–')+'</td>'; });
+  body += '<td>'+(total>0?total.toLocaleString():'–')+'</td></tr>';
+  body += '</tbody>';
+
+  el.innerHTML = head + body;
+}
 
 function renderAllCrossTabs(corte){
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
