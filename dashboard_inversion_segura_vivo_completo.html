@@ -150,10 +150,15 @@
 
   <div id="corteControls">
   <div class="controls">
-    <label for="corteSlider">Día de corte</label>
-    <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
+    <label for="diaDesde">Ver del día</label>
+    <input type="number" id="diaDesde" min="1" max="31" value="1" style="width:56px;padding:6px 8px;border-radius:6px;border:1px solid #D8D4C8;font-size:13px;">
+    <span style="color:#8B8880;">al día</span>
+    <input type="number" id="diaHasta" min="1" max="31" value="20" style="width:56px;padding:6px 8px;border-radius:6px;border:1px solid #D8D4C8;font-size:13px;">
+    <button type="button" class="preset-dias" data-desde="1" data-hasta="31" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">Mes completo</button>
+    <button type="button" class="preset-dias" data-desde="1" data-hasta="15" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">1ª quincena (1–15)</button>
+    <button type="button" class="preset-dias" data-desde="16" data-hasta="31" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">2ª quincena (16–31)</button>
     <span class="val" id="corteVal">Día 20</span>
-    <span class="hint">Aplica al resumen</span>
+    <span class="hint">Aplica a todas las pestañas. Las tarjetas de KPI y Comité (que van con una proyección de cierre) siempre usan el día "hasta" como el corte de siempre — el "desde" no las afecta.</span>
   </div>
 
   <div id="rangoFechasBlock" style="display:none;">
@@ -554,8 +559,14 @@ const mesEsLabel = {}; mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
 const mesActual = DATA.mes_actual || mesesV[mesesV.length-1] || null;
 const mesAnterior = mesesV[mesesV.indexOf(mesActual)-1] || null;
 
-function aggMonth(rows, mes, field, maxDia){
-  return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
+// minDia es OPCIONAL (a proposito): si no se pasa, se comporta EXACTAMENTE igual que antes
+// (arranca en el dia 1, sin piso). Solo los llamados que quieren respetar el nuevo rango
+// "Desde" del usuario lo pasan explicitamente -- los que alimentan una proyeccion de cierre
+// (KPIs de Resumen, Comité) siguen sin pasarlo, para que la proyección siga usando 'hasta'
+// como si fuera el corte de siempre, sin importar el "desde" elegido.
+function aggMonth(rows, mes, field, maxDia, minDia){
+  const piso = (minDia === undefined || minDia === null) ? 1 : minDia;
+  return rows.filter(r => r.mes === mes && r.dia >= piso && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
 }
 
 // ---------- DÍAS DE GESTIÓN ----------
@@ -632,18 +643,18 @@ function construirDropdownMeses(tab, universo){
     cb.addEventListener('change', () => {
       if(cb.checked) filtroMesesTab[tab].add(cb.value); else filtroMesesTab[tab].delete(cb.value);
       actualizarLabelMeses(tab);
-      render(corteActual);
+      render(desdeActual, corteActual);
     });
   });
   panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
     filtroMesesTab[tab] = new Set(universo);
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
-    actualizarLabelMeses(tab); render(corteActual);
+    actualizarLabelMeses(tab); render(desdeActual, corteActual);
   });
   panel.querySelector('[data-act="ult3"]').addEventListener('click', () => {
     filtroMesesTab[tab] = new Set(ultimosN(universo,3));
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = filtroMesesTab[tab].has(cb.value));
-    actualizarLabelMeses(tab); render(corteActual);
+    actualizarLabelMeses(tab); render(desdeActual, corteActual);
   });
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -684,7 +695,7 @@ function construirDropdownAsesorComite(){
       filtroAsesorComite = rb.value || null;
       label.textContent = rb.value || 'Consolidado';
       document.getElementById('tituloComite').textContent = rb.value ? ('Solo ' + rb.value) : 'Consolidado — todos los asesores';
-      render(corteActual);
+      render(desdeActual, corteActual);
     });
   });
   btn.addEventListener('click', (e) => {
@@ -697,10 +708,16 @@ construirDropdownAsesorComite();
 
 let chVentasCorte, chProyeccion, chMontoResumen;
 let corteActual = 16;
+// desdeActual = piso del rango de dias ("Ver del dia X al dia Y"), reemplaza al viejo slider
+// de un solo "dia de corte". Solo afecta a las tablas/graficos que muestran datos "a la fecha"
+// -- las filas de "Proyeccion de cierre" (KPIs de Resumen, Comité) NUNCA usan desdeActual: siguen
+// calculandose acumuladas desde el dia 1 hasta corteActual, exactamente como el viejo corte
+// unico, para no perder el sentido de negocio de una proyeccion mensual.
+let desdeActual = 1;
 let filtroMonedaVentas = 'Todos';
 (function(){
   const sel = document.getElementById('ventasMonedaFiltro');
-  if (sel) sel.addEventListener('change', () => { filtroMonedaVentas = sel.value; render(corteActual); });
+  if (sel) sel.addEventListener('change', () => { filtroMonedaVentas = sel.value; render(desdeActual, corteActual); });
 })();
 
 function actualizarTextosMes(){
@@ -751,8 +768,8 @@ function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder
   // venta, en el índice 8 de la tupla. Los leads no tienen moneda registrada, así que este
   // filtro nunca toca leadsRowsAll/leadsRows).
   if (monedaFiltro && monedaFiltro !== 'Todos') salesRowsAll = salesRowsAll.filter(r => r[8] === monedaFiltro);
-  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
-  const salesRows = salesRowsAll.filter(r => r[1] <= corte);
+  const leadsRows = leadsRowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+  const salesRows = salesRowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
   let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
   if(excludeSubstr) dims = dims.filter(d => !excludeSubstr.some(ex => d.includes(ex)));
   if(customOrder){
@@ -856,7 +873,7 @@ function renderAllMatrixSets(corte){
   renderLeadsFacebookMonto('tableFacebookMontoDolaresMatrix', 'leads_facebook_monto_dolares', corte);
 }
 function renderLeadsFacebookMonto(tableId, dataKey, corte){
-  const rows = (DATA[dataKey]||[]).filter(r => r[1] <= corte);
+  const rows = (DATA[dataKey]||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
   const cols = mesesVisiblesV('fuente');
   const dims = [...new Set(rows.map(r=>r[2]))];
   const totalPorMes = {};
@@ -888,18 +905,19 @@ function renderLeadsFacebookMonto(tableId, dataKey, corte){
   const el = document.getElementById(tableId); if(el) el.innerHTML = html;
 }
 function renderSubfuenteVentasSolo(corte){
-  const rows = (DATA.sales_by_subfuente||[]).filter(r => r[1] <= corte);
+  const rows = (DATA.sales_by_subfuente||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
+  const cols = mesesVisiblesV('fuente');
   const dims = [...new Set(rows.map(r=>r[2]))];
   const totalPorMes = {};
-  mesesV.forEach(m => { totalPorMes[m] = rows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
+  cols.forEach(m => { totalPorMes[m] = rows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
   dims.sort((a,b) => {
     const ta = rows.filter(r=>r[2]===a).reduce((s,r)=>s+r[3],0);
     const tb = rows.filter(r=>r[2]===b).reduce((s,r)=>s+r[3],0);
     return tb-ta;
   });
-  let html = '<thead><tr><th>Subfuente</th>' + mesesV.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  let html = '<thead><tr><th>Subfuente</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   dims.forEach(d => {
-    html += '<tr><td>'+d+'</td>' + mesesV.map(m => {
+    html += '<tr><td>'+d+'</td>' + cols.map(m => {
       const v = rows.filter(r=>r[0]===m && r[2]===d).reduce((s,r)=>s+r[3],0);
       if(v===0) return '<td>–</td>';
       const part = totalPorMes[m]>0 ? (v/totalPorMes[m])*100 : 0;
@@ -914,7 +932,7 @@ function renderSubfuenteVentasSolo(corte){
 function renderPolizasCliente(corte){
   const porDni = {};
   (DATA.ventas_dni||[]).forEach(([mes,dia,dni]) => {
-    if(dia > corte) return;
+    if(dia > corte || dia < desdeActual) return;
     porDni[dni] = (porDni[dni]||0) + 1;
   });
   const counts = Object.values(porDni);
@@ -932,8 +950,8 @@ function renderPolizasCliente(corte){
 // ---------- COHORTE (RESUMEN) ----------
 function renderCohortTable(corte){
   const cols = mesesVisiblesL('resumen');
-  const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte));
-  const convs = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte));
+  const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte, desdeActual));
+  const convs = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte, desdeActual));
   let html = '<thead><tr><th>Cohorte</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Todos los leads</td>';
   cols.forEach(m => {
     const i = mesesL.indexOf(m);
@@ -958,7 +976,7 @@ const paletaMonto = ['#1D3A5F','#0F8B7D','#D98E3B','#C24B4B','#6C5CC4','#999'];
 const ORDEN_MONTO = ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'];
 function renderMontoResumen(corte){
   if(!mesActual) return;
-  const rows = (DATA.sales_by_rango_monto||[]).filter(r => r[0]===mesActual && r[1]<=corte);
+  const rows = (DATA.sales_by_rango_monto||[]).filter(r => r[0]===mesActual && r[1]>=desdeActual && r[1]<=corte);
   const porRango = {};
   ORDEN_MONTO.forEach(r => porRango[r] = 0);
   rows.forEach(r => { porRango[r[2]] = (porRango[r[2]]||0) + r[3]; });
@@ -979,7 +997,7 @@ function renderMontoResumen(corte){
 function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte, colsOverride){
   const origenes = [...mesesL]; const ventaCols = colsOverride && colsOverride.length ? colsOverride : [...mesesV];
   const matriz = {};
-  (DATA.sales_vintage||[]).forEach(([mv,dia,ml,v]) => { if(dia>corte) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
+  (DATA.sales_vintage||[]).forEach(([mv,dia,ml,v]) => { if(dia>corte || dia<desdeActual) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
   const totalPorCol = {};
   ventaCols.forEach(mv => { totalPorCol[mv] = origenes.reduce((s,ml)=> s + ((matriz[ml]||{})[mv]||0), 0); });
   let html = '<thead><tr><th>Mes lead / Mes venta</th>' + ventaCols.map(mv=>'<th>'+mesEsLabel[mv]+'</th>').join('') + (totalsRow?'<th>Total</th>':'') + '</tr></thead><tbody>';
@@ -998,7 +1016,7 @@ function renderVintageTable(corte){
   buildMatrixTable('tableVintageCant', (v)=> v>0?v.toLocaleString():'–', false, true, true, corte, cols);
   buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte, cols);
   buildMatrixTable('tableVintageEfect', (v,ml)=> {
-    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte);
+    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte, desdeActual);
     if(!t||v===0) return v>0?'0%':'–';
     return (Math.round((v/t)*1000)/10)+'%';
   }, true, false, false, corte, cols);
@@ -1006,8 +1024,8 @@ function renderVintageTable(corte){
   let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
   let totLeads=0, totConv=0;
   mesesL.forEach(m => {
-    const total = aggMonth(DATA.leads_daily, m, 'leads', corte);
-    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte);
+    const total = aggMonth(DATA.leads_daily, m, 'leads', corte, desdeActual);
+    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte, desdeActual);
     if(!total) return;
     const noConv = total-conv; const pct = Math.round((conv/total)*1000)/10;
     totLeads += total; totConv += conv;
@@ -1248,9 +1266,11 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
 });
 
 // ---------- RENDER PRINCIPAL ----------
-function render(corte){
+function render(desde, corte){
+  if (corte === undefined) { corte = desde; desde = desdeActual; }
+  desdeActual = desde;
   corteActual = corte;
-  document.getElementById('corteVal').textContent = 'Día ' + corte;
+  document.getElementById('corteVal').textContent = (desde > 1 ? ('Días ' + desde + '–' + corte) : ('Día ' + corte));
   function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
 
   let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
@@ -1315,13 +1335,33 @@ function render(corte){
   intentar('renderInsights', () => renderInsights(corte));
 }
 
-document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
+const diaDesdeInput = document.getElementById('diaDesde');
+const diaHastaInput = document.getElementById('diaHasta');
+function leerYRenderDesdeHasta(){
+  let d = parseInt(diaDesdeInput.value, 10) || 1;
+  let h = parseInt(diaHastaInput.value, 10) || 1;
+  d = Math.min(31, Math.max(1, d));
+  h = Math.min(31, Math.max(1, h));
+  if (d > h) { const t = d; d = h; h = t; }
+  diaDesdeInput.value = d; diaHastaInput.value = h;
+  render(d, h);
+}
+diaDesdeInput.addEventListener('change', leerYRenderDesdeHasta);
+diaHastaInput.addEventListener('change', leerYRenderDesdeHasta);
+document.querySelectorAll('.preset-dias').forEach(btn => {
+  btn.addEventListener('click', () => {
+    diaDesdeInput.value = btn.dataset.desde;
+    diaHastaInput.value = btn.dataset.hasta;
+    leerYRenderDesdeHasta();
+  });
+});
 const hoyReal = new Date();
 let corteDefault = hoyReal.getDate() - 1;
 if(corteDefault < 1) corteDefault = 1;
 if(corteDefault > 31) corteDefault = 31;
-document.getElementById('corteSlider').value = corteDefault;
-render(corteDefault);
+diaHastaInput.value = corteDefault;
+diaDesdeInput.value = 1;
+render(1, corteDefault);
 
 // ---------- BUSCADOR DE TABLAS POR HOJA ----------
 (function initBuscadorTablas(){
@@ -1419,3 +1459,4 @@ render(corteDefault);
 </div>
 </body>
 </html>
+
