@@ -111,6 +111,19 @@
   #tableFinderResults .tf-empty{ padding:16px 18px; font-size:13px; color:var(--text-3); }
   .tf-flash{ animation:tfFlash 1.6s ease; border-radius:10px; }
   @keyframes tfFlash{ 0%{ box-shadow:0 0 0 4px var(--amber); } 100%{ box-shadow:0 0 0 0 rgba(217,142,59,0); } }
+  /* ---------- TABLAS CON SUBFILAS: expandir/colapsar ---------- */
+  /* Barra "Expandir todo / Colapsar todo" -- va como <caption> arriba de la tabla, generada por
+     el propio JS que arma cada tabla (no hace falta tocar el HTML estatico de cada seccion). */
+  table.data-table caption.nested-toggle-bar{ caption-side:top; text-align:left; padding:6px 2px 10px; background:none; }
+  .nested-toggle-btn{ font-size:11px; font-family:inherit; color:var(--navy); background:var(--bg); border:1px solid var(--border);
+    border-radius:6px; padding:4px 10px; margin-right:6px; cursor:pointer; }
+  .nested-toggle-btn:hover{ background:#EDEAE0; }
+  /* Fila de grupo (dim1): clicable para expandir/colapsar sus sub-filas (dim2). El triangulo
+     (▾/▸) indica el estado. La fila "Subtotal <dim1>" NO se oculta al colapsar -- asi se puede
+     ver el resumen de ese grupo sin tener que expandirlo. */
+  tr.nested-group-row td{ cursor:pointer; user-select:none; }
+  tr.nested-group-row:hover td{ background:var(--bg); }
+  .nested-caret{ display:inline-block; width:12px; }
 </style>
 
 </head>
@@ -877,6 +890,21 @@ function tasaHistorica(field){
 }
 function proyectarCierre(field, valorActual, corte){
   return proyectarGenerico(valorActual, corte, m => field==='leads' ? aggMonth(DATA.leads_daily, m, 'leads', null) : aggMonth(DATA.sales_daily, m, field, null));
+}
+// Igual que proyectarCierre(), pero permite filtrar la tasa histórica por call center
+// (Interno/Biznes) -- se usa en la tabla de Comité para que el "ritmo actual" (que sí está
+// filtrado por call) se compare contra una tasa histórica de ESE MISMO call, y no contra la
+// del total de todos los canales (que era la causa de que Comité no cuadrara con Resumen: sin
+// filtroCall, este caso da EXACTAMENTE los mismos números que proyectarCierre/Resumen, porque
+// usa la misma fuente sales_daily/leads_daily sin filtrar).
+function proyectarCierreCall(field, valorActual, corte, filtroCall){
+  if(!filtroCall) return proyectarCierre(field, valorActual, corte);
+  if(field==='leads'){
+    return proyectarGenerico(valorActual, corte, m => (DATA.leads_by_call||[]).filter(r=>r[0]===m && callBucket(r[2])===filtroCall).reduce((s,r)=>s+r[3],0));
+  }
+  const idx = field==='ventas' ? 3 : field==='pna' ? 8 : field==='mismoMes' ? 5 : null;
+  if(idx===null) return proyectarCierre(field, valorActual, corte);
+  return proyectarGenerico(valorActual, corte, m => (DATA.sales_by_call||[]).filter(r=>r[0]===m && callBucket(r[2])===filtroCall).reduce((s,r)=>s+(r[idx]||0),0));
 }
 
 // ---------- METAS (pestañas "Metas" y "Metas_Diarias" del Google Sheet) ----------
@@ -1853,6 +1881,20 @@ function actualizarLabelPrima(){
 }
 construirDropdownPrima();
 
+// Barra "Expandir todo / Colapsar todo" que va como <caption> arriba de cada tabla con subfilas
+// (debe ser el primer hijo de <table>, antes de <thead>). El toggle de cada grupo (fila dim1) es
+// manejado por el listener delegado en document (ver mas abajo, "TABLAS CON SUBFILAS").
+function nestedToggleBarHtml(tableId){
+  return '<caption class="nested-toggle-bar">' +
+    '<button type="button" class="nested-toggle-btn" data-table="'+tableId+'" data-action="expand">Expandir todo</button>' +
+    '<button type="button" class="nested-toggle-btn" data-table="'+tableId+'" data-action="collapse">Colapsar todo</button>' +
+    '</caption>';
+}
+// Fila de grupo (dim1) clicable para expandir/colapsar sus sub-filas (dim2). idx identifica el
+// grupo dentro de la tabla (tableId+idx = clave usada por data-group/data-parent).
+function nestedGroupRowHtml(tableId, idx, label, colspan){
+  return '<tr class="nested-group-row" data-group="'+tableId+'__'+idx+'"><td colspan="'+colspan+'" style="font-weight:700;color:var(--navy);"><span class="nested-caret">▾</span> '+label+'</td></tr>';
+}
 // Tabla con call center como grupo de columnas (2 filas de thead) y rango de prima como sub-fila
 // bajo cada dim1 (fuente/subfuente/campaña/tasa/edad). dim2s (rangos de prima) y buckets (calls)
 // ya vienen filtrados por el llamador, asi que el % de cada celda es dentro de ese dim1+call+mes
@@ -1875,11 +1917,11 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
   });
   head1 += '</tr>'; head2 += '</tr>';
   const totalCols = gruposMostrar.length * cols.length;
-  let html = '<thead>'+head1+head2+'</thead><tbody>';
-  dim1s.forEach(d1 => {
-    html += '<tr style="background:var(--bg);"><td colspan="'+(totalCols+1)+'" style="font-weight:700;color:var(--navy);">'+d1+'</td></tr>';
+  let html = nestedToggleBarHtml(tableId) + '<thead>'+head1+head2+'</thead><tbody>';
+  dim1s.forEach((d1,idx1) => {
+    html += nestedGroupRowHtml(tableId, idx1, d1, totalCols+1);
     dim2s.forEach(d2 => {
-      html += '<tr><td style="padding-left:22px;">'+d2+'</td>';
+      html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;">'+d2+'</td>';
       gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const v = celda(d1,d2,b,m);
         const cls = i===0 ? ' class="div-left"' : '';
@@ -2003,7 +2045,17 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     dim2sByDim1[d1] = dim2Order.filter(d2 => present.has(d2));
   });
 
+  // "Total" (suma de todos los call center) se agrega como una columna mas, igual que ya hacen
+  // buildCallNestedTable/buildCallNestedSubfilas -- antes estas 12 tablas (Fuente/Subfuente x
+  // Tasa/Prima) eran las unicas con columnas por call que se quedaban sin columna de Total.
   function agg(d1, d2, bucket, m){
+    if(bucket === 'Total'){
+      return buckets.reduce((acc,bb) => {
+        const a = agg(d1,d2,bb,m);
+        acc.leads += a.leads; acc.conv += a.conv; acc.ventas += a.ventas; acc.mismoMes += a.mismoMes;
+        return acc;
+      }, {leads:0, conv:0, ventas:0, mismoMes:0});
+    }
     const l = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
     const s = salesRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
     return {
@@ -2014,30 +2066,36 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     };
   }
 
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  // Igual que en el original: la base de % de cada dim1+call+mes suma TODAS las filas de esa
+  // combinacion (sin restringir a los dim2 que se terminan mostrando como sub-fila), para que el
+  // % de participacion sea correcto aunque exista algun dim2 fuera de dim2Order.
+  function matchBucket(r, b){ return b === 'Total' ? buckets.includes(callBucket(r[4])) : callBucket(r[4])===b; }
+
   const totalPorDim1BucketMes = {};
   dim1s.forEach(d1 => {
     totalPorDim1BucketMes[d1] = {};
-    buckets.forEach(b => { cols.forEach(m => {
-      totalPorDim1BucketMes[d1][b+'|'+m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && callBucket(r[4])===b).reduce((s,r)=>s+r[5],0);
+    gruposMostrar.forEach(b => { cols.forEach(m => {
+      totalPorDim1BucketMes[d1][b+'|'+m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && matchBucket(r,b)).reduce((s,r)=>s+r[5],0);
     }); });
   });
 
-  const totalCols = buckets.length * cols.length;
+  const totalCols = gruposMostrar.length * cols.length;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
-  buckets.forEach(b => {
+  gruposMostrar.forEach(b => {
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
     head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
   });
   head1 += '</tr>'; head2 += '</tr>';
   const headHtml = '<thead>'+head1+head2+'</thead>';
 
-  function buildRows(valueFn, totalFn, subtotalFn){
+  function buildRows(tableId, valueFn, totalFn, subtotalFn){
     let rowsHtml = '';
-    dim1s.forEach(d1 => {
-      rowsHtml += '<tr style="background:var(--bg);"><td colspan="' + (totalCols+1) + '" style="font-weight:700;color:var(--navy);">' + d1 + '</td></tr>';
+    dim1s.forEach((d1,idx1) => {
+      rowsHtml += nestedGroupRowHtml(tableId, idx1, d1, totalCols+1);
       dim2sByDim1[d1].forEach(d2 => {
-        rowsHtml += '<tr><td style="padding-left:22px;">' + d2 + '</td>';
-        buckets.forEach(b => { cols.forEach((m,i) => {
+        rowsHtml += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;">' + d2 + '</td>';
+        gruposMostrar.forEach(b => { cols.forEach((m,i) => {
           const cls = i===0 ? ' class="div-left"' : '';
           rowsHtml += '<td'+cls+'>' + valueFn(d1,d2,b,m) + '</td>';
         }); });
@@ -2045,7 +2103,7 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
       });
       if(subtotalFn){
         rowsHtml += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal ' + d1 + '</td>';
-        buckets.forEach(b => { cols.forEach((m,i) => {
+        gruposMostrar.forEach(b => { cols.forEach((m,i) => {
           const cls = i===0 ? ' class="div-left"' : '';
           rowsHtml += '<td'+cls+'>' + subtotalFn(d1,b,m) + '</td>';
         }); });
@@ -2054,7 +2112,7 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     });
     if(totalFn){
       rowsHtml += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
-      buckets.forEach(b => { cols.forEach((m,i) => {
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const cls = i===0 ? ' class="div-left"' : '';
         rowsHtml += '<td'+cls+'>' + totalFn(b,m) + '</td>';
       }); });
@@ -2063,7 +2121,7 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     return rowsHtml;
   }
 
-  const leadsRowsHtml = buildRows((d1,d2,b,m) => {
+  const leadsRowsHtml = buildRows(prefixLeads, (d1,d2,b,m) => {
     const a = agg(d1,d2,b,m);
     if(a.leads===0) return '–';
     const totalDim1Bucket = totalPorDim1BucketMes[d1][b+'|'+m];
@@ -2077,9 +2135,9 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     const t = totalPorDim1BucketMes[d1][b+'|'+m];
     return t>0 ? t.toLocaleString() + ' (<strong>100%</strong>)' : '–';
   });
-  document.getElementById(prefixLeads).innerHTML = headHtml + '<tbody>' + leadsRowsHtml + '</tbody>';
+  document.getElementById(prefixLeads).innerHTML = nestedToggleBarHtml(prefixLeads) + headHtml + '<tbody>' + leadsRowsHtml + '</tbody>';
 
-  const ventasRowsHtml = buildRows((d1,d2,b,m) => {
+  const ventasRowsHtml = buildRows(prefixVentas, (d1,d2,b,m) => {
     const a = agg(d1,d2,b,m);
     return a.ventas>0 ? a.ventas.toLocaleString() : '–';
   }, (b,m) => {
@@ -2091,13 +2149,13 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     dim2sByDim1[d1].forEach(d2 => { t += agg(d1,d2,b,m).ventas; });
     return t>0 ? t.toLocaleString() : '–';
   });
-  document.getElementById(prefixVentas).innerHTML = headHtml + '<tbody>' + ventasRowsHtml + '</tbody>';
+  document.getElementById(prefixVentas).innerHTML = nestedToggleBarHtml(prefixVentas) + headHtml + '<tbody>' + ventasRowsHtml + '</tbody>';
 
-  const efectRowsHtml = buildRows((d1,d2,b,m) => {
+  const efectRowsHtml = buildRows(prefixEfect, (d1,d2,b,m) => {
     const a = agg(d1,d2,b,m);
     return a.leads>0 ? pctFmt((a.mismoMes/a.leads)*100) : '–';
   });
-  document.getElementById(prefixEfect).innerHTML = headHtml + '<tbody>' + efectRowsHtml + '</tbody>';
+  document.getElementById(prefixEfect).innerHTML = nestedToggleBarHtml(prefixEfect) + headHtml + '<tbody>' + efectRowsHtml + '</tbody>';
 }
 
 const ORDEN_TASA = ['T1','T2','T3','Sin dato'];
@@ -2363,12 +2421,16 @@ function renderTablaComite(tableId, filtroCall, corte){
       const mismoMesActualComite = ventasVals[i] ? ventasVals[i].mismoMes : 0;
       const leadsActualComite = leadsVals[i] || 0;
       const pnaActualComite = pnaVals[i] || 0;
-      const ventasProyC = Math.round(proyectarCierre('ventas', ventasActualComite, corte));
-      const mismoMesProyC = Math.round(proyectarCierre('mismoMes', mismoMesActualComite, corte));
-      const leadsProyC = Math.round(proyectarCierre('leads', leadsActualComite, corte));
-      // No hay historico de PNA por dia de gestion separado; se proyecta escalando el PNA
-      // actual por el mismo ritmo de crecimiento que la proyeccion de ventas.
-      const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
+      // Antes, la fila PNA de "Proyección de cierre" no se proyectaba con el modelo de días de
+      // gestión (como sí hace Resumen) -- se derivaba escalando el PP (prima promedio) actual por
+      // el crecimiento proyectado de unidades. Eso hacía que no cuadrara con la tarjeta "PNA
+      // proyectada" de Resumen. Ahora las 4 filas usan el mismo modelo (proyectarCierreCall, que
+      // para "Total canales" -- filtroCall=null -- es exactamente proyectarCierre(), igual que
+      // Resumen; para Interno/Biznes usa la tasa histórica de ESE call, no la del total).
+      const ventasProyC = Math.round(proyectarCierreCall('ventas', ventasActualComite, corte, filtroCall));
+      const mismoMesProyC = Math.round(proyectarCierreCall('mismoMes', mismoMesActualComite, corte, filtroCall));
+      const leadsProyC = Math.round(proyectarCierreCall('leads', leadsActualComite, corte, filtroCall));
+      const pnaProyC = Math.round(proyectarCierreCall('pna', pnaActualComite, corte, filtroCall));
       return { cerrado:false, pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((mismoMesProyC/leadsProyC)*100):'–', leads:leadsProyC };
     }
     // Mes ya cerrado: dato real completo del mes (sin cortar por dia de corte), no una proyeccion.
@@ -2715,6 +2777,36 @@ render(corteDefault);
     }
   });
 })();
+
+// ---------- TABLAS CON SUBFILAS: expandir/colapsar (delegado, sobrevive a los re-render) ----------
+// Un solo listener en document (igual que el buscador de tablas de arriba) en vez de atar un
+// listener por fila cada vez que se redibuja una tabla -- las tablas con subfilas (fuente x
+// prima, subfuente x tasa, etc.) se vuelven a armar por completo en cada cambio de filtro, y
+// atar/desatar listeners ahi seria mas fragil y mas lento.
+document.addEventListener('click', e => {
+  const groupRow = e.target.closest('tr.nested-group-row');
+  if(groupRow){
+    const key = groupRow.dataset.group;
+    const colapsado = groupRow.classList.toggle('collapsed');
+    document.querySelectorAll('tr[data-parent="'+CSS.escape(key)+'"]').forEach(tr => { tr.style.display = colapsado ? 'none' : ''; });
+    const caret = groupRow.querySelector('.nested-caret');
+    if(caret) caret.textContent = colapsado ? '▸' : '▾';
+    return;
+  }
+  const btn = e.target.closest('.nested-toggle-btn');
+  if(btn){
+    const tabla = document.getElementById(btn.dataset.table);
+    if(!tabla) return;
+    const expandir = btn.dataset.action === 'expand';
+    tabla.querySelectorAll('tr.nested-group-row').forEach(gr => {
+      gr.classList.toggle('collapsed', !expandir);
+      const caret = gr.querySelector('.nested-caret');
+      if(caret) caret.textContent = expandir ? '▾' : '▸';
+      const key = gr.dataset.group;
+      tabla.querySelectorAll('tr[data-parent="'+CSS.escape(key)+'"]').forEach(tr => { tr.style.display = expandir ? '' : 'none'; });
+    });
+  }
+});
 
 
 }
