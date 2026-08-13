@@ -155,6 +155,19 @@
   <p class="eyebrow">InterSeguro · Productos digitales</p>
   <h1>Dashboard de ventas — Vida</h1>
   <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026</p>
+  <!-- Filtro global de producto: afecta TODAS las tablas de TODAS las hojas (no es un filtro
+       por pestaña como los demas desplegables). Al cambiarlo se recarga la pagina para
+       reconstruir todo el dashboard desde cero con los datos ya filtrados -- es la forma mas
+       segura de garantizar que absolutamente todo (tablas, graficos, proyecciones) quede
+       consistente, sin arrastrar estado de la vista anterior. -->
+  <div id="filtroProductoBar" style="margin:10px 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <label for="filtroProductoGlobal" style="font-size:12px;color:#B7C6D4;font-weight:600;letter-spacing:0.02em;">FILTRO DE PRODUCTO (afecta todas las hojas):</label>
+    <select id="filtroProductoGlobal" style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid #2E4E70;background:#fff;color:#1D3A5F;font-weight:600;cursor:pointer;">
+      <option value="todos">Ambos (Vida Cash + Endoso)</option>
+      <option value="vidacash">Vida Cash</option>
+      <option value="endoso">Endoso</option>
+    </select>
+  </div>
   <div class="tabs">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
@@ -695,6 +708,158 @@ let DATA;
 const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
+// ==================== FILTRO GLOBAL DE PRODUCTO (Vida Cash / Endoso / Ambos) ====================
+// Afecta TODAS las tablas de TODAS las hojas del dashboard. El script del Sheet ahora manda,
+// para cada lead/venta agregado, el producto pegado al final de cada fila (o como parte de un
+// campo "porProducto" en los pocos casos que no se pueden sumar directo, como la mediana de
+// dias o el top-12 de campañas). Esta funcion colapsa esas filas de vuelta a la forma ORIGINAL
+// (misma cantidad de filas, mismos campos, en el mismo orden) que ya usa el resto del HTML --
+// asi ninguna de las funciones que dibujan tablas/graficos tiene que cambiar: reciben datos con
+// exactamente la misma forma de siempre, solo que ya sumados/filtrados por el producto elegido.
+// Con "Ambos" el resultado es matemáticamente idéntico a los datos sin este filtro (se prueba
+// sumando de vuelta las filas separadas por producto).
+const ETIQUETA_PRODUCTO = { vidacash: 'Vida Cash', endoso: 'Endoso' };
+let filtroProductoActual = 'todos';
+try { filtroProductoActual = sessionStorage.getItem('vidaFiltroProducto') || 'todos'; } catch(e) {}
+
+// Colapsa un arreglo de tuplas [ ...llave..., ...valores a sumar..., producto ] de vuelta a
+// [ ...llave..., ...valores... ], sumando por llave (sin producto) segun el filtro elegido.
+function colapsarTuplasPorProducto(filas, numLlaveCols, filtro){
+  if(!Array.isArray(filas) || !filas.length) return filas || [];
+  const etiqueta = ETIQUETA_PRODUCTO[filtro] || null;
+  const m = {}, orden = [];
+  filas.forEach(fila => {
+    const producto = fila[fila.length-1];
+    if (filtro !== 'todos' && producto !== etiqueta) return;
+    const key = fila.slice(0, numLlaveCols).join('');
+    if(!Object.prototype.hasOwnProperty.call(m,key)){
+      m[key] = fila.slice(0, fila.length-1).slice();
+      orden.push(key);
+    } else {
+      const acc = m[key];
+      for(let i=numLlaveCols; i<fila.length-1; i++){ acc[i] = (acc[i]||0) + fila[i]; }
+    }
+  });
+  return orden.map(k => m[k]);
+}
+// Igual pero SIN sumar -- para arreglos donde cada fila es un registro individual (ej.
+// ventas_dni), donde dos filas con la misma "llave" son datos distintos que no se deben
+// fusionar (perderiamos, por ejemplo, la segunda poliza de un mismo cliente el mismo dia).
+function filtrarTuplasPorProducto(filas, filtro){
+  if(!Array.isArray(filas) || !filas.length) return filas || [];
+  const etiqueta = ETIQUETA_PRODUCTO[filtro] || null;
+  return filas.filter(fila => filtro === 'todos' || fila[fila.length-1] === etiqueta)
+    .map(fila => fila.slice(0, fila.length-1));
+}
+// Colapsa un arreglo de OBJETOS { ...llave..., ...valores a sumar..., producto } de vuelta a
+// { ...llave..., ...valores... } (mismo patron que colapsarTuplasPorProducto, para sales_daily
+// /leads_daily cuando SI hay un filtro especifico -- con "todos" no hace falta tocar nada,
+// porque sales_daily/leads_daily originales ya vienen sin separar por producto).
+function colapsarObjetosPorProducto(filas, camposLlave, camposValor, filtro){
+  const etiqueta = ETIQUETA_PRODUCTO[filtro] || null;
+  const m = {}, orden = [];
+  (filas||[]).forEach(fila => {
+    if (filtro !== 'todos' && fila.producto !== etiqueta) return;
+    const key = camposLlave.map(c => fila[c]).join('');
+    if(!Object.prototype.hasOwnProperty.call(m,key)){
+      const obj = {}; camposLlave.forEach(c => obj[c]=fila[c]); camposValor.forEach(c => obj[c]=0);
+      m[key] = obj; orden.push(key);
+    }
+    camposValor.forEach(c => { m[key][c] += (fila[c]||0); });
+  });
+  return orden.map(k => m[k]);
+}
+
+// Campos [nombre, numero de columnas de "llave" antes de los valores a sumar] -- todos
+// generados por los mismos aggLeadsPorDim/aggVentasPorDim/aggCrossLeads/aggCrossVentas/
+// aggTriVentas del script, que ya traen el producto pegado al final de cada fila.
+const CAMPOS_TUPLA_PRODUCTO = [
+  ['leads_by_call',3], ['sales_by_call',3], ['leads_by_fuente',3], ['sales_by_fuente',3],
+  ['leads_by_subfuente',3], ['sales_by_subfuente',3], ['leads_by_tipolead',3], ['sales_by_tipolead',3],
+  ['leads_by_clics',3], ['sales_by_clics',3], ['leads_by_subproducto',3], ['sales_by_subproducto',3],
+  ['sales_by_rango_prima_venta',3],
+  ['leads_cross_fuente_call',4], ['sales_cross_fuente_call',4],
+  ['leads_cross_subfuente_call',4], ['sales_cross_subfuente_call',4],
+  ['leads_cross_producto_call',4], ['sales_cross_producto_call',4],
+  ['sales_cross_rangoprima_call',4], ['sales_cross_rangodevolucion_call',4],
+  ['sales_tri_fuente_rangoprima_call',5], ['sales_tri_subfuente_rangoprima_call',5],
+  ['sales_tri_campana_rangoprima_call',5], ['sales_tri_edad_rangoprima_call',5],
+  ['sales_tri_clics_rangoprima_call',5],
+  ['dias_matriz',3], ['sales_vintage',3]
+];
+
+// Aplica el filtro de producto sobre la variable global DATA (in-place). Se llama UNA vez,
+// justo despues de que llegan los datos del Sheet y antes de iniciar el dashboard -- por eso
+// el filtro se cambia recargando la pagina (location.reload) en vez de re-pintar todo en
+// caliente: es la forma mas segura de que TODAS las tablas, graficos y proyecciones queden
+// consistentes sin arrastrar listeners o graficos Chart.js duplicados de la vista anterior.
+function aplicarFiltroProducto(filtro){
+  CAMPOS_TUPLA_PRODUCTO.forEach(([campo, numLlave]) => {
+    if (Array.isArray(DATA[campo])) DATA[campo] = colapsarTuplasPorProducto(DATA[campo], numLlave, filtro);
+  });
+  if (Array.isArray(DATA.ventas_dni)) DATA.ventas_dni = filtrarTuplasPorProducto(DATA.ventas_dni, filtro);
+
+  if (filtro !== 'todos') {
+    // sales_daily / leads_daily originales NO se tocan cuando el filtro es "todos" (quedan
+    // exactamente como los manda el Sheet). Con un producto especifico, se reconstruyen desde
+    // los campos "_producto" en vez de filtrar los originales (que no traen esa info).
+    if (Array.isArray(DATA.sales_daily_producto)) {
+      DATA.sales_daily = colapsarObjetosPorProducto(DATA.sales_daily_producto, ['mes','dia'], ['ventas','prima','mismoMes','pna'], filtro);
+    }
+    if (Array.isArray(DATA.leads_daily_producto)) {
+      DATA.leads_daily = colapsarObjetosPorProducto(DATA.leads_daily_producto, ['mes','dia'], ['leads','convertidos'], filtro);
+    }
+    // campanas: el top-12 por mes NO se recalcula (queda igual que con "Ambos", a proposito,
+    // para no cambiar que campañas aparecen) -- solo se reemplazan los conteos de leads/
+    // convertidos por el desglose de ese producto que ya trae cada fila.
+    const etiqueta = ETIQUETA_PRODUCTO[filtro];
+    if (Array.isArray(DATA.campanas)) {
+      DATA.campanas = DATA.campanas.map(r => {
+        const pp = (r.porProducto && r.porProducto[etiqueta]) || { leads:0, convertidos:0 };
+        return Object.assign({}, r, { leads: pp.leads, convertidos: pp.convertidos });
+      });
+    }
+    // dias_mediana_mes / leads_total_mes: mismo criterio -- se reemplazan los valores usando
+    // el desglose por producto que manda el Sheet aparte (los campos originales no se tocan).
+    if (DATA.dias_mediana_mes_producto) {
+      const nuevo = {};
+      Object.keys(DATA.dias_mediana_mes).forEach(m => {
+        const porProd = DATA.dias_mediana_mes_producto[m];
+        nuevo[m] = (porProd && porProd[etiqueta] !== undefined) ? porProd[etiqueta] : null;
+      });
+      DATA.dias_mediana_mes = nuevo;
+    }
+    if (DATA.leads_total_mes_producto) {
+      const nuevo = {};
+      Object.keys(DATA.leads_total_mes).forEach(m => {
+        const porProd = DATA.leads_total_mes_producto[m];
+        nuevo[m] = (porProd && porProd[etiqueta] !== undefined) ? porProd[etiqueta] : 0;
+      });
+      DATA.leads_total_mes = nuevo;
+    }
+  }
+  // canal_mes (composicion Plus/Devolucion/Endoso/Web) se deja tal cual siempre: es en si
+  // misma una vista de composicion por producto, filtrarla mas la dejaria casi vacia para
+  // cualquier producto especifico sin aportar informacion nueva.
+}
+
+// Barra del filtro: refleja el valor guardado, y al cambiar guarda el nuevo valor + la pestaña
+// activa y recarga la pagina (ver comentario de aplicarFiltroProducto arriba). El <select> ya
+// existe en el HTML de arriba (el script va al final del documento), asi que se puede conectar
+// directo, igual que el resto de listeners "de una sola vez" de este archivo (ej. passwordSubmit).
+const filtroProductoSel = document.getElementById('filtroProductoGlobal');
+if (filtroProductoSel) {
+  filtroProductoSel.value = filtroProductoActual;
+  filtroProductoSel.addEventListener('change', () => {
+    try {
+      sessionStorage.setItem('vidaFiltroProducto', filtroProductoSel.value);
+      const activo = document.querySelector('.tab-btn.active');
+      if(activo) sessionStorage.setItem('vidaTabActiva', activo.dataset.tab);
+    } catch(e) {}
+    location.reload();
+  });
+}
+
 // ---------- PANTALLA DE CONTRASEÑA ----------
 // Aviso honesto: esto bloquea el acceso casual (alguien que caiga en el link sin querer),
 // pero NO es seguridad real -- el HTML y la clave se pueden ver en el codigo fuente de la
@@ -756,7 +921,8 @@ fetch(OUTPUT_URL)
     // valor vacio en vez de dejar 'undefined' -- asi una tabla faltante ya NO rompe el resto
     // del dashboard (antes, si UNA tabla fallaba, todas las que se dibujaban despues en la
     // misma cadena se quedaban en blanco tambien).
-    const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
+    const CLAVES_ARRAY = ['sales_daily','leads_daily','sales_daily_producto','leads_daily_producto',
+      'cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
       'leads_by_clics','sales_by_clics','dias_matriz','ventas_dni','dias_gestion_calendario',
@@ -768,9 +934,10 @@ fetch(OUTPUT_URL)
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call','sales_cross_rangodevolucion_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
       'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias'];
-    const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
+    const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
+    aplicarFiltroProducto(filtroProductoActual);
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('dashboardRoot').style.display = 'block';
     initDashboard();
@@ -1192,6 +1359,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
   });
 });
+// Si el usuario cambio el filtro de producto (lo que recarga la pagina), volvemos a la pestaña
+// en la que estaba en vez de mandarlo siempre a "Resumen".
+(function restaurarPestañaActiva(){
+  let tabGuardada = null;
+  try { tabGuardada = sessionStorage.getItem('vidaTabActiva'); } catch(e) {}
+  if (tabGuardada) {
+    const btn = document.querySelector('.tab-btn[data-tab="' + tabGuardada + '"]');
+    if (btn) btn.click();
+  }
+})();
 
 let chVentasCorte, chProyeccion, chProyeccionLeads, chEfectividad, chMultiPoliza, chPPCall, chPNAProd;
 let corteActual = 16;
