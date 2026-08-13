@@ -291,6 +291,16 @@
       <p class="sub">Columna "fuente de la venta" de la hoja Ventas, tal como viene, sin agrupar en Tradicional/Digital.</p>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
     </section>
+    <section>
+      <h2>Leads Facebook por rango de monto (Soles)</h2>
+      <p class="sub">Leads de la hoja "LeadAds" (fuente Facebook) que indicaron un monto a invertir en Soles, agrupados en los rangos tal como llegan de Facebook. No se incluyen aquí los leads de Facebook que ya estaban en Gestión Leads/TRAD a DIG (esos ya se cuentan una sola vez, como Tradicional/Digital).</p>
+      <div class="table-wrap"><table class="data-table" id="tableFacebookMontoSolesMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Leads Facebook por rango de monto (Dólares)</h2>
+      <p class="sub">Mismo criterio que la tabla anterior, para los leads de Facebook que indicaron el monto en Dólares.</p>
+      <div class="table-wrap"><table class="data-table" id="tableFacebookMontoDolaresMatrix"></table></div>
+    </section>
   </div>
 
   <!-- ===== TAB: VENTAS (por rango de monto y edad) ===== -->
@@ -305,6 +315,15 @@
     <div class="dropdown-filter" data-tab="ventasmonto">
       <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses (tablas de abajo): <span data-role="month-filter-label">—</span> ▾</button>
       <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    </div>
+    <div class="filter-bar" style="margin-top:8px;">
+      <label for="ventasMonedaFiltro" style="font-size:13px;color:var(--text-2);font-weight:500;">Moneda:</label>
+      <select id="ventasMonedaFiltro">
+        <option value="Todos">Todos (Soles + Dólares)</option>
+        <option value="Soles">Soles</option>
+        <option value="Dólares">Dólares</option>
+      </select>
+      <span class="filter-hint">Filtra "Ventas por rango de monto/edad" y su efectividad por la moneda real de la venta (hoja Ventas, columna "Moneda"). Las tablas de "Leads y % Participación" no tienen moneda registrada por lead (solo las ventas y los leads de Facebook la tienen), así que siempre muestran el total de leads sin filtrar por moneda.</span>
     </div>
     <section>
       <h2>Leads y % Participación por rango de monto — todos los meses</h2>
@@ -385,7 +404,7 @@
 
 <script>
 let DATA;
-const SHEET_ID = '1TlFBeUmU1HfmLroQKhwH7ECEnwVHFkZFbt7KgNv2jlI';
+const SHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET_DE_INVERSION_SEGURA';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
 // ---------- PANTALLA DE CONTRASEÑA ----------
@@ -447,7 +466,8 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily','leads_by_asesor','sales_by_asesor',
       'leads_by_fuente','sales_by_fuente','sales_by_subfuente','leads_by_rango_monto','sales_by_rango_monto',
       'leads_by_edad','sales_by_edad','leads_cross_fuente_asesor','sales_cross_fuente_asesor',
-      'sales_cross_rangomonto_asesor','ventas_dni','dias_gestion_calendario','sales_vintage'];
+      'sales_cross_rangomonto_asesor','ventas_dni','dias_gestion_calendario','sales_vintage',
+      'leads_facebook_monto_soles','leads_facebook_monto_dolares'];
     const CLAVES_OBJETO = ['leads_total_mes','multi_dist'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -677,6 +697,11 @@ construirDropdownAsesorComite();
 
 let chVentasCorte, chProyeccion, chMontoResumen;
 let corteActual = 16;
+let filtroMonedaVentas = 'Todos';
+(function(){
+  const sel = document.getElementById('ventasMonedaFiltro');
+  if (sel) sel.addEventListener('change', () => { filtroMonedaVentas = sel.value; render(corteActual); });
+})();
 
 function actualizarTextosMes(){
   if(!mesActual) return;
@@ -719,8 +744,13 @@ function pushCatchAllLast(arr){
   const catchall = arr.filter(d => esCatchAll(d));
   return normales.concat(catchall);
 }
-function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
-  const leadsRowsAll = DATA[leadsKey] || []; const salesRowsAll = DATA[salesKey] || [];
+function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte, monedaFiltro){
+  const leadsRowsAll = DATA[leadsKey] || [];
+  let salesRowsAll = DATA[salesKey] || [];
+  // Filtro de moneda (solo aplica a ventas -- la hoja Ventas sí tiene moneda real por cada
+  // venta, en el índice 8 de la tupla. Los leads no tienen moneda registrada, así que este
+  // filtro nunca toca leadsRowsAll/leadsRows).
+  if (monedaFiltro && monedaFiltro !== 'Todos') salesRowsAll = salesRowsAll.filter(r => r[8] === monedaFiltro);
   const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
   const salesRows = salesRowsAll.filter(r => r[1] <= corte);
   let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
@@ -786,8 +816,8 @@ function efectCellColored(agg_d, m, mesesArr, esRelevante){
   if(relChange <= -0.15) return {text: efect, cls:'down'};
   return efect;
 }
-function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, customOrder, corte, tabFiltro){
-  const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, customOrder, corte);
+function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, customOrder, corte, tabFiltro, monedaFiltro){
+  const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, customOrder, corte, monedaFiltro);
   const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
   M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
     if(v.l===0) return '–';
@@ -815,11 +845,47 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
 function renderAllMatrixSets(corte){
   renderMatrixSet('Asesor', 'leads_by_asesor', 'sales_by_asesor', [], [], null, corte, 'asesor');
   renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente');
-  renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto');
-  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'ventasmonto');
+  renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto', filtroMonedaVentas);
+  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'ventasmonto', filtroMonedaVentas);
   // Subfuente: solo hay tabla de VENTAS (no hay "leads de esa subfuente" -- la subfuente solo
   // existe para ventas directas/referidas que nunca pasaron por Gestión Leads/TRAD a DIG).
   renderSubfuenteVentasSolo(corte);
+  // Facebook (LeadAds): solo hay tabla de LEADS, separada en Soles y Dólares porque el producto
+  // se vende en ambas monedas y los rangos de monto no son comparables entre sí.
+  renderLeadsFacebookMonto('tableFacebookMontoSolesMatrix', 'leads_facebook_monto_soles', corte);
+  renderLeadsFacebookMonto('tableFacebookMontoDolaresMatrix', 'leads_facebook_monto_dolares', corte);
+}
+function renderLeadsFacebookMonto(tableId, dataKey, corte){
+  const rows = (DATA[dataKey]||[]).filter(r => r[1] <= corte);
+  const cols = mesesVisiblesV('fuente');
+  const dims = [...new Set(rows.map(r=>r[2]))];
+  const totalPorMes = {};
+  cols.forEach(m => { totalPorMes[m] = rows.filter(r=>r[0]===m).reduce((s,r)=>s+r[3],0); });
+  dims.sort((a,b) => {
+    const ta = rows.filter(r=>r[2]===a).reduce((s,r)=>s+r[3],0);
+    const tb = rows.filter(r=>r[2]===b).reduce((s,r)=>s+r[3],0);
+    return tb-ta;
+  });
+  let html = '<thead><tr><th>Rango de monto</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  if (dims.length === 0) {
+    html += '<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:var(--text-2);">Sin leads de Facebook en este rango de fechas</td></tr>';
+  }
+  dims.forEach(d => {
+    html += '<tr><td>'+d+'</td>' + cols.map(m => {
+      const v = rows.filter(r=>r[0]===m && r[2]===d).reduce((s,r)=>s+r[3],0);
+      if(v===0) return '<td>–</td>';
+      const part = totalPorMes[m]>0 ? (v/totalPorMes[m])*100 : 0;
+      return '<td>'+v.toLocaleString()+' (<strong>'+pctFmt(part)+'</strong>)</td>';
+    }).join('') + '</tr>';
+  });
+  if (dims.length) {
+    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => {
+      const t = totalPorMes[m];
+      return '<td>'+(t>0 ? t.toLocaleString()+' (<strong>100%</strong>)' : '–')+'</td>';
+    }).join('') + '</tr>';
+  }
+  html += '</tbody>';
+  const el = document.getElementById(tableId); if(el) el.innerHTML = html;
 }
 function renderSubfuenteVentasSolo(corte){
   const rows = (DATA.sales_by_subfuente||[]).filter(r => r[1] <= corte);
