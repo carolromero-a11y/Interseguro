@@ -404,7 +404,7 @@
 
 <script>
 let DATA;
-const SHEET_ID = '1TlFBeUmU1HfmLroQKhwH7ECEnwVHFkZFbt7KgNv2jlI';
+const SHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET_DE_INVERSION_SEGURA';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
 // ---------- PANTALLA DE CONTRASEÑA ----------
@@ -412,7 +412,7 @@ const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz
 // pero NO es seguridad real -- el HTML y la clave se pueden ver en el codigo fuente de la
 // pagina. Si necesitas que el contenido este realmente protegido, hay que mover esto a un
 // hosting con autenticacion de verdad (ver la guia que te compartimos aparte).
-const CLAVE_ACCESO = 'InvSeg26$';
+const CLAVE_ACCESO = 'InvSeg2026$';
 function intentarEntrar(){
   const val = document.getElementById('passwordInput').value;
   if (val === CLAVE_ACCESO) {
@@ -1069,7 +1069,15 @@ function renderComite(corte){
         if(!filtroAsesor) return aggMonth(DATA.leads_daily, m2, 'leads', null);
         return (DATA.leads_by_asesor||[]).filter(r=>r[0]===m2 && r[2]===filtroAsesor).reduce((s,r)=>s+r[3],0);
       }));
-      const pnaProyC = Math.round(ventasActualComite>0 ? (pnaActualComite/ventasActualComite)*ventasProyC : pnaActualComite);
+      // Antes esto se derivaba escalando el PP (prima promedio) actual por el crecimiento
+      // proyectado de unidades -- no cuadraba con la tarjeta "PNA proyectada" de Resumen, que sí
+      // proyecta la PNA directo con el modelo de días de gestión (mismo bug que se encontró y
+      // arregló en el dashboard de Rumbo). Ahora usa el mismo modelo que ventasProyC/leadsProyC
+      // de arriba (y, sin filtro de asesor, es exactamente lo mismo que calcula Resumen).
+      const pnaProyC = Math.round(proyectarGenerico(pnaActualComite, corte, m2 => {
+        if(!filtroAsesor) return aggMonth(DATA.sales_daily, m2, 'pna', null);
+        return (DATA.sales_by_asesor||[]).filter(r=>r[0]===m2 && r[2]===filtroAsesor).reduce((s,r)=>s+r[4],0);
+      }));
       return { cerrado:false, pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((mismoMesProyC/leadsProyC)*100):'–', leads:leadsProyC };
     }
     const vFull = ventasDeMes(m, 9999);
@@ -1411,3 +1419,4 @@ render(corteDefault);
 </div>
 </body>
 </html>
+
