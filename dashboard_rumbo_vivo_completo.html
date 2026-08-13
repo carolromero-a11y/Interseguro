@@ -1190,24 +1190,45 @@ function renderSeguimientoDiario(){
   buildMetaTable('tableSeguimientoDiario', headers, rows);
 
   // Box de arriba: proyección de cierre del mes en leads, al ritmo real de los días que ya
-  // pasaron (modelo de días de gestión — feriados y sábado medio día incluidos), por producto.
+  // pasaron (modelo de días de gestión — feriados y sábado medio día incluidos), por producto,
+  // más el DESFASE vs. la meta a ese mismo día -- a pedido explícito. La proyección de cierre
+  // compara "cómo terminaríamos" contra la meta del MES completo; el desfase en cambio compara
+  // el real acumulado hasta el día de corte contra la meta acumulada hasta ESE MISMO día
+  // (metaDiaria × corteReal) -- sirve para ver si vamos adelantados (+) o atrasados (-) del
+  // ritmo esperado AHORA, no solo cómo se ve que vamos a terminar el mes.
   const metaMesCompleto = metaTotalDiaria * diasDelMes;
+  const metaADiaCorte = metaTotalDiaria * corteReal;
+  function fmtDesfase(desfase, metaBase){
+    const pct = metaBase>0 ? Math.round((desfase/metaBase)*1000)/10 : null;
+    const color = desfase >= 0 ? '#0F6B45' : '#A32E20';
+    const signo = desfase >= 0 ? '+' : '';
+    return '<strong style="color:' + color + ';">' + signo + desfase.toLocaleString() + ' leads' + (pct!==null ? ' (' + (pct>=0?'+':'') + pct + '%)' : '') + '</strong>';
+  }
   let textoBox;
   if(productos.length > 1){
-    const partes = productos.map(p => {
+    const datosProd = productos.map(p => {
       const realProd = diasArr.filter(d => d<=corteReal).reduce((s,d) => s + ((leadsPorDiaProducto[d]||{})[p]||0), 0);
       const proyProd = Math.round(proyectarGenerico(realProd, corteReal, m => (DATA.leads_by_subproducto||[]).filter(r=>r[0]===m && r[2]===p).reduce((s,r)=>s+r[3],0)));
       const metaProd = (metasDiarias.find(m=>m.producto===p)||{}).meta || 0;
       const metaMesProd = metaProd * diasDelMes;
+      const metaADiaCorteProd = metaProd * corteReal;
+      return {p, realProd, proyProd, metaMesProd, metaADiaCorteProd};
+    });
+    const partesProy = datosProd.map(({p, proyProd, metaMesProd}) => {
       const pct = metaMesProd>0 ? Math.round((proyProd/metaMesProd)*1000)/10 : null;
       return '<strong>' + p + ':</strong> ' + proyProd.toLocaleString() + ' leads' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesProd.toLocaleString() + ')' : '');
     });
-    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': ' + partes.join(' &nbsp;·&nbsp; ') + '.';
+    const desfaseTotal = datosProd.reduce((s,d) => s + (d.realProd - d.metaADiaCorteProd), 0);
+    const partesDesfase = datosProd.map(({p, realProd, metaADiaCorteProd}) => '<strong>' + p + ':</strong> ' + fmtDesfase(realProd - metaADiaCorteProd, metaADiaCorteProd));
+    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': ' + partesProy.join(' &nbsp;·&nbsp; ') + '.'
+      + ' Desfase vs. la meta al mismo día (real acumulado − meta acumulada al día ' + corteReal + '): ' + fmtDesfase(desfaseTotal, metaADiaCorte) + ' &nbsp;·&nbsp; ' + partesDesfase.join(' &nbsp;·&nbsp; ') + '.';
   } else {
     const realTotal = diasArr.filter(d => d<=corteReal).reduce((s,d) => s + ((leadsPorDiaProducto[d]||{})[productos[0]]||0), 0);
     const proyTotal = Math.round(proyectarCierre('leads', realTotal, corteReal));
     const pct = metaMesCompleto>0 ? Math.round((proyTotal/metaMesCompleto)*1000)/10 : null;
-    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': <strong>' + proyTotal.toLocaleString() + ' leads</strong>' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesCompleto.toLocaleString() + ')' : '') + '.';
+    const desfase = realTotal - metaADiaCorte;
+    textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': <strong>' + proyTotal.toLocaleString() + ' leads</strong>' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesCompleto.toLocaleString() + ')' : '') + '.'
+      + ' Desfase vs. la meta al mismo día (real acumulado − meta acumulada al día ' + corteReal + '): ' + fmtDesfase(desfase, metaADiaCorte) + '.';
   }
   if(box) box.innerHTML = textoBox;
 }
