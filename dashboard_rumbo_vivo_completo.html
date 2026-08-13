@@ -361,6 +361,12 @@
       <div class="table-wrap"><table class="data-table" id="tableTasaLeadsMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Ventas</p>
       <div class="table-wrap"><table class="data-table" id="tableTasaVentasMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Ventas con lead del mismo mes (no incluye Venta Colchón)</p>
+      <div class="table-wrap"><table class="data-table" id="tableTasaMismoMesMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Venta Colchón (ventas con lead de mes anterior)</p>
+      <div class="table-wrap"><table class="data-table" id="tableTasaColchonMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">% Participación Colchón</p>
+      <div class="table-wrap"><table class="data-table" id="tableTasaColchonPartMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Efectividad (ventas con leads del mes): ventas con lead también de ese mismo mes ÷ leads de ese mes.</p>
       <div class="table-wrap"><table class="data-table" id="tableTasaEfectMatrix"></table></div>
     </section>
@@ -370,6 +376,12 @@
       <div class="table-wrap"><table class="data-table" id="tablePrimaLeadsMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Ventas</p>
       <div class="table-wrap"><table class="data-table" id="tablePrimaVentasMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Ventas con lead del mismo mes (no incluye Venta Colchón)</p>
+      <div class="table-wrap"><table class="data-table" id="tablePrimaMismoMesMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Venta Colchón (ventas con lead de mes anterior)</p>
+      <div class="table-wrap"><table class="data-table" id="tablePrimaColchonMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">% Participación Colchón</p>
+      <div class="table-wrap"><table class="data-table" id="tablePrimaColchonPartMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Efectividad (ventas con leads del mes): ventas con lead también de ese mismo mes ÷ leads de ese mes.</p>
       <div class="table-wrap"><table class="data-table" id="tablePrimaEfectMatrix"></table></div>
     </section>
@@ -380,6 +392,12 @@
       <div class="table-wrap"><table class="data-table" id="tableEdadLeadsMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Ventas</p>
       <div class="table-wrap"><table class="data-table" id="tableEdadVentasMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Ventas con lead del mismo mes (no incluye Venta Colchón)</p>
+      <div class="table-wrap"><table class="data-table" id="tableEdadMismoMesMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">Venta Colchón (ventas con lead de mes anterior)</p>
+      <div class="table-wrap"><table class="data-table" id="tableEdadColchonMatrix"></table></div>
+      <p class="sub" style="margin-top:14px;">% Participación Colchón</p>
+      <div class="table-wrap"><table class="data-table" id="tableEdadColchonPartMatrix"></table></div>
       <p class="sub" style="margin-top:14px;">Efectividad (ventas con leads del mes): ventas con lead también de ese mismo mes ÷ leads de ese mes.</p>
       <div class="table-wrap"><table class="data-table" id="tableEdadEfectMatrix"></table></div>
       <p class="note">"Sin dato" = no se pudo determinar la edad (fecha de nacimiento inválida en la venta y sin lead con edad para completar).</p>
@@ -410,6 +428,20 @@
       <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
     </section>
     <section>
+      <h2>Ventas con lead del mismo mes — por fuente</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón).</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteMismoMesMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Venta Colchón — por fuente</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonMatrix"></table></div>
+    </section>
+    <section>
+      <h2>% Participación Colchón — por fuente</h2>
+      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonPartMatrix"></table></div>
+    </section>
+    <section>
       <h2>Efectividad (ventas con leads del mes) por fuente</h2>
       <p class="sub">Ventas de esa fuente con lead también de ese mismo mes ÷ leads de esa fuente, mismo mes.</p>
       <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
@@ -422,6 +454,20 @@
     <section>
       <h2>Ventas por subfuente</h2>
       <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — por subfuente</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón).</p>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteMismoMesMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Venta Colchón — por subfuente</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonMatrix"></table></div>
+    </section>
+    <section>
+      <h2>% Participación Colchón — por subfuente</h2>
+      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonPartMatrix"></table></div>
     </section>
     <section>
       <h2>Efectividad (ventas con leads del mes) por subfuente</h2>
@@ -613,10 +659,26 @@
       </section>
       <section>
         <h2>Ventas por tipo de lead — todos los meses</h2>
-        <p class="sub">Todas las ventas del mes atribuidas a ese tipo de lead, sin importar en qué mes se asignó el lead. Usa el día de corte.</p>
+        <p class="sub">Todas las ventas del mes atribuidas a ese tipo de lead, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
         <div class="table-wrap"><table class="data-table" id="tableTipoLeadVentasMatrix"></table></div>
       </section>
     </div>
+    <div class="grid-2">
+      <section>
+        <h2>Ventas con lead del mismo mes — por tipo de lead</h2>
+        <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableTipoLeadMismoMesMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Venta Colchón — por tipo de lead</h2>
+        <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+        <div class="table-wrap"><table class="data-table" id="tableTipoLeadColchonMatrix"></table></div>
+      </section>
+    </div>
+    <section>
+      <h2>% Participación Colchón — por tipo de lead</h2>
+      <div class="table-wrap"><table class="data-table" id="tableTipoLeadColchonPartMatrix"></table></div>
+    </section>
     <section>
       <h2>Efectividad de ventas con leads del mes, por tipo de lead (Caliente / Tibio / Frío)</h2>
       <p class="sub">Ventas de ese tipo de lead con lead también de ese mes ÷ leads de ese tipo, mismo mes. Un lead "Caliente" convierte varias veces más que uno "Frío" o "No evaluable".</p>
@@ -1561,6 +1623,10 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
     const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
     return total>0 ? total.toLocaleString() : '–';
   }, null, cols);
+  M.build('table'+idPrefix+'MismoMesMatrix', (v) => v.vMismoMes>0 ? v.vMismoMes.toLocaleString() : '–', null, (rowDims, m) => {
+    const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vMismoMes,0);
+    return total>0 ? total.toLocaleString() : '–';
+  }, null, cols);
   if(withExtras){
     M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
       const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
@@ -1583,12 +1649,12 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
 
 function renderAllMatrixSets(corte){
   renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], true, null, corte, 'call');
-  renderMatrixSet('Tasa', 'leads_by_tasa', 'sales_by_tasa', [], [], false, ['T1','T2','T3','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Prima', 'leads_by_prima', 'sales_by_prima', [], [], false, ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], false, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], false, null, corte, 'fuente');
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], false, null, corte, 'fuente');
-  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], false, ['Caliente','Tibio','Frío','No evaluable'], corte, 'calidad');
+  renderMatrixSet('Tasa', 'leads_by_tasa', 'sales_by_tasa', [], [], true, ['T1','T2','T3','Sin dato'], corte, 'perfil');
+  renderMatrixSet('Prima', 'leads_by_prima', 'sales_by_prima', [], [], true, ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'], corte, 'perfil');
+  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], true, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'perfil');
+  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], true, null, corte, 'fuente');
+  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], true, null, corte, 'fuente');
+  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], true, ['Caliente','Tibio','Frío','No evaluable'], corte, 'calidad');
   // Las tablas de Tasa/Prima/Edad (pestaña Perfil) y de Fuente/Subfuente (pestaña Fuente) que
   // se acaban de dibujar arriba se reemplazan por una version con el call center como columna,
   // si el desplegable de call de esa pestaña esta disponible -- mismo patron que
@@ -1737,7 +1803,7 @@ function renderCallFiltroPerfil(corte){
       const ssub = salesCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
       return {
         l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
-        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0), vColchon: ssub.reduce((s,r)=>s+r[6],0)
       };
     }
     const totalLeadsPorBucketMes = {};
@@ -1753,6 +1819,9 @@ function renderCallFiltroPerfil(corte){
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
     });
     buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
     buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
   }
 
@@ -1786,7 +1855,7 @@ function renderCallFiltroFuenteBasico(corte){
       const ssub = salesCross.filter(r => r[2]===dim && callBucket(r[3])===bucket && r[0]===mes);
       return {
         l: lsub.reduce((s,r)=>s+r[4],0), conv: lsub.reduce((s,r)=>s+r[5],0),
-        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0)
+        v: ssub.reduce((s,r)=>s+r[4],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0), vColchon: ssub.reduce((s,r)=>s+r[6],0)
       };
     }
     const totalLeadsPorBucketMes = {};
@@ -1802,6 +1871,9 @@ function renderCallFiltroFuenteBasico(corte){
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
     });
     buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
     buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
   }
 
