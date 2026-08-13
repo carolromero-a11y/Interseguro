@@ -173,10 +173,15 @@
 
   <div id="corteControls">
   <div class="controls">
-    <label for="corteSlider">Día de corte</label>
-    <input type="range" id="corteSlider" min="1" max="31" value="20" step="1">
+    <label for="diaDesde">Ver del día</label>
+    <input type="number" id="diaDesde" min="1" max="31" value="1" style="width:56px;padding:6px 8px;border-radius:6px;border:1px solid #D8D4C8;font-size:13px;">
+    <span style="color:#8B8880;">al día</span>
+    <input type="number" id="diaHasta" min="1" max="31" value="20" style="width:56px;padding:6px 8px;border-radius:6px;border:1px solid #D8D4C8;font-size:13px;">
+    <button type="button" class="preset-dias" data-desde="1" data-hasta="31" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">Mes completo</button>
+    <button type="button" class="preset-dias" data-desde="1" data-hasta="15" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">1ª quincena (1–15)</button>
+    <button type="button" class="preset-dias" data-desde="16" data-hasta="31" style="padding:6px 10px;background:#fff;color:#1D3A5F;border:1px solid #1D3A5F;border-radius:6px;font-size:12px;cursor:pointer;">2ª quincena (16–31)</button>
     <span class="val" id="corteVal">Día 20</span>
-    <span class="hint">Aplica al resumen</span>
+    <span class="hint">Aplica a todas las pestañas. Las tarjetas de KPI, "Cómo vamos vs. meta" y Comité (que van con una proyección de cierre) siempre usan el día "hasta" como el corte de siempre — el "desde" no las afecta.</span>
   </div>
 
   <div id="rangoFechasBlock" style="display:none;">
@@ -835,8 +840,14 @@ const mesEsLabel = {}; mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
 const mesActual = DATA.mes_actual || mesesV[mesesV.length-1] || null;
 const mesAnterior = mesesV[mesesV.indexOf(mesActual)-1] || null;
 
-function aggMonth(rows, mes, field, maxDia){
-  return rows.filter(r => r.mes === mes && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
+// minDia es OPCIONAL (a proposito): si no se pasa, se comporta EXACTAMENTE igual que antes
+// (arranca en el dia 1, sin piso). Solo los llamados que quieren respetar el nuevo rango
+// "Desde" del usuario lo pasan explicitamente -- los que alimentan una proyeccion de cierre
+// (KPIs de Resumen, Comité, "Cómo vamos vs. meta") siguen sin pasarlo, para que la proyección
+// siga usando 'hasta' como si fuera el corte de siempre, sin importar el "desde" elegido.
+function aggMonth(rows, mes, field, maxDia, minDia){
+  const piso = (minDia === undefined || minDia === null) ? 1 : minDia;
+  return rows.filter(r => r.mes === mes && r.dia >= piso && (maxDia === null || r.dia <= maxDia)).reduce((s,r) => s + r[field], 0);
 }
 
 // ---------- DÍAS DE GESTIÓN ----------
@@ -1191,18 +1202,18 @@ function construirDropdownMeses(tab, universo){
     cb.addEventListener('change', () => {
       if(cb.checked) filtroMesesTab[tab].add(cb.value); else filtroMesesTab[tab].delete(cb.value);
       actualizarLabelMeses(tab);
-      render(corteActual);
+      render(desdeActual, corteActual);
     });
   });
   panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
     filtroMesesTab[tab] = new Set(universo);
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
-    actualizarLabelMeses(tab); render(corteActual);
+    actualizarLabelMeses(tab); render(desdeActual, corteActual);
   });
   panel.querySelector('[data-act="ult3"]').addEventListener('click', () => {
     filtroMesesTab[tab] = new Set(ultimosN(universo,3));
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = filtroMesesTab[tab].has(cb.value));
-    actualizarLabelMeses(tab); render(corteActual);
+    actualizarLabelMeses(tab); render(desdeActual, corteActual);
   });
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1226,6 +1237,12 @@ TABS_CON_FILTRO_MESES.forEach(tab => construirDropdownMeses(tab, mesesL));
 
 let chVentasCorte, chProyeccion;
 let corteActual = 16;
+// desdeActual = piso del rango de dias ("Ver del dia X al dia Y"), reemplaza al viejo slider
+// de un solo "dia de corte". Solo afecta a las tablas/graficos que muestran datos "a la fecha"
+// -- las filas de "Proyeccion de cierre" (KPIs de Resumen, Comité, "Cómo vamos vs. meta") NUNCA
+// usan desdeActual: siguen calculandose acumuladas desde el dia 1 hasta corteActual, exactamente
+// como el viejo corte unico, para no perder el sentido de negocio de una proyeccion mensual.
+let desdeActual = 1;
 
 // Textos que dependen del mes actual/anterior: se arman una sola vez (no cambian con el
 // slider de corte, solo con los datos que llegaron del Sheet).
@@ -1267,9 +1284,11 @@ function configurarRangoFechas(){
 }
 configurarRangoFechas();
 
-function render(corte){
+function render(desde, corte){
+  if (corte === undefined) { corte = desde; desde = desdeActual; }
+  desdeActual = desde;
   corteActual = corte;
-  document.getElementById('corteVal').textContent = 'Día ' + corte;
+  document.getElementById('corteVal').textContent = (desde > 1 ? ('Días ' + desde + '–' + corte) : ('Día ' + corte));
   function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
 
   // Los KPIs y las 2 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
@@ -1354,15 +1373,16 @@ function render(corte){
 }
 
 let chCanal, chPrimaProm;
-function aggDimDay(rows, dim, mes, field, corte){
-  return rows.filter(r => r[0]===mes && r[2]===dim && r[1]<=corte).reduce((s,r)=>s+r[field], 0);
+function aggDimDay(rows, dim, mes, field, corte, minDia){
+  const piso = (minDia === undefined || minDia === null) ? 1 : minDia;
+  return rows.filter(r => r[0]===mes && r[2]===dim && r[1]>=piso && r[1]<=corte).reduce((s,r)=>s+r[field], 0);
 }
 function renderCanalYPrimaProm(corte){
   const tasas = ['T1','T2','T3','Sin dato'];
   const colores = {'T1':'#0F8B7D','T2':'#D98E3B','T3':'#C24B4B','Sin dato':'#8B8880'};
   const datasets = tasas.map(t => ({
     label:t, backgroundColor:colores[t], stack:'s',
-    data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 3, corte))
+    data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 3, corte, desdeActual))
   })).filter(ds => ds.data.some(v=>v>0));
 
   if(!chCanal){
@@ -1377,8 +1397,8 @@ function renderCanalYPrimaProm(corte){
   }
 
   const primaProm = mesesV.map(m => {
-    const ventas = aggMonth(DATA.sales_daily, m, 'ventas', corte);
-    const prima = aggMonth(DATA.sales_daily, m, 'prima', corte);
+    const ventas = aggMonth(DATA.sales_daily, m, 'ventas', corte, desdeActual);
+    const prima = aggMonth(DATA.sales_daily, m, 'prima', corte, desdeActual);
     return ventas>0 ? Math.round(prima/ventas*100)/100 : null;
   });
   if(!chPrimaProm){
@@ -1401,8 +1421,8 @@ function renderCohortTable(corte){
   // Efectividad del mes con leads del mes: ventas de ese mes hechas con un lead TAMBIEN
   // asignado ese mismo mes (DATA.sales_daily.mismoMes), no "leads que alguna vez
   // convirtieron" (eso mezclaba ventas de meses futuros con el lead del mes actual).
-  const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte));
-  const convs = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte));
+  const totales = mesesL.map(m => aggMonth(DATA.leads_daily, m, 'leads', corte, desdeActual));
+  const convs = mesesL.map(m => aggMonth(DATA.sales_daily, m, 'mismoMes', corte, desdeActual));
   let html = '<thead><tr><th>Cohorte</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody><tr><td>Todos los leads</td>';
   cols.forEach(m => {
     const i = mesesL.indexOf(m);
@@ -1428,7 +1448,7 @@ function renderCohortTable(corte){
 function renderPolizasCliente(corte){
   const porDni = {};
   (DATA.ventas_dni||[]).forEach(([mes,dia,dni]) => {
-    if(dia > corte) return;
+    if(dia > corte || dia < desdeActual) return;
     porDni[dni] = (porDni[dni]||0) + 1;
   });
   const counts = Object.values(porDni);
@@ -1455,8 +1475,8 @@ function pushCatchAllLast(arr){
 
 function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
   const leadsRowsAll = DATA[leadsKey]; const salesRowsAll = DATA[salesKey];
-  const leadsRows = leadsRowsAll.filter(r => r[1] <= corte);
-  const salesRows = salesRowsAll.filter(r => r[1] <= corte);
+  const leadsRows = leadsRowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+  const salesRows = salesRowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
   let dims = [...new Set([...leadsRowsAll.map(r=>r[2]), ...salesRowsAll.map(r=>r[2])])];
   if(excludeSubstr) dims = dims.filter(d => !excludeSubstr.some(ex => d.includes(ex)));
   if(customOrder){
@@ -1615,13 +1635,13 @@ function construirDropdownCall(tab){
     panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
         if(cb.checked) callFiltroTab[tab].add(cb.value); else callFiltroTab[tab].delete(cb.value);
-        actualizarLabelCall(tab); render(corteActual);
+        actualizarLabelCall(tab); render(desdeActual, corteActual);
       });
     });
     panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
       callFiltroTab[tab] = new Set(CALL_FILTER_BUCKETS);
       panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
-      actualizarLabelCall(tab); render(corteActual);
+      actualizarLabelCall(tab); render(desdeActual, corteActual);
     });
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1704,8 +1724,8 @@ function renderCallFiltroPerfil(corte){
 
   function renderGrupo(idPrefix, rowLabel, dimOrder, leadsCrossKey, salesCrossKey){
     const leadsCrossAll = DATA[leadsCrossKey]||[];
-    const leadsCross = leadsCrossAll.filter(r => r[1] <= corte);
-    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] <= corte);
+    const leadsCross = leadsCrossAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
     // La lista de dims presentes se calcula SIN filtrar por corte (igual que en
     // renderNestedCrossConCall) -- si no, un dia de corte bajo podia dejar la tabla vacia
     // aunque si haya datos mas adelante en el mes.
@@ -1754,8 +1774,8 @@ function renderCallFiltroFuenteBasico(corte){
 
   function renderGrupo(idPrefix, rowLabel, leadsCrossKey, salesCrossKey){
     const leadsCrossAll = DATA[leadsCrossKey]||[];
-    const leadsCross = leadsCrossAll.filter(r => r[1] <= corte);
-    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] <= corte);
+    const leadsCross = leadsCrossAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+    const salesCross = (DATA[salesCrossKey]||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
     // Orden de fuente/subfuente: por volumen total de leads dentro del cruce con call (igual
     // que dimsOrdenados() en Vida), catch-all al final. La lista de dims presentes se calcula
     // SIN filtrar por corte (mismo criterio que renderNestedCrossConCall), para que un dia de
@@ -2056,8 +2076,8 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
         return acc;
       }, {leads:0, conv:0, ventas:0, mismoMes:0});
     }
-    const l = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
-    const s = salesRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
+    const l = leadsRows.filter(r=>r[0]===m && r[1]>=desdeActual && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
+    const s = salesRows.filter(r=>r[0]===m && r[1]>=desdeActual && r[1]<=corte && r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket);
     return {
       leads: l.reduce((a,r)=>a+r[5],0),
       conv: l.reduce((a,r)=>a+r[6],0),
@@ -2076,7 +2096,7 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
   dim1s.forEach(d1 => {
     totalPorDim1BucketMes[d1] = {};
     gruposMostrar.forEach(b => { cols.forEach(m => {
-      totalPorDim1BucketMes[d1][b+'|'+m] = leadsRows.filter(r=>r[0]===m && r[1]<=corte && r[2]===d1 && matchBucket(r,b)).reduce((s,r)=>s+r[5],0);
+      totalPorDim1BucketMes[d1][b+'|'+m] = leadsRows.filter(r=>r[0]===m && r[1]>=desdeActual && r[1]<=corte && r[2]===d1 && matchBucket(r,b)).reduce((s,r)=>s+r[5],0);
     }); });
   });
 
@@ -2179,7 +2199,7 @@ function renderPrimaCruceTab(corte){
   const mesesSel = new Set(mesesVisiblesV('ventasprima'));
 
   const filas = (DATA.sales_tri_leadprima_ventaprima_call||[]).filter(r =>
-    r[1] <= corte && mesesSel.has(r[0]) && buckets.includes(callBucket(r[4]))
+    r[1] >= desdeActual && r[1] <= corte && mesesSel.has(r[0]) && buckets.includes(callBucket(r[4]))
   );
 
   const matriz = {};
@@ -2258,7 +2278,7 @@ renderCampanaTable();
 function buildMatrixTable(tableId, valueFn, isPercent, totalsRow, totalsCol, corte, colsOverride){
   const origenes = [...mesesL]; const ventaCols = colsOverride && colsOverride.length ? colsOverride : [...mesesV];
   const matriz = {};
-  DATA.sales_vintage.forEach(([mv,dia,ml,v]) => { if(dia>corte) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
+  DATA.sales_vintage.forEach(([mv,dia,ml,v]) => { if(dia>corte || dia<desdeActual) return; matriz[ml]=matriz[ml]||{}; matriz[ml][mv]=(matriz[ml][mv]||0)+v; });
   const totalPorCol = {};
   ventaCols.forEach(mv => { totalPorCol[mv] = origenes.reduce((s,ml)=> s + ((matriz[ml]||{})[mv]||0), 0); });
   let html = '<thead><tr><th>Mes lead / Mes venta</th>' + ventaCols.map(mv=>'<th>'+mesEsLabel[mv]+'</th>').join('') + (totalsRow?'<th>Total</th>':'') + '</tr></thead><tbody>';
@@ -2278,7 +2298,7 @@ function renderVintageTable(corte){
   buildMatrixTable('tableVintageCant', (v)=> v>0?v.toLocaleString():'–', false, true, true, corte, cols);
   buildMatrixTable('tableVintagePart', (v,ml,mv,totalCol)=> totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), true, false, true, corte, cols);
   buildMatrixTable('tableVintageEfect', (v,ml)=> {
-    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte);
+    const t = aggMonth(DATA.leads_daily, ml, 'leads', corte, desdeActual);
     if(!t||v===0) return v>0?'0%':'–';
     return (Math.round((v/t)*1000)/10)+'%';
   }, true, false, false, corte, cols);
@@ -2288,8 +2308,8 @@ function renderVintageTable(corte){
   let html = '<thead><tr><th>Mes</th><th>Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th></tr></thead><tbody>';
   let totLeads=0, totConv=0;
   mesesL.forEach(m => {
-    const total = aggMonth(DATA.leads_daily, m, 'leads', corte);
-    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte);
+    const total = aggMonth(DATA.leads_daily, m, 'leads', corte, desdeActual);
+    const conv = aggMonth(DATA.leads_daily, m, 'convertidos', corte, desdeActual);
     if(!total) return;
     const noConv = total-conv; const pct = Math.round((conv/total)*1000)/10;
     totLeads += total; totConv += conv;
@@ -2305,7 +2325,7 @@ function renderDiasConversion(corte){
   const cols = mesesVisiblesV('vintage');
   const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
   const matriz = {};
-  DATA.dias_matriz.forEach(([mv,dia,bin,n]) => { if(dia>corte) return; matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n; });
+  DATA.dias_matriz.forEach(([mv,dia,bin,n]) => { if(dia>corte || dia<desdeActual) return; matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n; });
   let html = '<thead><tr><th>Días hasta la venta</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   bins.forEach(b => { html += '<tr><td>'+b+'</td>' + cols.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>'; });
   html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
@@ -2331,8 +2351,8 @@ function renderPPyPNA(corte){
   const calls = [...new Set(DATA.sales_by_call.map(r=>r[2]))].filter(c=>!c.includes('WhatsApp') && !c.includes('Sin call'));
   const ppSeries = calls.map(c => ({
     label:c, data: mesesV.map(m => {
-      const ventas = aggDimDay(DATA.sales_by_call, c, m, 3, corte);
-      const prima = aggDimDay(DATA.sales_by_call, c, m, 4, corte);
+      const ventas = aggDimDay(DATA.sales_by_call, c, m, 3, corte, desdeActual);
+      const prima = aggDimDay(DATA.sales_by_call, c, m, 4, corte, desdeActual);
       return ventas>0 ? Math.round(prima/ventas) : null;
     })
   }));
@@ -2349,7 +2369,7 @@ function renderPPyPNA(corte){
   // Indice 8 de sales_by_tasa = PNA real (no el 4, que es Prima x Frecuencia) -- misma
   // correccion de columna que se hizo en el dashboard de Vida.
   const pnaSeries = tasas.map(t => ({
-    label:t, data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 8, corte))
+    label:t, data: mesesV.map(m => aggDimDay(DATA.sales_by_tasa, t, m, 8, corte, desdeActual))
   })).filter(s => s.data.some(v=>v>0));
   renderLegend('legendPNATasa', pnaSeries);
   if(!chPNATasa){
@@ -2673,15 +2693,35 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
   document.getElementById('rangoResultado').style.display = 'block';
 });
 
-document.getElementById('corteSlider').addEventListener('input', e => render(parseInt(e.target.value)));
+const diaDesdeInput = document.getElementById('diaDesde');
+const diaHastaInput = document.getElementById('diaHasta');
+function leerYRenderDesdeHasta(){
+  let d = parseInt(diaDesdeInput.value, 10) || 1;
+  let h = parseInt(diaHastaInput.value, 10) || 1;
+  d = Math.min(31, Math.max(1, d));
+  h = Math.min(31, Math.max(1, h));
+  if (d > h) { const t = d; d = h; h = t; }
+  diaDesdeInput.value = d; diaHastaInput.value = h;
+  render(d, h);
+}
+diaDesdeInput.addEventListener('change', leerYRenderDesdeHasta);
+diaHastaInput.addEventListener('change', leerYRenderDesdeHasta);
+document.querySelectorAll('.preset-dias').forEach(btn => {
+  btn.addEventListener('click', () => {
+    diaDesdeInput.value = btn.dataset.desde;
+    diaHastaInput.value = btn.dataset.hasta;
+    leerYRenderDesdeHasta();
+  });
+});
 // Dia de corte por defecto = ayer (dia de hoy - 1), minimo 1. Antes era un fijo en 20. Misma
 // correccion que se aplico en el dashboard de Vida.
 const hoyReal = new Date();
 let corteDefault = hoyReal.getDate() - 1;
 if(corteDefault < 1) corteDefault = 1;
 if(corteDefault > 31) corteDefault = 31;
-document.getElementById('corteSlider').value = corteDefault;
-render(corteDefault);
+diaHastaInput.value = corteDefault;
+diaDesdeInput.value = 1;
+render(1, corteDefault);
 
 // ---------- BUSCADOR DE TABLAS POR HOJA ----------
 // Escanea los <h2> dentro de la hoja (tabpanel) activa -- son los titulos de cada tabla/seccion --
