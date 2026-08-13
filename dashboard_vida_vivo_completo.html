@@ -710,6 +710,7 @@
 
 <script>
 let DATA;
+let DATA_TODOS;
 const SHEET_ID = '1GZK-p-j9UKipdE3t_TMxYI-a2mdtLlRF_YPlgqfX5jw';
 const OUTPUT_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Output';
 
@@ -942,6 +943,12 @@ fetch(OUTPUT_URL)
     const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
+    // Copia SIN filtrar (VidaCash + Endoso combinados), guardada ANTES de aplicar el filtro de
+    // producto -- a pedido explicito, la pestaña "Resumen" siempre debe mostrar el combinado de
+    // ambos productos, sin importar lo que el usuario elija en el desplegable de arriba (las
+    // demas pestañas si se filtran con normalidad). render() usa esta copia temporalmente solo
+    // para las secciones que pertenecen a Resumen (ver conDatosSinFiltro en render()).
+    DATA_TODOS = JSON.parse(JSON.stringify(DATA));
     aplicarFiltroProducto(filtroProductoActual);
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('dashboardRoot').style.display = 'block';
@@ -1487,6 +1494,18 @@ function render(desde, corte){
   // faltante puntual), las demas se siguen dibujando con normalidad en vez de quedar en blanco.
   function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
 
+  // La pestaña "Resumen" SIEMPRE muestra el combinado de VidaCash + Endoso, sin importar el
+  // filtro de producto elegido (a pedido explícito) -- las demás pestañas sí se filtran con
+  // normalidad. Todas las funciones que pintan Resumen leen la variable global DATA (por
+  // closure), así que en vez de reescribirlas para aceptar un parámetro extra, se intercambia
+  // temporalmente DATA por la copia sin filtrar (DATA_TODOS) solo mientras corre esa función,
+  // y se restaura enseguida -- ninguna otra pestaña nota el cambio porque todo es síncrono.
+  const DATA_FILTRADA = DATA;
+  function conDatosSinFiltro(fn){
+    DATA = DATA_TODOS || DATA_FILTRADA;
+    try { fn(); } finally { DATA = DATA_FILTRADA; }
+  }
+
   // Los KPIs y las 3 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
   // resto de secciones de abajo -- antes NO lo tenían, y si algo fallaba aquí (ej. Chart.js sin
   // cargar por un problema de red) toda la función se cortaba en seco y ninguna pestaña de abajo
@@ -1495,7 +1514,7 @@ function render(desde, corte){
   // que se reportó. Con esto, un error aquí ya no le puede congelar los datos a las demás
   // pestañas (y el error queda visible en la consola en vez de generar un numero desincronizado).
   let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
-  intentar('renderResumenKPIs', () => {
+  intentar('renderResumenKPIs', () => conDatosSinFiltro(() => {
     const idxActual = mesesV.indexOf(mesActual);
     const idxAnterior = idxActual - 1;
     const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
@@ -1588,20 +1607,22 @@ function render(desde, corte){
       chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
       chProyeccionLeads.update();
     }
-  });
+  }));
   intentar('renderVintageTable', () => renderVintageTable(corte));
   intentar('renderCampanaTable', () => renderCampanaTable());
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
   intentar('renderVentasTab', () => renderVentasTab());
-  intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
-  intentar('renderCohortTable', () => renderCohortTable(corte));
+  // Composición por canal, prima promedio, cohorte y pólizas por cliente son parte de la
+  // pestaña Resumen -> siempre combinado, sin importar el filtro de producto.
+  intentar('renderCanalYPrimaProm', () => conDatosSinFiltro(() => renderCanalYPrimaProm(corte)));
+  intentar('renderCohortTable', () => conDatosSinFiltro(() => renderCohortTable(corte)));
   intentar('renderPPyPNA', () => renderPPyPNA(corte));
   intentar('renderDiasConversion', () => renderDiasConversion(corte));
-  intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
-  intentar('renderInsights', () => renderInsights(corte));
+  intentar('renderPolizasCliente', () => conDatosSinFiltro(() => renderPolizasCliente(corte)));
+  intentar('renderInsights', () => conDatosSinFiltro(() => renderInsights(corte)));
   intentar('renderComite', () => renderComite(corte));
-  intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActual, ventasProy));
-  intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActual, leadsProy));
+  intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy)));
+  intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy)));
   intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
 }
 
