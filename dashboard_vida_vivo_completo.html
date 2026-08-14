@@ -231,32 +231,31 @@
     </div>
   </section>
 
-  <section>
-    <h2 id="tituloMetas">Cómo vamos vs. la meta de julio</h2>
-    <p class="sub">Metas cargadas a mano en la pestaña "Metas" del Google Sheet (por call center y total). "Real" = acumulado hasta el día de corte de arriba. Interno y Biznes son solo canales de call por voz (sin WhatsApp); "Total (todos los canales)" es el total real del mes, todos los canales incluidos. "Proyección" = cierre estimado del mes completo, con el mismo modelo de días de gestión (feriados incluidos) que el resto del dashboard.</p>
-    <div class="grid-2">
-      <div>
-        <p class="sub" style="margin-bottom:6px;">Unidades (ventas)</p>
-        <div class="table-wrap"><table class="data-table" id="tableMetaUnidades"></table></div>
-      </div>
-      <div>
-        <p class="sub" style="margin-bottom:6px;">PNA</p>
-        <div class="table-wrap"><table class="data-table" id="tableMetaPna"></table></div>
-      </div>
-    </div>
-    <div class="grid-2" style="margin-top:14px;">
-      <div>
-        <p class="sub" style="margin-bottom:6px;">Efectividad (todas las ventas del mes, sin importar el mes del lead, ÷ leads del mes, ambos a la fecha de corte; Interno/Biznes solo voz, "Total (todos los canales)" con todo)</p>
-        <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
-      </div>
-      <div>
-        <p class="sub" style="margin-bottom:6px;">Leads de Interno y Biznes (meta del mes = meta diaria de "Metas_Diarias" × días del mes, repartida 55% / 45%); el Total es el total real de leads de todo el dashboard.</p>
-        <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
-      </div>
-    </div>
-    <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
-    <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
-  </section>
+  <p class="sub" style="margin:0 0 -14px 2px;">Metas cargadas a mano en la pestaña "Metas" del Google Sheet (por call center y total). "Real" = acumulado hasta el día de corte de arriba. Interno y Biznes son solo canales de call por voz (sin WhatsApp); "Total (todos los canales)" es el total real del mes, todos los canales incluidos. "Proyección" = cierre estimado del mes completo, con el mismo modelo de días de gestión (feriados incluidos) que el resto del dashboard.</p>
+  <div class="grid-2">
+    <section>
+      <h2 id="tituloMetaUnidades">Cómo vamos vs. la meta de julio — Unidades (ventas)</h2>
+      <div class="table-wrap"><table class="data-table" id="tableMetaUnidades"></table></div>
+    </section>
+    <section>
+      <h2 id="tituloMetaPna">Cómo vamos vs. la meta de julio — PNA</h2>
+      <div class="table-wrap"><table class="data-table" id="tableMetaPna"></table></div>
+    </section>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <section>
+      <h2 id="tituloMetaEfectividad">Cómo vamos vs. la meta de julio — Efectividad</h2>
+      <p class="sub">Todas las ventas del mes, sin importar el mes del lead, ÷ leads del mes, ambos a la fecha de corte; Interno/Biznes solo voz, "Total (todos los canales)" con todo.</p>
+      <div class="table-wrap"><table class="data-table" id="tableMetaEfectividad"></table></div>
+    </section>
+    <section>
+      <h2 id="tituloMetaLeads">Cómo vamos vs. la meta de julio — Leads</h2>
+      <p class="sub">Leads de Interno y Biznes (meta del mes = meta diaria de "Metas_Diarias" × días del mes, repartida 55% / 45%); el Total es el total real de leads de todo el dashboard.</p>
+      <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
+    </section>
+  </div>
+  <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
+  <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
 
   <section>
     <h2>Ventas por mes: completo vs. a la fecha de corte</h2>
@@ -1436,7 +1435,10 @@ function actualizarTextosMes(){
   document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
   document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
-  document.getElementById('tituloMetas').textContent = 'Cómo vamos vs. la meta de ' + actualFull;
+  document.getElementById('tituloMetaUnidades').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Unidades (ventas)';
+  document.getElementById('tituloMetaPna').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — PNA';
+  document.getElementById('tituloMetaEfectividad').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Efectividad';
+  document.getElementById('tituloMetaLeads').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Leads';
   document.getElementById('tituloSeguimiento').textContent = 'Seguimiento diario de leads — ' + actualFull;
   // El subtitulo del header ya no muestra el rango de meses (enero-julio, enero-agosto...):
   // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
