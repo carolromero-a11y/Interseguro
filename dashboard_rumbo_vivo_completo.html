@@ -675,9 +675,16 @@
 
   <!-- ===== TAB: VINTAGE ===== -->
   <div class="tabpanel" id="tab-vintage">
-    <div class="dropdown-filter" data-tab="vintage">
-      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
-      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="vintage">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="vintage-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a las 5 tablas de esta pestaña.</span>
     </div>
     <div class="grid-2">
       <section>
@@ -704,6 +711,7 @@
       <h2>Días de conversión (de lead a venta)</h2>
       <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
       <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
+      <p class="note" id="notaCallOtrosVintage" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp. La mediana de días por call siempre combina todo (no tiene su propio "Total" — se muestra la mediana general de siempre).</p>
     </section>
   </div>
 
@@ -858,9 +866,9 @@ fetch(OUTPUT_URL)
     }
     DATA = data;
     const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
-      'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage',
+      'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage','sales_vintage_call',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
-      'leads_by_clics','dias_matriz','ventas_dni','dias_gestion_calendario','leads_by_tasa','sales_by_tasa','leads_by_prima',
+      'leads_by_clics','dias_matriz','dias_matriz_call','ventas_dni','dias_gestion_calendario','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima',
@@ -869,7 +877,7 @@ fetch(OUTPUT_URL)
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_campana_rangoprima_call',
       'sales_tri_tasa_rangoprima_call','sales_tri_edad_rangoprima_call','sales_tri_leadprima_ventaprima_call',
       'metas','metas_diarias'];
-    const CLAVES_OBJETO = ['leads_total_mes','dias_mediana_mes'];
+    const CLAVES_OBJETO = ['leads_total_mes','dias_mediana_mes','dias_mediana_mes_call'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
     document.getElementById('loadingOverlay').style.display = 'none';
@@ -1513,6 +1521,7 @@ function render(desde, corte){
   intentar('renderCohortTable', () => renderCohortTable(corte));
   intentar('renderVintageTable', () => renderVintageTable(corte));
   intentar('renderDiasConversion', () => renderDiasConversion(corte));
+  intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
   intentar('renderPPyPNA', () => renderPPyPNA(corte));
   intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
   intentar('renderComite', () => renderComite(corte));
@@ -1878,7 +1887,7 @@ function callBucketVoz(c){
   return 'Otros';
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
-const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima'];
+const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima','vintage'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -2573,6 +2582,167 @@ function renderDiasConversion(corte){
   document.getElementById('tableDiasConversion').innerHTML = html;
   const medTxt = cols.map(m => labelAbr(m)+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
   document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
+}
+
+// Reemplaza las 5 tablas de "Antigüedad del lead" (ya dibujadas arriba por renderVintageTable/
+// renderDiasConversion) por una version con el call center como columna agrupadora, con los
+// meses debajo de cada call elegido en el dropdown. Mismo patron que renderCallFiltroPerfil/
+// renderCallFiltroFuenteBasico, usando sales_vintage_call/dias_matriz_call/dias_mediana_mes_call
+// del .gs (que traen el call ademas de mes/dia/mesLead-o-bin, sin tocar sales_vintage/dias_matriz
+// originales) y leads_by_call (que ya existia) para los leads por call.
+function leadsPorMesCall(mes, bucket, corte, desde){
+  return (DATA.leads_by_call||[]).filter(r => r[0]===mes && r[1]<=corte && r[1]>=desde && callBucket(r[2])===bucket)
+    .reduce((s,r)=>s+r[3],0);
+}
+function leadsConvPorMesCall(mes, bucket, corte, desde){
+  return (DATA.leads_by_call||[]).filter(r => r[0]===mes && r[1]<=corte && r[1]>=desde && callBucket(r[2])===bucket)
+    .reduce((s,r)=>s+r[4],0);
+}
+function renderCallFiltroVintage(corte){
+  const nota = document.getElementById('notaCallOtrosVintage');
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['vintage'].has(b));
+  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
+  if(!buckets.length) return;
+  const desde = desdeActual;
+  const cols = mesesVisiblesV('vintage');
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  function leadsBucketOTotal(mes, b){ return b==='Total' ? buckets.reduce((s,bb)=>s+leadsPorMesCall(mes,bb,corte,desde),0) : leadsPorMesCall(mes,b,corte,desde); }
+  function leadsConvBucketOTotal(mes, b){ return b==='Total' ? buckets.reduce((s,bb)=>s+leadsConvPorMesCall(mes,bb,corte,desde),0) : leadsConvPorMesCall(mes,b,corte,desde); }
+
+  // --- Cant / Part / Efect: filas = mes lead, columnas = call x mes venta ---
+  const svFiltrado = (DATA.sales_vintage_call||[]).filter(r => r[1]<=corte && r[1]>=desde);
+  const matriz = {}; // matriz[mesLead][bucket][mesVenta] = ventas
+  svFiltrado.forEach(r => {
+    const b = callBucket(r[3]);
+    matriz[r[2]] = matriz[r[2]] || {};
+    matriz[r[2]][b] = matriz[r[2]][b] || {};
+    matriz[r[2]][b][r[0]] = (matriz[r[2]][b][r[0]]||0) + r[4];
+  });
+  function celda(ml,b,mv){ return ((matriz[ml]||{})[b]||{})[mv] || 0; }
+  function celdaConTotal(ml,b,mv){ return b==='Total' ? buckets.reduce((s,bb)=>s+celda(ml,bb,mv),0) : celda(ml,b,mv); }
+  const origenes = mesesL.filter(ml => buckets.some(b => cols.some(mv => celda(ml,b,mv)>0)));
+  const totalPorBucketCol = {};
+  gruposMostrar.forEach(b => { cols.forEach(mv => { totalPorBucketCol[b+'|'+mv] = origenes.reduce((s,ml)=>s+celdaConTotal(ml,b,mv),0); }); });
+
+  function tablaAnidadaMesLeadMesVenta(tableId, valueFn, totalsRow, totalsCol, isPercent){
+    let head1='<tr><th rowspan="2">Mes lead / Mes venta</th>', head2='<tr>';
+    gruposMostrar.forEach(b => {
+      head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+      head2 += cols.map((m,i)=>'<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+    });
+    if(totalsRow) head1 += '<th rowspan="2">'+(gruposMostrar.length>1?'Total fila':'Total')+'</th>';
+    head1 += '</tr>'; head2 += '</tr>';
+    let html = '<thead>'+head1+head2+'</thead><tbody>';
+    origenes.forEach(ml => {
+      html += '<tr><td>'+mesEsLabel[ml]+'</td>';
+      let rowTotal = 0;
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        const v = celdaConTotal(ml,b,m);
+        if(b!=='Total') rowTotal += v;
+        html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(v, ml, b, m, totalPorBucketCol[b+'|'+m])+'</td>';
+      }); });
+      if(totalsRow) html += '<td style="font-weight:600;">'+(isPercent?'':rowTotal.toLocaleString())+'</td>';
+      html += '</tr>';
+    });
+    if(totalsCol){
+      html += '<tr style="font-weight:600;background:var(--bg);"><td>Total</td>';
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        html += '<td'+(i===0?' class="div-left"':'')+'>'+(isPercent?'100%':(totalPorBucketCol[b+'|'+m]||0).toLocaleString())+'</td>';
+      }); });
+      if(totalsRow) html += '<td></td>';
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    const el = document.getElementById(tableId);
+    if(el) el.innerHTML = html;
+  }
+  tablaAnidadaMesLeadMesVenta('tableVintageCant', v => v>0?v.toLocaleString():'–', true, true, false);
+  tablaAnidadaMesLeadMesVenta('tableVintagePart', (v,ml,b,m,totalCol) => totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), false, true, true);
+  tablaAnidadaMesLeadMesVenta('tableVintageEfect', (v,ml,b) => {
+    const t = leadsBucketOTotal(ml, b);
+    if(!t||v===0) return v>0?'0%':'–';
+    return (Math.round((v/t)*1000)/10)+'%';
+  }, false, false, true);
+
+  // --- Composición de los leads: filas = mes, columnas = call x (Leads/Convertidos/No conv/%) ---
+  (function(){
+    let head1 = '<tr><th rowspan="2">Mes</th>', head2 = '<tr>';
+    gruposMostrar.forEach(b => {
+      head1 += '<th colspan="4" class="div-left">'+b+'</th>';
+      head2 += '<th class="div-left">Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th>';
+    });
+    head1 += '</tr>'; head2 += '</tr>';
+    let html = '<thead>'+head1+head2+'</thead><tbody>';
+    const totales = {}; gruposMostrar.forEach(b => { totales[b] = {l:0,c:0}; });
+    mesesL.forEach(m => {
+      const filaVals = gruposMostrar.map(b => ({ total: leadsBucketOTotal(m,b), conv: leadsConvBucketOTotal(m,b) }));
+      if(!filaVals.some(f=>f.total>0)) return;
+      html += '<tr><td>'+mesEsLabel[m]+'</td>';
+      gruposMostrar.forEach((b,i) => {
+        const {total,conv} = filaVals[i];
+        const noConv = total-conv, pct = total>0?Math.round((conv/total)*1000)/10:0;
+        totales[b].l += total; totales[b].c += conv;
+        html += '<td class="div-left">'+total.toLocaleString()+'</td><td>'+conv.toLocaleString()+'</td><td>'+noConv.toLocaleString()+'</td><td>'+pct+'%</td>';
+      });
+      html += '</tr>';
+    });
+    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>';
+    gruposMostrar.forEach(b => {
+      const {l,c} = totales[b]; const noC = l-c, pct = l>0?Math.round((c/l)*1000)/10:0;
+      html += '<td class="div-left">'+l.toLocaleString()+'</td><td>'+c.toLocaleString()+'</td><td>'+noC.toLocaleString()+'</td><td>'+pct+'%</td>';
+    });
+    html += '</tr></tbody>';
+    document.getElementById('tableVintageLeads').innerHTML = html;
+  })();
+
+  // --- Días de conversión: filas = bins fijos, columnas = call x mes venta ---
+  (function(){
+    const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
+    const dmFiltrado = (DATA.dias_matriz_call||[]).filter(r => r[1]<=corte && r[1]>=desde);
+    const matrizDias = {}; // matrizDias[bin][bucket][mesVenta] = n
+    dmFiltrado.forEach(r => {
+      const b = callBucket(r[3]);
+      matrizDias[r[2]] = matrizDias[r[2]] || {};
+      matrizDias[r[2]][b] = matrizDias[r[2]][b] || {};
+      matrizDias[r[2]][b][r[0]] = (matrizDias[r[2]][b][r[0]]||0) + r[4];
+    });
+    function celdaDias(bin,b,mv){ return ((matrizDias[bin]||{})[b]||{})[mv] || 0; }
+    function celdaDiasConTotal(bin,b,mv){ return b==='Total' ? buckets.reduce((s,bb)=>s+celdaDias(bin,bb,mv),0) : celdaDias(bin,b,mv); }
+    let head1='<tr><th rowspan="2">Días hasta la venta</th>', head2='<tr>';
+    gruposMostrar.forEach(b => {
+      head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+      head2 += cols.map((m,i)=>'<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+    });
+    head1 += '</tr>'; head2 += '</tr>';
+    let html = '<thead>'+head1+head2+'</thead><tbody>';
+    bins.forEach(bin => {
+      html += '<tr><td>'+bin+'</td>';
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        const v = celdaDiasConTotal(bin,b,m);
+        html += '<td'+(i===0?' class="div-left"':'')+'>'+(v>0?v.toLocaleString():'–')+'</td>';
+      }); });
+      html += '</tr>';
+    });
+    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>';
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+      const tot = bins.reduce((s,bin)=>s+celdaDiasConTotal(bin,b,m),0);
+      html += '<td'+(i===0?' class="div-left"':'')+'>'+(tot>0?tot.toLocaleString():'–')+'</td>';
+    }); });
+    html += '</tr></tbody>';
+    document.getElementById('tableDiasConversion').innerHTML = html;
+
+    // Mediana de días: por bucket usa dias_mediana_mes_call (siempre combina Vida Cash+Endoso en
+    // Vida); el grupo "Total" usa dias_mediana_mes de siempre (ya correcto para el filtro de
+    // producto de Vida) porque la mediana de un combinado NO es la suma de medianas.
+    const medTxt = gruposMostrar.map(b => {
+      const partes = cols.map(m => {
+        const val = b==='Total' ? DATA.dias_mediana_mes[m] : (DATA.dias_mediana_mes_call[m]||{})[b];
+        return labelAbr(m)+': '+(val??'–')+' días';
+      }).join(' · ');
+      return (gruposMostrar.length>1 ? '<strong>'+b+'</strong> — ' : '') + partes;
+    }).join(' &nbsp;|&nbsp; ');
+    document.getElementById('medianasDias').innerHTML = medTxt + ' (mediana de mes completo, referencial)';
+  })();
 }
 
 // ---------- CALIDAD / PP / PNA ----------
