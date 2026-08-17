@@ -680,11 +680,15 @@
         <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
       </div>
-      <div class="dropdown-filter" data-tab="vintage-call">
-        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
-        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label for="vintageCallSelect" style="font-size:13px;color:var(--text-3);font-weight:600;">Call center:</label>
+        <select id="vintageCallSelect" style="font-family:inherit;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid #D8D4C8;background:#fff;color:#1D3A5F;font-weight:600;cursor:pointer;">
+          <option value="Ambos">Ambos</option>
+          <option value="Interno">Interno</option>
+          <option value="Biznes">Biznes</option>
+        </select>
       </div>
-      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a las 5 tablas de esta pestaña.</span>
+      <span class="filter-hint">"Ambos" muestra el total de siempre (incluye también A365, Inbound, Sin call, WhatsApp, etc.). "Interno"/"Biznes" filtran las 5 tablas de esta pestaña a solo ese call center.</span>
     </div>
     <div class="grid-2">
       <section>
@@ -711,7 +715,6 @@
       <h2>Días de conversión (de lead a venta)</h2>
       <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
       <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
-      <p class="note" id="notaCallOtrosVintage" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp. La mediana de días por call siempre combina todo (no tiene su propio "Total" — se muestra la mediana general de siempre).</p>
     </section>
   </div>
 
@@ -1042,6 +1045,12 @@ function proyectarCierre(field, valorActual, corte){
 // del total de todos los canales (que era la causa de que Comité no cuadrara con Resumen: sin
 // filtroCall, este caso da EXACTAMENTE los mismos números que proyectarCierre/Resumen, porque
 // usa la misma fuente sales_daily/leads_daily sin filtrar).
+// BUG corregido (ronda 9): las VENTAS/PNA usaban callBucket() (mezcla "Call Interno WhatsApp"
+// dentro de "Interno" y "Biznes WhatsApp" dentro de "Biznes"), asi que "Solo Call Interno"/
+// "Solo Biznes" de Comité quedaban infladas con ventas de WhatsApp que no son de ese call por
+// voz. Ahora usa callBucketVoz() para ventas/PNA, igual que ya hacia (correctamente) la tabla
+// "Cómo vamos vs. la meta" del Resumen -- los LEADS se quedan con callBucket() porque ahi nunca
+// existe un canal "WhatsApp" separado (no hay diferencia entre ambas funciones para leads_by_call).
 function proyectarCierreCall(field, valorActual, corte, filtroCall){
   if(!filtroCall) return proyectarCierre(field, valorActual, corte);
   if(field==='leads'){
@@ -1049,7 +1058,7 @@ function proyectarCierreCall(field, valorActual, corte, filtroCall){
   }
   const idx = field==='ventas' ? 3 : field==='pna' ? 8 : field==='mismoMes' ? 5 : null;
   if(idx===null) return proyectarCierre(field, valorActual, corte);
-  return proyectarGenerico(valorActual, corte, m => (DATA.sales_by_call||[]).filter(r=>r[0]===m && callBucket(r[2])===filtroCall).reduce((s,r)=>s+(r[idx]||0),0));
+  return proyectarGenerico(valorActual, corte, m => (DATA.sales_by_call||[]).filter(r=>r[0]===m && callBucketVoz(r[2])===filtroCall).reduce((s,r)=>s+(r[idx]||0),0));
 }
 
 // ---------- METAS (pestañas "Metas" y "Metas_Diarias" del Google Sheet) ----------
@@ -1878,16 +1887,19 @@ function callBucket(c){
 }
 // Bucket ESTRICTO (solo voz, match exacto) -- a diferencia de callBucket() de arriba, NO
 // mezcla "Call Interno WhatsApp" dentro de "Interno" ni "Biznes WhatsApp" dentro de "Biznes".
-// Se usa solo en la sección "Cómo vamos vs. la meta" del Resumen, para Unidades/PNA/Efectividad
-// (las VENTAS de esa sección), a pedido explícito de que esas cifras sean solo de los canales
-// de call por voz. El resto del dashboard sigue usando callBucket() sin cambios.
+// Se usa en la sección "Cómo vamos vs. la meta" del Resumen, para Unidades/PNA/Efectividad (las
+// VENTAS de esa sección), y desde la ronda 9 también en las VENTAS/PNA de las 2 sub-tablas
+// "Solo Call Interno"/"Solo Biznes" de Comité (ventasDeMes/proyectarCierreCall) -- ahí
+// "callBucket()" mezclaba WhatsApp y eso inflaba esos 2 sub-tablas de Comité. El resto del
+// dashboard (Ventas, Perfil, Fuente, "Por call center") sigue usando callBucket() sin cambios --
+// ahí "Interno"/"Biznes" incluyen a propósito su WhatsApp correspondiente.
 function callBucketVoz(c){
   if(c === 'Call Interno') return 'Interno';
   if(c === 'Biznes') return 'Biznes';
   return 'Otros';
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
-const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima','vintage'];
+const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -2584,166 +2596,55 @@ function renderDiasConversion(corte){
   document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
 }
 
-// Reemplaza las 5 tablas de "Antigüedad del lead" (ya dibujadas arriba por renderVintageTable/
-// renderDiasConversion) por una version con el call center como columna agrupadora, con los
-// meses debajo de cada call elegido en el dropdown. Mismo patron que renderCallFiltroPerfil/
-// renderCallFiltroFuenteBasico, usando sales_vintage_call/dias_matriz_call/dias_mediana_mes_call
-// del .gs (que traen el call ademas de mes/dia/mesLead-o-bin, sin tocar sales_vintage/dias_matriz
-// originales) y leads_by_call (que ya existia) para los leads por call.
-function leadsPorMesCall(mes, bucket, corte, desde){
-  return (DATA.leads_by_call||[]).filter(r => r[0]===mes && r[1]<=corte && r[1]>=desde && callBucket(r[2])===bucket)
-    .reduce((s,r)=>s+r[3],0);
-}
-function leadsConvPorMesCall(mes, bucket, corte, desde){
-  return (DATA.leads_by_call||[]).filter(r => r[0]===mes && r[1]<=corte && r[1]>=desde && callBucket(r[2])===bucket)
-    .reduce((s,r)=>s+r[4],0);
+// Filtro de call center (Interno / Biznes / Ambos) de la pestaña "Antigüedad del lead" --
+// selección única (no checkboxes como Perfil/Fuente): "Ambos" es el total de siempre, sin
+// filtrar (ya lo dibujaron renderVintageTable/renderDiasConversion arriba, así que no hace
+// falta hacer nada). "Interno"/"Biznes" recalculan las MISMAS 5 tablas (mismo formato, solo
+// columnas de mes, sin agregar el call center como columna) pero con los datos ya recortados a
+// ese call center -- para no duplicar la lógica de armado de tablas, se intercambia
+// temporalmente `DATA.sales_vintage`/`dias_matriz`/`leads_daily`/`dias_mediana_mes` por una
+// version filtrada (usando sales_vintage_call/dias_matriz_call/leads_by_call/
+// dias_mediana_mes_call del .gs, que traen el call center) y se vuelven a llamar
+// renderVintageTable/renderDiasConversion tal cual -- mismo patrón que usa Vida para su filtro
+// de producto (conDatosSinFiltro), solo que acá el intercambio es a la inversa (de "todo" a
+// "filtrado"). sales_vintage/dias_matriz/leads_daily/dias_mediana_mes ORIGINALES no se tocan.
+let vintageCallFiltro = 'Ambos';
+function medianaPorBucketVintage(bucket){
+  const out = {};
+  Object.keys(DATA.dias_mediana_mes_call||{}).forEach(m => { out[m] = (DATA.dias_mediana_mes_call[m]||{})[bucket] ?? null; });
+  return out;
 }
 function renderCallFiltroVintage(corte){
-  const nota = document.getElementById('notaCallOtrosVintage');
-  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['vintage'].has(b));
-  if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
-  if(!buckets.length) return;
-  const desde = desdeActual;
-  const cols = mesesVisiblesV('vintage');
-  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
-  function leadsBucketOTotal(mes, b){ return b==='Total' ? buckets.reduce((s,bb)=>s+leadsPorMesCall(mes,bb,corte,desde),0) : leadsPorMesCall(mes,b,corte,desde); }
-  function leadsConvBucketOTotal(mes, b){ return b==='Total' ? buckets.reduce((s,bb)=>s+leadsConvPorMesCall(mes,bb,corte,desde),0) : leadsConvPorMesCall(mes,b,corte,desde); }
-
-  // --- Cant / Part / Efect: filas = mes lead, columnas = call x mes venta ---
-  const svFiltrado = (DATA.sales_vintage_call||[]).filter(r => r[1]<=corte && r[1]>=desde);
-  const matriz = {}; // matriz[mesLead][bucket][mesVenta] = ventas
-  svFiltrado.forEach(r => {
-    const b = callBucket(r[3]);
-    matriz[r[2]] = matriz[r[2]] || {};
-    matriz[r[2]][b] = matriz[r[2]][b] || {};
-    matriz[r[2]][b][r[0]] = (matriz[r[2]][b][r[0]]||0) + r[4];
+  if(vintageCallFiltro === 'Ambos') return; // ya quedó bien dibujado arriba, sin filtrar
+  const bucket = vintageCallFiltro;
+  const svFiltrado = (DATA.sales_vintage_call||[]).filter(r => callBucket(r[3])===bucket).map(r => [r[0],r[1],r[2],r[4]]);
+  const dmFiltrado = (DATA.dias_matriz_call||[]).filter(r => callBucket(r[3])===bucket).map(r => [r[0],r[1],r[2],r[4]]);
+  const ldMap = {};
+  (DATA.leads_by_call||[]).filter(r => callBucket(r[2])===bucket).forEach(r => {
+    const key = r[0]+'|'+r[1];
+    ldMap[key] = ldMap[key] || { mes:r[0], dia:r[1], leads:0, convertidos:0 };
+    ldMap[key].leads += r[3]; ldMap[key].convertidos += r[4];
   });
-  function celda(ml,b,mv){ return ((matriz[ml]||{})[b]||{})[mv] || 0; }
-  function celdaConTotal(ml,b,mv){ return b==='Total' ? buckets.reduce((s,bb)=>s+celda(ml,bb,mv),0) : celda(ml,b,mv); }
-  const origenes = mesesL.filter(ml => buckets.some(b => cols.some(mv => celda(ml,b,mv)>0)));
-  const totalPorBucketCol = {};
-  gruposMostrar.forEach(b => { cols.forEach(mv => { totalPorBucketCol[b+'|'+mv] = origenes.reduce((s,ml)=>s+celdaConTotal(ml,b,mv),0); }); });
 
-  function tablaAnidadaMesLeadMesVenta(tableId, valueFn, totalsRow, totalsCol, isPercent){
-    let head1='<tr><th rowspan="2">Mes lead / Mes venta</th>', head2='<tr>';
-    gruposMostrar.forEach(b => {
-      head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
-      head2 += cols.map((m,i)=>'<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
-    });
-    if(totalsRow) head1 += '<th rowspan="2">'+(gruposMostrar.length>1?'Total fila':'Total')+'</th>';
-    head1 += '</tr>'; head2 += '</tr>';
-    let html = '<thead>'+head1+head2+'</thead><tbody>';
-    origenes.forEach(ml => {
-      html += '<tr><td>'+mesEsLabel[ml]+'</td>';
-      let rowTotal = 0;
-      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-        const v = celdaConTotal(ml,b,m);
-        if(b!=='Total') rowTotal += v;
-        html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(v, ml, b, m, totalPorBucketCol[b+'|'+m])+'</td>';
-      }); });
-      if(totalsRow) html += '<td style="font-weight:600;">'+(isPercent?'':rowTotal.toLocaleString())+'</td>';
-      html += '</tr>';
-    });
-    if(totalsCol){
-      html += '<tr style="font-weight:600;background:var(--bg);"><td>Total</td>';
-      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-        html += '<td'+(i===0?' class="div-left"':'')+'>'+(isPercent?'100%':(totalPorBucketCol[b+'|'+m]||0).toLocaleString())+'</td>';
-      }); });
-      if(totalsRow) html += '<td></td>';
-      html += '</tr>';
-    }
-    html += '</tbody>';
-    const el = document.getElementById(tableId);
-    if(el) el.innerHTML = html;
+  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes;
+  DATA.sales_vintage = svFiltrado;
+  DATA.dias_matriz = dmFiltrado;
+  DATA.leads_daily = Object.values(ldMap);
+  DATA.dias_mediana_mes = medianaPorBucketVintage(bucket);
+  try {
+    renderVintageTable(corte);
+    renderDiasConversion(corte);
+  } finally {
+    DATA.sales_vintage = origSV;
+    DATA.dias_matriz = origDM;
+    DATA.leads_daily = origLD;
+    DATA.dias_mediana_mes = origMed;
   }
-  tablaAnidadaMesLeadMesVenta('tableVintageCant', v => v>0?v.toLocaleString():'–', true, true, false);
-  tablaAnidadaMesLeadMesVenta('tableVintagePart', (v,ml,b,m,totalCol) => totalCol>0 && v>0 ? '<strong>'+(Math.round((v/totalCol)*1000)/10)+'%</strong>' : (v>0?'0%':'–'), false, true, true);
-  tablaAnidadaMesLeadMesVenta('tableVintageEfect', (v,ml,b) => {
-    const t = leadsBucketOTotal(ml, b);
-    if(!t||v===0) return v>0?'0%':'–';
-    return (Math.round((v/t)*1000)/10)+'%';
-  }, false, false, true);
-
-  // --- Composición de los leads: filas = mes, columnas = call x (Leads/Convertidos/No conv/%) ---
-  (function(){
-    let head1 = '<tr><th rowspan="2">Mes</th>', head2 = '<tr>';
-    gruposMostrar.forEach(b => {
-      head1 += '<th colspan="4" class="div-left">'+b+'</th>';
-      head2 += '<th class="div-left">Leads totales</th><th>Convertidos</th><th>No convertidos</th><th>% convertidos</th>';
-    });
-    head1 += '</tr>'; head2 += '</tr>';
-    let html = '<thead>'+head1+head2+'</thead><tbody>';
-    const totales = {}; gruposMostrar.forEach(b => { totales[b] = {l:0,c:0}; });
-    mesesL.forEach(m => {
-      const filaVals = gruposMostrar.map(b => ({ total: leadsBucketOTotal(m,b), conv: leadsConvBucketOTotal(m,b) }));
-      if(!filaVals.some(f=>f.total>0)) return;
-      html += '<tr><td>'+mesEsLabel[m]+'</td>';
-      gruposMostrar.forEach((b,i) => {
-        const {total,conv} = filaVals[i];
-        const noConv = total-conv, pct = total>0?Math.round((conv/total)*1000)/10:0;
-        totales[b].l += total; totales[b].c += conv;
-        html += '<td class="div-left">'+total.toLocaleString()+'</td><td>'+conv.toLocaleString()+'</td><td>'+noConv.toLocaleString()+'</td><td>'+pct+'%</td>';
-      });
-      html += '</tr>';
-    });
-    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>';
-    gruposMostrar.forEach(b => {
-      const {l,c} = totales[b]; const noC = l-c, pct = l>0?Math.round((c/l)*1000)/10:0;
-      html += '<td class="div-left">'+l.toLocaleString()+'</td><td>'+c.toLocaleString()+'</td><td>'+noC.toLocaleString()+'</td><td>'+pct+'%</td>';
-    });
-    html += '</tr></tbody>';
-    document.getElementById('tableVintageLeads').innerHTML = html;
-  })();
-
-  // --- Días de conversión: filas = bins fijos, columnas = call x mes venta ---
-  (function(){
-    const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
-    const dmFiltrado = (DATA.dias_matriz_call||[]).filter(r => r[1]<=corte && r[1]>=desde);
-    const matrizDias = {}; // matrizDias[bin][bucket][mesVenta] = n
-    dmFiltrado.forEach(r => {
-      const b = callBucket(r[3]);
-      matrizDias[r[2]] = matrizDias[r[2]] || {};
-      matrizDias[r[2]][b] = matrizDias[r[2]][b] || {};
-      matrizDias[r[2]][b][r[0]] = (matrizDias[r[2]][b][r[0]]||0) + r[4];
-    });
-    function celdaDias(bin,b,mv){ return ((matrizDias[bin]||{})[b]||{})[mv] || 0; }
-    function celdaDiasConTotal(bin,b,mv){ return b==='Total' ? buckets.reduce((s,bb)=>s+celdaDias(bin,bb,mv),0) : celdaDias(bin,b,mv); }
-    let head1='<tr><th rowspan="2">Días hasta la venta</th>', head2='<tr>';
-    gruposMostrar.forEach(b => {
-      head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
-      head2 += cols.map((m,i)=>'<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
-    });
-    head1 += '</tr>'; head2 += '</tr>';
-    let html = '<thead>'+head1+head2+'</thead><tbody>';
-    bins.forEach(bin => {
-      html += '<tr><td>'+bin+'</td>';
-      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-        const v = celdaDiasConTotal(bin,b,m);
-        html += '<td'+(i===0?' class="div-left"':'')+'>'+(v>0?v.toLocaleString():'–')+'</td>';
-      }); });
-      html += '</tr>';
-    });
-    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>';
-    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-      const tot = bins.reduce((s,bin)=>s+celdaDiasConTotal(bin,b,m),0);
-      html += '<td'+(i===0?' class="div-left"':'')+'>'+(tot>0?tot.toLocaleString():'–')+'</td>';
-    }); });
-    html += '</tr></tbody>';
-    document.getElementById('tableDiasConversion').innerHTML = html;
-
-    // Mediana de días: por bucket usa dias_mediana_mes_call (siempre combina Vida Cash+Endoso en
-    // Vida); el grupo "Total" usa dias_mediana_mes de siempre (ya correcto para el filtro de
-    // producto de Vida) porque la mediana de un combinado NO es la suma de medianas.
-    const medTxt = gruposMostrar.map(b => {
-      const partes = cols.map(m => {
-        const val = b==='Total' ? DATA.dias_mediana_mes[m] : (DATA.dias_mediana_mes_call[m]||{})[b];
-        return labelAbr(m)+': '+(val??'–')+' días';
-      }).join(' · ');
-      return (gruposMostrar.length>1 ? '<strong>'+b+'</strong> — ' : '') + partes;
-    }).join(' &nbsp;|&nbsp; ');
-    document.getElementById('medianasDias').innerHTML = medTxt + ' (mediana de mes completo, referencial)';
-  })();
 }
+document.getElementById('vintageCallSelect').addEventListener('change', e => {
+  vintageCallFiltro = e.target.value;
+  render(desdeActual, corteActual);
+});
 
 // ---------- CALIDAD / PP / PNA ----------
 // Las tablas de "tipo de lead" (Leads/%, Ventas, Efectividad) ahora se dibujan con el mismo
@@ -2810,7 +2711,10 @@ function renderTablaComite(tableId, filtroCall, corte){
       // sumando esa columna en sales_by_call para TODOS los call de ese mes (misma fuente, mismo total).
       colchon: (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia).reduce((s,r)=>s+(r[6]||0),0)
     };
-    const rows = (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucket(r[2])===filtroCall);
+    // callBucketVoz (no callBucket): "Solo Call Interno"/"Solo Biznes" deben ser SOLO canales de
+    // call por voz -- igual que ya hace "Cómo vamos vs. la meta" del Resumen -- y no mezclar con
+    // "Call Interno WhatsApp"/"Biznes WhatsApp" (eso inflaba estas 2 sub-tablas de Comité).
+    const rows = (DATA.sales_by_call||[]).filter(r => r[0]===m && r[1]<=corteDia && callBucketVoz(r[2])===filtroCall);
     return {
       v: rows.reduce((s,r)=>s+r[3],0), prima: rows.reduce((s,r)=>s+r[4],0), pna: rows.reduce((s,r)=>s+(r[8]||0),0),
       mismoMes: rows.reduce((s,r)=>s+(r[5]||0),0), colchon: rows.reduce((s,r)=>s+(r[6]||0),0)
