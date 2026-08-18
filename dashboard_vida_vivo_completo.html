@@ -989,6 +989,15 @@ fetch(OUTPUT_URL)
     const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto','dias_mediana_mes_call'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
+    // Refuerzo del lado del dashboard: el .gs ya normaliza "N/A" -> "Sin dato" en el origen
+    // (parseDetalleEvaluacion), pero por si el Sheet todavia trae datos generados con una version
+    // vieja del script (falta pegar/correr "Actualizar dashboard"), se vuelve a normalizar aca --
+    // asi "N/A" nunca aparece como sub-fila separada de "Sin dato" en las tablas de Alto/Medio, y
+    // sus leads/ventas quedan sumados junto con los de "Sin dato" (la suma la hacen solas las
+    // funciones de agregacion, que ya reducen por coincidencia de esta dimension).
+    ['leads_tri_etiqueta_propension_call','sales_tri_etiqueta_propension_call'].forEach(k => {
+      (DATA[k]||[]).forEach(r => { if (r[3] === 'N/A') r[3] = 'Sin dato'; });
+    });
     // Copia SIN filtrar (VidaCash + Endoso combinados), guardada ANTES de aplicar el filtro de
     // producto -- a pedido explicito, la pestaña "Resumen" siempre debe mostrar el combinado de
     // ambos productos, sin importar lo que el usuario elija en el desplegable de arriba (las
