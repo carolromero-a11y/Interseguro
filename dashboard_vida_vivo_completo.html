@@ -505,6 +505,32 @@
       <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con una porción de ventas directas (que siempre convierten 100%), así que su efectividad puede verse algo inflada.</p>
     </section>
     <section>
+      <h2>Leads y % Participación por etiqueta / propensión ajustada — todos los meses</h2>
+      <p class="sub">Columna "DetalleEvaluacion" de Leads_Raw (evaluación de propensión del lead). Etiqueta = fila principal (clic para expandir/colapsar), propensión ajustada = sub-fila. Solo disponible desde el 16 de agosto de 2026; los leads anteriores, o sin este dato, se agrupan en "Sin dato".</p>
+      <div class="table-wrap"><table class="data-table" id="tableEtiquetaLeadsMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas por etiqueta / propensión ajustada — todos los meses</h2>
+      <p class="sub">Todas las ventas del mes atribuidas a la etiqueta/propensión del lead que las originó, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableEtiquetaVentasMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Venta Colchón — por etiqueta / propensión ajustada</h2>
+      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+      <div class="table-wrap"><table class="data-table" id="tableEtiquetaColchonMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Ventas con lead del mismo mes — por etiqueta / propensión ajustada</h2>
+      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableEtiquetaMismoMesMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Efectividad por etiqueta / propensión ajustada — todos los meses</h2>
+      <p class="sub">Ventas con lead también de ese mes ÷ leads de esa etiqueta/propensión, mismo mes. Usa el día de corte.</p>
+      <div class="table-wrap"><table class="data-table" id="tableEtiquetaEfectMatrix"></table></div>
+      <p class="note">Ventas directas (sin lead) y leads sin DetalleEvaluacion se agrupan en "Sin dato", que siempre aparece al final.</p>
+    </section>
+    <section>
       <h2>Campañas con más leads</h2>
       <p class="sub">Top 12 campañas por volumen de leads, resto agrupado en "Otras campañas". El top-12 cambia mes a mes, por eso se mantiene con selector.</p>
       <div class="controls" style="margin-bottom:16px;">
@@ -804,7 +830,13 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // agregado como llave extra ANTES del valor a sumar (mes, dia, mesLead-o-bin, call), asi que
   // aca la "llave" son 4 columnas en vez de 3 -- el producto se sigue mandando al final, como
   // siempre, y este mismo colapsarTuplasPorProducto() lo filtra/quita sin cambios.
-  ['sales_vintage_call',4], ['dias_matriz_call',4]
+  ['sales_vintage_call',4], ['dias_matriz_call',4],
+  // Etiqueta / propensión ajustada (DetalleEvaluacion, solo Vida): mismo patrón que el resto --
+  // leads_by_etiqueta es un aggLeadsPorDim normal (3 columnas de llave); los cruces de 3
+  // dimensiones (etiqueta, propensión, call) son igual forma que sales_tri_fuente_rangoprima_call
+  // (5 columnas de llave: mes, dia, d1, d2, d3) tanto para leads como para ventas.
+  ['leads_by_etiqueta',3],
+  ['leads_tri_etiqueta_propension_call',5], ['sales_tri_etiqueta_propension_call',5]
 ];
 
 // Aplica el filtro de producto sobre la variable global DATA (in-place). Se llama UNA vez,
@@ -952,7 +984,8 @@ fetch(OUTPUT_URL)
       'leads_cross_fuente_call','sales_cross_fuente_call','leads_cross_subfuente_call','sales_cross_subfuente_call',
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call','sales_cross_rangodevolucion_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
-      'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias'];
+      'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias',
+      'leads_by_etiqueta','leads_tri_etiqueta_propension_call','sales_tri_etiqueta_propension_call'];
     const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto','dias_mediana_mes_call'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -2261,6 +2294,7 @@ function renderAllMatrixSets(corte){
   renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true);
   renderCallFiltroProducto(corte);
   renderCallFiltroFuente(corte);
+  renderEtiquetaPropensionFuente(corte);
 }
 // ---------- FILTRO DE CALL CENTER (pestañas Producto y Fuente/Subfuente) ----------
 function callBucket(c){
@@ -2471,6 +2505,75 @@ function renderCallFiltroFuente(corte){
   renderGrupo('Subfuente', 'Subfuente', 'leads_by_subfuente', 'leads_cross_subfuente_call', 'sales_cross_subfuente_call');
 }
 
+// ---------- ETIQUETA / PROPENSIÓN AJUSTADA (DetalleEvaluacion, solo Vida) ----------
+// 5 tablas nuevas al final de la pestaña "Por fuente y subfuente" (a pedido explícito): la
+// columna nueva de Leads_Raw "DetalleEvaluacion" (poblada desde el 16 de agosto de 2026 con el
+// formato "{etiqueta=Bajo,propension_ajustada=N/A,estrategia_speech=N/A}") se muestra con
+// etiqueta como fila principal expandible y propension_ajustada como sub-fila -- mismo
+// mecanismo de expandir/colapsar que ya usan las tablas de Fuente/Subfuente/Campaña/Cotizador/
+// Edad de la pestaña "Ventas" (buildCallNestedSubfilas). Usa el mismo día de corte, el mismo
+// filtro de meses y el mismo desplegable de call center que el resto de esta pestaña (fuente).
+// 'Sin dato' (leads de antes del 16 de agosto, o ventas directas sin lead) siempre al final,
+// tanto en la fila principal como en la sub-fila.
+function pushSinDatoLast(arr){
+  const normales = arr.filter(d => d !== 'Sin dato');
+  const sinDato = arr.filter(d => d === 'Sin dato');
+  return normales.concat(sinDato);
+}
+// Orden de la fila principal (etiqueta): por volumen de leads, mismo criterio que
+// dimsOrdenados() (fuente/subfuente de esta misma pestaña), con 'Sin dato' al final.
+function dimsOrdenadosEtiqueta(corte){
+  const leadsRowsAll = DATA.leads_by_etiqueta||[];
+  const leadsRows = leadsRowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+  let dims = [...new Set(leadsRowsAll.map(r=>r[2]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = leadsRows.filter(r=>r[2]===d).reduce((s,r)=>s+r[3],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushSinDatoLast(dims);
+}
+// Orden de la sub-fila (propensión_ajustada): no existe un leads_by_propension plano (es una
+// tercera dimensión), así que se descubre directamente del cruce de 3 dimensiones, sumando
+// TODOS los call center -- igual que dimsOrdenados() tampoco aplica el filtro de call al orden
+// de fuente/subfuente (el orden de filas no debe cambiar según qué call esté elegido).
+function dimsOrdenadosPropension(corte){
+  const rowsAll = DATA.leads_tri_etiqueta_propension_call||[];
+  const rows = rowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
+  let dims = [...new Set(rowsAll.map(r=>r[3]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = rows.filter(r=>r[3]===d).reduce((s,r)=>s+r[5],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushSinDatoLast(dims);
+}
+function renderEtiquetaPropensionFuente(corte){
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
+  if(!buckets.length) return;
+  const cols = mesesVisiblesV('fuente');
+  const dim1s = dimsOrdenadosEtiqueta(corte);
+  const dim2s = dimsOrdenadosPropension(corte);
+  const leadsTri = (DATA.leads_tri_etiqueta_propension_call||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
+  const salesTri = (DATA.sales_tri_etiqueta_propension_call||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
+  function aggCelda(d1, d2, bucket, mes){
+    const lsub = leadsTri.filter(r => r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket && r[0]===mes);
+    const ssub = salesTri.filter(r => r[2]===d1 && r[3]===d2 && callBucket(r[4])===bucket && r[0]===mes);
+    return {
+      l: lsub.reduce((s,r)=>s+r[5],0),
+      v: ssub.reduce((s,r)=>s+r[5],0),
+      vMismoMes: ssub.reduce((s,r)=>s+r[6],0),
+      vColchon: ssub.reduce((s,r)=>s+(r[7]||0),0)
+    };
+  }
+  buildCallNestedSubfilasMulti('tableEtiquetaLeadsMatrix', dim1s, dim2s, aggCelda, buckets, cols, (a,totD1,sub) => {
+    if(a.l===0) return '–';
+    if(sub) return a.l.toLocaleString();
+    const part = totD1 && totD1.l>0 ? (a.l/totD1.l)*100 : 0;
+    return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+  });
+  buildCallNestedSubfilasMulti('tableEtiquetaVentasMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.v>0 ? a.v.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaColchonMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaMismoMesMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaEfectMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+}
+
 // ---------- PESTAÑA "VENTAS" (por rango de prima mensual, con calendario propio) ----------
 // A diferencia del resto de la pestañas (que usan el dia de corte global o el filtro de
 // meses por checkbox), esta usa un rango de fechas explicito (desde-hasta, con dia exacto en
@@ -2656,6 +2759,66 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
     const t = dim1s.reduce((s,d1)=>s+totalDim1BucketMes(d1,b,m),0);
     const cls = i===0 ? ' class="div-left"' : '';
     html += '<td'+cls+'>'+(t>0?t.toLocaleString():'–')+'</td>';
+  }); });
+  html += '</tr>';
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+
+// Igual que buildCallNestedSubfilas() de arriba, pero para tablas que necesitan varias
+// métricas a la vez (leads, ventas, ventas mismo mes, ventas colchón) en una sola celda, en vez
+// de leer un solo valor de un cruce plano -- usado por las tablas de Etiqueta/Propensión
+// ajustada (DetalleEvaluacion, solo Vida). aggCelda(d1,d2,bucket,mes) devuelve
+// {l,v,vMismoMes,vColchon}. valueFn(a, totD1, esSubtotalOTotal) decide qué mostrar en cada
+// celda: totD1 es el acumulado de la fila principal (d1) para esa columna, usado para el % de
+// participación de la sub-fila (ej. la tabla de Leads); en las filas "Subtotal"/"Total" se
+// llama con esSubtotalOTotal=true (sin %, mismo criterio que el resto de tablas con sub-filas).
+function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, cols, valueFn){
+  function sumarAgg(parts){
+    return {
+      l: parts.reduce((s,p)=>s+p.l,0), v: parts.reduce((s,p)=>s+p.v,0),
+      vMismoMes: parts.reduce((s,p)=>s+p.vMismoMes,0), vColchon: parts.reduce((s,p)=>s+p.vColchon,0)
+    };
+  }
+  function aggConTotal(d1, d2, bucket, mes){
+    if(bucket === 'Total') return sumarAgg(buckets.map(bb => aggCelda(d1,d2,bb,mes)));
+    return aggCelda(d1,d2,bucket,mes);
+  }
+  function totalDim1BucketMes(d1, bucket, mes){
+    return sumarAgg(dim2s.map(d2 => aggConTotal(d1,d2,bucket,mes)));
+  }
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
+  gruposMostrar.forEach(b => {
+    head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+    head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+  });
+  head1 += '</tr>'; head2 += '</tr>';
+  const totalCols = gruposMostrar.length * cols.length;
+  let html = nestedToggleBarHtml(tableId) + '<thead>'+head1+head2+'</thead><tbody>';
+  dim1s.forEach((d1,idx1) => {
+    html += nestedGroupRowHtml(tableId, idx1, d1, totalCols+1);
+    dim2s.forEach(d2 => {
+      html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;">'+d2+'</td>';
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        const cls = i===0 ? ' class="div-left"' : '';
+        html += '<td'+cls+'>'+valueFn(aggConTotal(d1,d2,b,m), totalDim1BucketMes(d1,b,m), false)+'</td>';
+      }); });
+      html += '</tr>';
+    });
+    html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+d1+'</td>';
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+      const cls = i===0 ? ' class="div-left"' : '';
+      html += '<td'+cls+'>'+valueFn(totalDim1BucketMes(d1,b,m), null, true)+'</td>';
+    }); });
+    html += '</tr>';
+  });
+  html += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
+  gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+    const t = sumarAgg(dim1s.map(d1 => totalDim1BucketMes(d1,b,m)));
+    const cls = i===0 ? ' class="div-left"' : '';
+    html += '<td'+cls+'>'+valueFn(t, null, true)+'</td>';
   }); });
   html += '</tr>';
   html += '</tbody>';
