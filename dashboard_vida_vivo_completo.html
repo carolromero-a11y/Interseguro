@@ -2562,10 +2562,15 @@ function renderEtiquetaPropensionFuente(corte){
       vColchon: ssub.reduce((s,r)=>s+(r[7]||0),0)
     };
   }
-  buildCallNestedSubfilasMulti('tableEtiquetaLeadsMatrix', dim1s, dim2s, aggCelda, buckets, cols, (a,totD1,sub) => {
+  // Leads y % Participación: en las sub-filas (propensión), el % es dentro de esa etiqueta
+  // (denom = total de esa etiqueta); en la fila "Subtotal" (etiqueta), el % es dentro del total
+  // general de leads de esa columna (denom = suma de TODAS las etiquetas) -- mismo criterio que
+  // ya usa "Leads y % Participación por fuente" para su fila principal. La fila "Total" no
+  // lleva %, mismo criterio que el resto de tablas con sub-filas del dashboard.
+  buildCallNestedSubfilasMulti('tableEtiquetaLeadsMatrix', dim1s, dim2s, aggCelda, buckets, cols, (a,denom,nivel) => {
     if(a.l===0) return '–';
-    if(sub) return a.l.toLocaleString();
-    const part = totD1 && totD1.l>0 ? (a.l/totD1.l)*100 : 0;
+    if(nivel==='total') return a.l.toLocaleString();
+    const part = denom && denom.l>0 ? (a.l/denom.l)*100 : 0;
     return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
   });
   buildCallNestedSubfilasMulti('tableEtiquetaVentasMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.v>0 ? a.v.toLocaleString() : '–');
@@ -2788,6 +2793,12 @@ function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, 
   function totalDim1BucketMes(d1, bucket, mes){
     return sumarAgg(dim2s.map(d2 => aggConTotal(d1,d2,bucket,mes)));
   }
+  // Total general (sumando TODAS las etiquetas) de esa columna -- denominador del % de la fila
+  // "Subtotal" (participación de esa etiqueta dentro del total, no dentro de sí misma), mismo
+  // criterio que usa "Leads y % Participación por fuente" para su fila principal.
+  function totalGeneralBucketMes(bucket, mes){
+    return sumarAgg(dim1s.map(d1 => totalDim1BucketMes(d1,bucket,mes)));
+  }
   const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
   gruposMostrar.forEach(b => {
@@ -2803,14 +2814,14 @@ function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, 
       html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;">'+d2+'</td>';
       gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const cls = i===0 ? ' class="div-left"' : '';
-        html += '<td'+cls+'>'+valueFn(aggConTotal(d1,d2,b,m), totalDim1BucketMes(d1,b,m), false)+'</td>';
+        html += '<td'+cls+'>'+valueFn(aggConTotal(d1,d2,b,m), totalDim1BucketMes(d1,b,m), 'sub')+'</td>';
       }); });
       html += '</tr>';
     });
     html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+d1+'</td>';
     gruposMostrar.forEach(b => { cols.forEach((m,i) => {
       const cls = i===0 ? ' class="div-left"' : '';
-      html += '<td'+cls+'>'+valueFn(totalDim1BucketMes(d1,b,m), null, true)+'</td>';
+      html += '<td'+cls+'>'+valueFn(totalDim1BucketMes(d1,b,m), totalGeneralBucketMes(b,m), 'subtotal')+'</td>';
     }); });
     html += '</tr>';
   });
@@ -2818,7 +2829,7 @@ function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, 
   gruposMostrar.forEach(b => { cols.forEach((m,i) => {
     const t = sumarAgg(dim1s.map(d1 => totalDim1BucketMes(d1,b,m)));
     const cls = i===0 ? ' class="div-left"' : '';
-    html += '<td'+cls+'>'+valueFn(t, null, true)+'</td>';
+    html += '<td'+cls+'>'+valueFn(t, null, 'total')+'</td>';
   }); });
   html += '</tr>';
   html += '</tbody>';
