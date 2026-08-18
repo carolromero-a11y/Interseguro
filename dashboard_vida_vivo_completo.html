@@ -2534,7 +2534,9 @@ function dimsOrdenadosEtiqueta(corte){
 // Orden de la sub-fila (propensión_ajustada): no existe un leads_by_propension plano (es una
 // tercera dimensión), así que se descubre directamente del cruce de 3 dimensiones, sumando
 // TODOS los call center -- igual que dimsOrdenados() tampoco aplica el filtro de call al orden
-// de fuente/subfuente (el orden de filas no debe cambiar según qué call esté elegido).
+// de fuente/subfuente (el orden de filas no debe cambiar según qué call esté elegido). Este
+// orden es GLOBAL (todas las propensiones que existan en cualquier etiqueta); cada etiqueta
+// luego se queda solo con las que realmente le corresponden (ver propensionesPorEtiqueta).
 function dimsOrdenadosPropension(corte){
   const rowsAll = DATA.leads_tri_etiqueta_propension_call||[];
   const rows = rowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte);
@@ -2544,12 +2546,48 @@ function dimsOrdenadosPropension(corte){
   dims = dims.sort((a,b)=> totals[b]-totals[a]);
   return pushSinDatoLast(dims);
 }
+// Qué propensiones tiene REALMENTE cada etiqueta (a pedido explícito: no todas las etiquetas
+// combinan con todas las propensiones -- ej. "Bajo" y "No evaluable" solo existen con "Sin
+// dato" -- así que no tiene sentido mostrarlas como grupo expandible con una sola sub-fila
+// repitiendo el mismo dato). Se descubre de los datos reales (leads Y ventas, por si alguna
+// combinación solo aparece del lado de las ventas), no de una lista fija -- si el modelo de
+// InterSeguro agrega o quita combinaciones más adelante, esto se ajusta solo.
+function propensionesPorEtiqueta(corte, ordenGlobal){
+  const porEtiqueta = {};
+  function marcar(rowsAll){
+    (rowsAll||[]).filter(r => r[1] >= desdeActual && r[1] <= corte).forEach(r => {
+      const d1 = r[2], d2 = r[3], val = r[5];
+      if(!val) return; // sin leads/ventas reales en esa combinación -- no cuenta como "existe"
+      porEtiqueta[d1] = porEtiqueta[d1] || new Set();
+      porEtiqueta[d1].add(d2);
+    });
+  }
+  marcar(DATA.leads_tri_etiqueta_propension_call);
+  marcar(DATA.sales_tri_etiqueta_propension_call);
+  const out = {};
+  Object.keys(porEtiqueta).forEach(d1 => { out[d1] = ordenGlobal.filter(d2 => porEtiqueta[d1].has(d2)); });
+  return out;
+}
 function renderEtiquetaPropensionFuente(corte){
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
   if(!buckets.length) return;
   const cols = mesesVisiblesV('fuente');
   const dim1s = dimsOrdenadosEtiqueta(corte);
-  const dim2s = dimsOrdenadosPropension(corte);
+  const ordenPropension = dimsOrdenadosPropension(corte);
+  const relevantes = propensionesPorEtiqueta(corte, ordenPropension);
+  // "flat": Sin dato, Bajo y No evaluable NUNCA tienen sub-filas (regla de negocio fija,
+  // no depende de qué datos existan) -- se muestran siempre como fila simple, sin flecha
+  // ni posibilidad de expandir. Solo Alto y Medio pueden mostrar sub-filas de propensión.
+  const ETIQUETAS_SIN_SUBFILAS = new Set(['Sin dato', 'Bajo', 'No evaluable']);
+  const grupos = dim1s.map(d1 => {
+    const flat = ETIQUETAS_SIN_SUBFILAS.has(d1);
+    const rel = relevantes[d1] || [];
+    // dim2s se usa para sumar el total de la fila (aunque sea "flat" no se muestren las
+    // sub-categorías) -- así el total nunca pierde datos aunque hubiera alguna combinación
+    // inesperada en la data.
+    const dim2s = rel.length ? rel : ['Sin dato'];
+    return { d1, dim2s, flat };
+  });
   const leadsTri = (DATA.leads_tri_etiqueta_propension_call||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
   const salesTri = (DATA.sales_tri_etiqueta_propension_call||[]).filter(r => r[1] >= desdeActual && r[1] <= corte);
   function aggCelda(d1, d2, bucket, mes){
@@ -2563,20 +2601,21 @@ function renderEtiquetaPropensionFuente(corte){
     };
   }
   // Leads y % Participación: en las sub-filas (propensión), el % es dentro de esa etiqueta
-  // (denom = total de esa etiqueta); en la fila "Subtotal" (etiqueta), el % es dentro del total
-  // general de leads de esa columna (denom = suma de TODAS las etiquetas) -- mismo criterio que
-  // ya usa "Leads y % Participación por fuente" para su fila principal. La fila "Total" no
-  // lleva %, mismo criterio que el resto de tablas con sub-filas del dashboard.
-  buildCallNestedSubfilasMulti('tableEtiquetaLeadsMatrix', dim1s, dim2s, aggCelda, buckets, cols, (a,denom,nivel) => {
+  // (denom = total de esa etiqueta); en la fila "Subtotal" (etiqueta) y en las etiquetas "flat"
+  // (sin sub-filas), el % es dentro del total general de leads de esa columna (denom = suma de
+  // TODAS las etiquetas) -- mismo criterio que ya usa "Leads y % Participación por fuente" para
+  // su fila principal. La fila "Total" no lleva %, mismo criterio que el resto de tablas con
+  // sub-filas del dashboard.
+  buildCallNestedSubfilasMulti('tableEtiquetaLeadsMatrix', grupos, aggCelda, buckets, cols, (a,denom,nivel) => {
     if(a.l===0) return '–';
     if(nivel==='total') return a.l.toLocaleString();
     const part = denom && denom.l>0 ? (a.l/denom.l)*100 : 0;
     return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
   });
-  buildCallNestedSubfilasMulti('tableEtiquetaVentasMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.v>0 ? a.v.toLocaleString() : '–');
-  buildCallNestedSubfilasMulti('tableEtiquetaColchonMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
-  buildCallNestedSubfilasMulti('tableEtiquetaMismoMesMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
-  buildCallNestedSubfilasMulti('tableEtiquetaEfectMatrix', dim1s, dim2s, aggCelda, buckets, cols, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaVentasMatrix', grupos, aggCelda, buckets, cols, a => a.v>0 ? a.v.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaColchonMatrix', grupos, aggCelda, buckets, cols, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaMismoMesMatrix', grupos, aggCelda, buckets, cols, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
+  buildCallNestedSubfilasMulti('tableEtiquetaEfectMatrix', grupos, aggCelda, buckets, cols, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
 }
 
 // ---------- PESTAÑA "VENTAS" (por rango de prima mensual, con calendario propio) ----------
@@ -2775,11 +2814,16 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, d
 // métricas a la vez (leads, ventas, ventas mismo mes, ventas colchón) en una sola celda, en vez
 // de leer un solo valor de un cruce plano -- usado por las tablas de Etiqueta/Propensión
 // ajustada (DetalleEvaluacion, solo Vida). aggCelda(d1,d2,bucket,mes) devuelve
-// {l,v,vMismoMes,vColchon}. valueFn(a, totD1, esSubtotalOTotal) decide qué mostrar en cada
-// celda: totD1 es el acumulado de la fila principal (d1) para esa columna, usado para el % de
-// participación de la sub-fila (ej. la tabla de Leads); en las filas "Subtotal"/"Total" se
-// llama con esSubtotalOTotal=true (sin %, mismo criterio que el resto de tablas con sub-filas).
-function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, cols, valueFn){
+// {l,v,vMismoMes,vColchon}. `grupos` es un arreglo de {d1, dim2s, flat} (ver
+// propensionesPorEtiqueta): cada d1 (etiqueta) trae SU PROPIA lista de sub-filas (dim2) en vez
+// de una lista compartida por todas -- a pedido explícito, para no mostrar sub-filas vacías de
+// combinaciones que no existen (ej. "Bajo" nunca combina con una propensión real). Cuando
+// `flat` es true (la etiqueta no tiene ninguna sub-fila real que valga la pena mostrar, ej. solo
+// 'Sin dato') se dibuja como una fila simple, sin flecha ni sub-filas. valueFn(a, denom, nivel)
+// decide qué mostrar en cada celda: nivel es 'sub' (denom = total de esa etiqueta, para el % de
+// participación de la sub-fila), 'subtotal' (fila Subtotal o etiqueta "flat"; denom = total
+// general de todas las etiquetas) o 'total' (fila Total, sin %).
+function buildCallNestedSubfilasMulti(tableId, grupos, aggCelda, buckets, cols, valueFn){
   function sumarAgg(parts){
     return {
       l: parts.reduce((s,p)=>s+p.l,0), v: parts.reduce((s,p)=>s+p.v,0),
@@ -2790,14 +2834,14 @@ function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, 
     if(bucket === 'Total') return sumarAgg(buckets.map(bb => aggCelda(d1,d2,bb,mes)));
     return aggCelda(d1,d2,bucket,mes);
   }
-  function totalDim1BucketMes(d1, bucket, mes){
-    return sumarAgg(dim2s.map(d2 => aggConTotal(d1,d2,bucket,mes)));
+  function totalGrupoBucketMes(grupo, bucket, mes){
+    return sumarAgg(grupo.dim2s.map(d2 => aggConTotal(grupo.d1,d2,bucket,mes)));
   }
   // Total general (sumando TODAS las etiquetas) de esa columna -- denominador del % de la fila
-  // "Subtotal" (participación de esa etiqueta dentro del total, no dentro de sí misma), mismo
-  // criterio que usa "Leads y % Participación por fuente" para su fila principal.
+  // "Subtotal"/etiqueta "flat" (participación de esa etiqueta dentro del total, no dentro de sí
+  // misma), mismo criterio que usa "Leads y % Participación por fuente" para su fila principal.
   function totalGeneralBucketMes(bucket, mes){
-    return sumarAgg(dim1s.map(d1 => totalDim1BucketMes(d1,bucket,mes)));
+    return sumarAgg(grupos.map(g => totalGrupoBucketMes(g,bucket,mes)));
   }
   const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
@@ -2808,26 +2852,35 @@ function buildCallNestedSubfilasMulti(tableId, dim1s, dim2s, aggCelda, buckets, 
   head1 += '</tr>'; head2 += '</tr>';
   const totalCols = gruposMostrar.length * cols.length;
   let html = nestedToggleBarHtml(tableId) + '<thead>'+head1+head2+'</thead><tbody>';
-  dim1s.forEach((d1,idx1) => {
-    html += nestedGroupRowHtml(tableId, idx1, d1, totalCols+1);
-    dim2s.forEach(d2 => {
+  grupos.forEach((g,idx1) => {
+    if(g.flat){
+      html += '<tr><td style="font-weight:700;color:var(--navy);">'+g.d1+'</td>';
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        const cls = i===0 ? ' class="div-left"' : '';
+        html += '<td'+cls+'>'+valueFn(totalGrupoBucketMes(g,b,m), totalGeneralBucketMes(b,m), 'subtotal')+'</td>';
+      }); });
+      html += '</tr>';
+      return;
+    }
+    html += nestedGroupRowHtml(tableId, idx1, g.d1, totalCols+1);
+    g.dim2s.forEach(d2 => {
       html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;">'+d2+'</td>';
       gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const cls = i===0 ? ' class="div-left"' : '';
-        html += '<td'+cls+'>'+valueFn(aggConTotal(d1,d2,b,m), totalDim1BucketMes(d1,b,m), 'sub')+'</td>';
+        html += '<td'+cls+'>'+valueFn(aggConTotal(g.d1,d2,b,m), totalGrupoBucketMes(g,b,m), 'sub')+'</td>';
       }); });
       html += '</tr>';
     });
-    html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+d1+'</td>';
+    html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+g.d1+'</td>';
     gruposMostrar.forEach(b => { cols.forEach((m,i) => {
       const cls = i===0 ? ' class="div-left"' : '';
-      html += '<td'+cls+'>'+valueFn(totalDim1BucketMes(d1,b,m), totalGeneralBucketMes(b,m), 'subtotal')+'</td>';
+      html += '<td'+cls+'>'+valueFn(totalGrupoBucketMes(g,b,m), totalGeneralBucketMes(b,m), 'subtotal')+'</td>';
     }); });
     html += '</tr>';
   });
   html += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
   gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-    const t = sumarAgg(dim1s.map(d1 => totalDim1BucketMes(d1,b,m)));
+    const t = sumarAgg(grupos.map(g => totalGrupoBucketMes(g,b,m)));
     const cls = i===0 ? ' class="div-left"' : '';
     html += '<td'+cls+'>'+valueFn(t, null, 'total')+'</td>';
   }); });
