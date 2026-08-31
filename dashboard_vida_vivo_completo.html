@@ -1219,12 +1219,25 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
     const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===bucket);
     const real = {
       ventas: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0),
+      // prima real (Prima x Frecuencia, r[4]) -- se usa solo para sacar el PP actual de abajo,
+      // no se muestra como columna propia en esta tabla.
+      prima: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[4],0),
       pna: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[8],0)
     };
     const proy = {
-      ventas: proyectarGenerico(real.ventas, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[3],0)),
-      pna: proyectarGenerico(real.pna, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[8],0))
+      ventas: proyectarGenerico(real.ventas, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[3],0))
     };
+    // PNA proyección = Ventas proyectadas × PP actual (a pedido explícito, ronda 13) -- PP
+    // actual = la misma prima promedio real que ya muestra el gráfico "Evolución de la prima
+    // promedio" (prima real ÷ ventas reales), calculada SIEMPRE de día 1 al corte (nunca desde
+    // "desdeActual"), igual que el resto de las proyecciones de esta sección. Antes, PNA se
+    // proyectaba con su propio modelo de días de gestión (independiente de las Ventas), lo que
+    // hacía que un cambio en la proyección de Ventas no se reflejara en la de PNA. Si todavía
+    // no hay ninguna venta real en el corte (real.ventas=0, PP indefinido), se cae al modelo
+    // anterior para no dividir por cero.
+    const ppActualBucket = real.ventas>0 ? (real.prima/real.ventas) : null;
+    proy.pna = ppActualBucket!==null ? proy.ventas*ppActualBucket
+      : proyectarGenerico(real.pna, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[8],0));
     const leadsBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
     // Efectividad = TODAS las ventas de ese call (real.ventas, cualquier mes de lead) ÷ leads
     // de ese call, ambos a la fecha de corte -- misma definición que el resto de esta sección.
@@ -1235,7 +1248,12 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
     if(bucket==='Total'){
       const leadsTotalTodos = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
       const pnaTotalTodos = aggMonth(DATA.sales_daily, mesActual, 'pna', corte);
-      const pnaProyTotalTodos = proyectarCierre('pna', pnaTotalTodos, corte);
+      // Mismo cambio que en datosPorBucketVoz: PNA proyección = Ventas proyectadas × PP actual
+      // (prima real ÷ ventas reales, día 1 al corte), con el modelo viejo como respaldo si
+      // todavía no hay ventas reales este mes.
+      const primaTotalTodos = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+      const ppActualTotalTodos = ventasActualTotal>0 ? (primaTotalTodos/ventasActualTotal) : null;
+      const pnaProyTotalTodos = ppActualTotalTodos!==null ? ventasProyTotal*ppActualTotalTodos : proyectarCierre('pna', pnaTotalTodos, corte);
       const efect = leadsTotalTodos>0 ? (ventasActualTotal/leadsTotalTodos)*100 : null;
       return { real: {ventas: ventasActualTotal, pna: pnaTotalTodos}, proy: {ventas: ventasProyTotal, pna: pnaProyTotalTodos}, efect };
     }
@@ -2635,7 +2653,7 @@ const RANGOS_PRIMA_VENTA = ['P1 (0 a 349)','P2 (350 a 500)','P3 (501 a 800)','P4
 
 // Rango de "% Dev." de Ventas_Raw, para la tabla "Ventas y % participación por rango de
 // devolución" de esta hoja (solo Vida, a pedido explícito). Mismo orden fijo que rango de edad.
-const RANGOS_DEVOLUCION = ['0-100','101-125','126-135','136-145','146-155','156-170','171 a más','Sin dato'];
+const RANGOS_DEVOLUCION = ['0-25','26-50','51-100','101-125','126-135','136-145','146-155','156-170','171 a más','Sin dato'];
 
 // Mismo criterio de deteccion de rango que ya usa el boton "Ver rango" de arriba: arma una
 // fecha con hora fija (12:00) a partir de mes+dia para evitar problemas de huso horario.
@@ -3207,16 +3225,18 @@ function renderTablaComite(tableId, filtroCall, corte){
       const mismoMesActualComite = ventasVals[i] ? ventasVals[i].mismoMes : 0;
       const leadsActualComite = leadsVals[i] || 0;
       const pnaActualComite = pnaVals[i] || 0;
-      // Antes, la fila PNA de "Proyección de cierre" no se proyectaba con el modelo de días de
-      // gestión (como sí hace Resumen) -- se derivaba escalando el PP (prima promedio) actual por
-      // el crecimiento proyectado de unidades. Eso hacía que no cuadrara con la tarjeta "PNA
-      // proyectada" de Resumen. Ahora las 4 filas usan el mismo modelo (proyectarCierreCall, que
-      // para "Total canales" -- filtroCall=null -- es exactamente proyectarCierre(), igual que
-      // Resumen; para Interno/Biznes usa la tasa histórica de ESE call, no la del total).
       const ventasProyC = Math.round(proyectarCierreCall('ventas', ventasActualComite, corte, filtroCall));
       const mismoMesProyC = Math.round(proyectarCierreCall('mismoMes', mismoMesActualComite, corte, filtroCall));
       const leadsProyC = Math.round(proyectarCierreCall('leads', leadsActualComite, corte, filtroCall));
-      const pnaProyC = Math.round(proyectarCierreCall('pna', pnaActualComite, corte, filtroCall));
+      // PNA proyección = Ventas proyectadas × PP actual (a pedido explícito, ronda 13) -- mismo
+      // cambio que en "Cómo vamos vs. la meta" del Resumen (ver datosPorBucketVoz más arriba),
+      // para que las 2 vistas sigan cuadrando entre sí. PP actual = fila "PP" de esta misma
+      // tabla (prima real ÷ ventas reales, ambas ya calculadas arriba en ventasVals[i]). Si
+      // todavía no hay ventas reales este mes para este call (PP indefinido), se cae al modelo
+      // de días de gestión de antes para no dividir por cero.
+      const primaActualComite = ventasVals[i] ? ventasVals[i].prima : 0;
+      const ppActualComite = ventasActualComite>0 ? (primaActualComite/ventasActualComite) : null;
+      const pnaProyC = ppActualComite!==null ? Math.round(ventasProyC*ppActualComite) : Math.round(proyectarCierreCall('pna', pnaActualComite, corte, filtroCall));
       return { cerrado:false, pna:pnaProyC, ventas:ventasProyC, efect: leadsProyC>0?pctFmt((mismoMesProyC/leadsProyC)*100):'–', leads:leadsProyC };
     }
     // Mes ya cerrado: dato real completo del mes (sin cortar por dia de corte), no una proyeccion.
