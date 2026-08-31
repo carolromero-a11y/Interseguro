@@ -384,6 +384,12 @@
         <div class="table-wrap"><table class="data-table" id="tableVintageLeads"></table></div>
       </section>
     </div>
+    <section>
+      <h2>Días de conversión (de lead a venta)</h2>
+      <p class="sub">Calculado con "Fecha de cotización" y "Fecha de venta" de la hoja Ventas.</p>
+      <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
+      <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
+    </section>
   </div>
 
   <!-- ===== TAB: COMITÉ ===== -->
@@ -472,8 +478,8 @@ fetch(OUTPUT_URL)
       'leads_by_fuente','sales_by_fuente','sales_by_subfuente','leads_by_rango_monto','sales_by_rango_monto',
       'leads_by_edad','sales_by_edad','leads_cross_fuente_asesor','sales_cross_fuente_asesor',
       'sales_cross_rangomonto_asesor','ventas_dni','dias_gestion_calendario','sales_vintage',
-      'leads_facebook_monto_soles','leads_facebook_monto_dolares'];
-    const CLAVES_OBJETO = ['leads_total_mes','multi_dist'];
+      'leads_facebook_monto_soles','leads_facebook_monto_dolares','dias_matriz'];
+    const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
     document.getElementById('loadingOverlay').style.display = 'none';
@@ -1037,6 +1043,26 @@ function renderVintageTable(corte){
   document.getElementById('tableVintageLeads').innerHTML = html;
 }
 
+// "Días de conversión (de lead a venta)": mismos bins y misma lógica de render que ya usan
+// Vida y Rumbo en esta misma pestaña (Antigüedad del lead). La diferencia es de origen del
+// dato, no de cómo se pinta: DATA.dias_matriz acá sale de "Fecha de cotización" vs. "Fecha de
+// venta" de la propia hoja Ventas (ver Codigo_Completo.gs), no de la atribución por DNI. No hay
+// filtro de call center en Inversión Segura (no existe ese concepto acá), así que a diferencia
+// de Vida/Rumbo esta tabla no tiene una versión "filtrada" -- se pinta una sola vez.
+function renderDiasConversion(corte){
+  const cols = mesesVisiblesV('vintage');
+  const bins = ['Mismo día','1 día','2-3 días','4-7 días','8-15 días','16-30 días','31-60 días','60+ días'];
+  const matriz = {};
+  (DATA.dias_matriz||[]).forEach(([mv,dia,bin,n]) => { if(dia>corte || dia<desdeActual) return; matriz[bin]=matriz[bin]||{}; matriz[bin][mv]=(matriz[bin][mv]||0)+n; });
+  let html = '<thead><tr><th>Días hasta la venta</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+  bins.forEach(b => { html += '<tr><td>'+b+'</td>' + cols.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>'; });
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  html += '</tbody>';
+  document.getElementById('tableDiasConversion').innerHTML = html;
+  const medTxt = cols.map(m => labelAbr(m)+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
+  document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
+}
+
 // ---------- COMITÉ ----------
 function filaComite(nombre, valores, fmt){
   return '<tr><td>'+nombre+'</td>' + valores.map(v => '<td>'+(v===null||v===undefined?'–':fmt(v))+'</td>').join('') + '</tr>';
@@ -1330,6 +1356,7 @@ function render(desde, corte){
   intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
   intentar('renderCohortTable', () => renderCohortTable(corte));
   intentar('renderVintageTable', () => renderVintageTable(corte));
+  intentar('renderDiasConversion', () => renderDiasConversion(corte));
   intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
   intentar('renderComite', () => renderComite(corte));
   intentar('renderInsights', () => renderInsights(corte));
@@ -1459,4 +1486,5 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
+
 
