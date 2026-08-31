@@ -224,9 +224,9 @@
     <div class="kpi-grid">
       <div class="kpi"><p class="label" id="lblVentas">Ventas julio (real)</p><p class="value" id="kVentas">–</p></div>
       <div class="kpi"><p class="label" id="lblVsAnt">vs. junio (mismo corte)</p><p class="value" id="kVsJun">–</p></div>
-      <div class="kpi"><p class="label" id="lblPrima">Prima julio (real)</p><p class="value" id="kPrima">–</p></div>
+      <div class="kpi"><p class="label" id="lblPrima">PNA julio (real)</p><p class="value" id="kPrima">–</p></div>
       <div class="kpi accent"><p class="label">Proyección cierre — ventas</p><p class="value" id="kProyVentas">–</p></div>
-      <div class="kpi accent"><p class="label">Proyección cierre — prima</p><p class="value" id="kProyPrima">–</p></div>
+      <div class="kpi accent"><p class="label">Proyección cierre — PNA</p><p class="value" id="kProyPrima">–</p></div>
       <div class="kpi accent2"><p class="label">Proyección cierre — leads</p><p class="value" id="kProyLeads">–</p></div>
     </div>
   </section>
@@ -1513,7 +1513,7 @@ function actualizarTextosMes(){
   const anteriorFull = mesAnterior ? labelFull(mesAnterior) : '–';
   document.getElementById('lblVentas').textContent = 'Ventas ' + actualFull + ' (real)';
   document.getElementById('lblVsAnt').textContent = 'vs. ' + anteriorFull + ' (mismo corte)';
-  document.getElementById('lblPrima').textContent = 'Prima ' + actualFull + ' (real)';
+  document.getElementById('lblPrima').textContent = 'PNA ' + actualFull + ' (real)';
   document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
   document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
@@ -1626,7 +1626,14 @@ function render(desde, corte){
     const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
     ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
     const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
-    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'prima', corte) : 0;
+    // Ronda 14, a pedido explícito: esta tarjeta ("PNA [mes] (real)") y la tarjeta de
+    // proyección de abajo deben mostrar el mismo número que la fila "Total (todos los canales)"
+    // de "Cómo vamos vs. meta -> PNA" -- antes usaban el campo "prima" (Prima x Frecuencia, una
+    // columna DISTINTA de "PNA" en el Sheet), así que nunca iban a coincidir con esa tabla. Ahora
+    // usan el campo real "pna", igual que la tabla (misma fuente sales_daily, mismo corte, y
+    // como esta función corre con conDatosSinFiltro, siempre es el combinado Vida Cash + Endoso,
+    // todos los canales).
+    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
     leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
 
     document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
@@ -1653,7 +1660,14 @@ function render(desde, corte){
     }
 
     ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
-    primaProy = proyectarCierre('prima', primaActual, corte);
+    // Misma fórmula que "Cómo vamos vs. meta -> PNA -> Total" (Ronda 13/14): Ventas proyectadas
+    // × PP actual (prima real ÷ ventas reales, día 1 al corte -- mismo dato que el gráfico
+    // "Evolución de la prima promedio"). Al usar exactamente los mismos insumos (mesActual,
+    // corte, ventasActual, ventasProy) que esa tabla, esta tarjeta queda garantizada a mostrar
+    // el mismo número que la fila "Total", sin tener que sincronizarlos a mano.
+    const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+    const ppActualKPI = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
+    primaProy = ppActualKPI!==null ? ventasProy*ppActualKPI : proyectarCierre('pna', primaActual, corte);
     leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
     const ventasRestante = Math.max(0, ventasProy - ventasActual);
     const leadsRestante = Math.max(0, leadsProy - leadsActual);
