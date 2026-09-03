@@ -237,12 +237,12 @@
     </section>
     <section>
       <h2 id="tituloMetaLeads">Cómo vamos vs. la meta de julio — Leads</h2>
-      <p class="sub">Meta del mes = meta diaria de "Metas_Diarias" × días del mes; Interno y Biznes se reparten esa meta 40% / 60%.</p>
+      <p class="sub">Leads de Interno y Biznes, con la meta de cada uno tal como se cargó en la columna "Meta Leads" de la pestaña "Metas" del Google Sheet; el Total es el total real de leads de todo el dashboard.</p>
       <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
     </section>
   </div>
   <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
-  <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
+  <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la columna "Meta Leads" en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
 
   <section>
     <h2>Ventas por mes: completo vs. a la fecha de corte</h2>
@@ -871,7 +871,7 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily','cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage','sales_vintage_call',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
-      'leads_by_clics','dias_matriz','dias_matriz_call','ventas_dni','dias_gestion_calendario','leads_by_tasa','sales_by_tasa','leads_by_prima',
+      'leads_by_clics','dias_matriz','dias_matriz_call','dias_suma_dia','dias_suma_dia_call','ventas_dni','dias_gestion_calendario','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
       'sales_cross_subfuente_tasa','leads_cross_subfuente_prima','sales_cross_subfuente_prima',
@@ -1160,28 +1160,27 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, pnaActual
 // Tabla "Leads" al costado de Efectividad en el Resumen: mismas filas que las otras 3 tablas
 // de esta sección (Interno / Biznes / Total), para que las 4 se lean juntas de forma consistente.
 // Real y Proyección por call salen de leads_by_call (mismo patrón que datosPorBucket de arriba).
-// La Meta solo existe cargada a nivel de mes completo (meta diaria de "Metas_Diarias" x días
-// del mes) -- no hay una meta de leads por call en el Sheet, así que, a pedido explícito, se
-// reparte la meta total entre Interno y Biznes según REPARTO_META_LEADS (en Rumbo, 40% Interno /
-// 60% Biznes).
-const REPARTO_META_LEADS = { Interno: 0.4, Biznes: 0.6 };
+// La Meta ahora sale de la columna "Meta Leads" de la hoja "Metas" -- mismo mecanismo que ya
+// usan Unidades/PNA/Efectividad (metasPorCall[bucket].leads para Interno/Biznes, y
+// metasPorCall['Total (todos los canales)'].leads para el Total -- en Rumbo no hay filtro de
+// producto, así que la fila Total siempre usa esa misma clave). Reemplaza el reparto fijo
+// 40%/60% de antes, que no tenía relación real con lo que el equipo carga en la hoja Metas.
 function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
   if(!mesActual) return;
-  const metasDiarias = DATA.metas_diarias || [];
+  const metasPorCall = {};
+  (DATA.metas||[]).forEach(m => { metasPorCall[m.call] = m; });
+  const hayMetaLeads = (DATA.metas||[]).some(m => m.leads!==null && m.leads!==undefined);
   const nota = document.getElementById('notaSinMetaLeads');
-  const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
-  if(nota) nota.style.display = hayMetaDiaria ? 'none' : 'block';
-  if(!hayMetaDiaria){ buildMetaTable('tableMetaLeads', ['Call'], []); return; }
-
-  const diasDelMes = diasEnMes(mesActual);
-  const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
+  if(nota) nota.style.display = hayMetaLeads ? 'none' : 'block';
+  if(!hayMetaLeads){ buildMetaTable('tableMetaLeads', ['Call'], []); return; }
 
   const buckets = ['Interno','Biznes','Total'];
   const rows = buckets.map(b => {
     if(b==='Total'){
-      return ['Total (todos los canales)', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
+      const metaTotal = metasPorCall['Total (todos los canales)'] ? metasPorCall['Total (todos los canales)'].leads : null;
+      return ['Total (todos los canales)', fmtMetaN(metaTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaTotal)];
     }
-    const metaBucket = Math.round(metaMesTotal * REPARTO_META_LEADS[b]);
+    const metaBucket = metasPorCall[b] ? metasPorCall[b].leads : null;
     const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===b);
     const realBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
     const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===b).reduce((s,r)=>s+r[3],0));
@@ -2608,6 +2607,19 @@ function renderDiasConversion(corte){
   let html = '<thead><tr><th>Días hasta la venta</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
   bins.forEach(b => { html += '<tr><td>'+b+'</td>' + cols.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>'; });
   html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  // Fila "Promedio": promedio EXACTO de días (no aproximado por bin), sumando dias_suma_dia --
+  // a diferencia de la mediana de abajo (referencial, de mes completo), este promedio SÍ respeta
+  // el mismo rango desde-hasta que ya respeta el resto de la tabla (los bins y la fila Total).
+  const sumaPorMes = {}, nPorMes = {};
+  (DATA.dias_suma_dia||[]).forEach(([mv,dia,suma,n]) => {
+    if(dia > corte || dia < desdeActual) return;
+    sumaPorMes[mv] = (sumaPorMes[mv]||0) + suma; nPorMes[mv] = (nPorMes[mv]||0) + n;
+  });
+  html += '<tr style="font-style:italic;color:var(--text-3);border-top:1px solid var(--border);"><td>Promedio</td>' + cols.map(m => {
+    const n = nPorMes[m]||0;
+    if(!n) return '<td>–</td>';
+    return '<td>'+(Math.round((sumaPorMes[m]/n)*10)/10)+'</td>';
+  }).join('') + '</tr>';
   html += '</tbody>';
   document.getElementById('tableDiasConversion').innerHTML = html;
   const medTxt = cols.map(m => labelAbr(m)+': '+(DATA.dias_mediana_mes[m]??'–')+' días').join(' · ');
@@ -2644,11 +2656,16 @@ function renderCallFiltroVintage(corte){
     ldMap[key].leads += r[3]; ldMap[key].convertidos += r[4];
   });
 
-  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes;
+  // dias_suma_dia_call: [mes,dia,call,suma,n] (call en índice 2, igual que dias_matriz_call de arriba
+  // pero acá hay 2 columnas de valor -- suma,n -- en vez de 1).
+  const sdFiltrado = (DATA.dias_suma_dia_call||[]).filter(r => callBucket(r[2])===bucket).map(r => [r[0],r[1],r[3],r[4]]);
+
+  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes, origSD = DATA.dias_suma_dia;
   DATA.sales_vintage = svFiltrado;
   DATA.dias_matriz = dmFiltrado;
   DATA.leads_daily = Object.values(ldMap);
   DATA.dias_mediana_mes = medianaPorBucketVintage(bucket);
+  DATA.dias_suma_dia = sdFiltrado;
   try {
     renderVintageTable(corte);
     renderDiasConversion(corte);
@@ -2657,6 +2674,7 @@ function renderCallFiltroVintage(corte){
     DATA.dias_matriz = origDM;
     DATA.leads_daily = origLD;
     DATA.dias_mediana_mes = origMed;
+    DATA.dias_suma_dia = origSD;
   }
 }
 document.getElementById('vintageCallSelect').addEventListener('change', e => {
