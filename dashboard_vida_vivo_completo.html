@@ -250,12 +250,12 @@
     </section>
     <section>
       <h2 id="tituloMetaLeads">Cómo vamos vs. la meta de julio — Leads</h2>
-      <p class="sub">Leads de Interno y Biznes (meta del mes = meta diaria de "Metas_Diarias" × días del mes, repartida 55% / 45%); el Total es el total real de leads de todo el dashboard.</p>
+      <p class="sub">Leads de Interno y Biznes, con la meta de cada uno tal como se cargó en la columna "Meta Leads" de la pestaña "Metas" del Google Sheet; el Total es el total real de leads de todo el dashboard.</p>
       <div class="table-wrap"><table class="data-table" id="tableMetaLeads"></table></div>
     </section>
   </div>
   <p class="note" id="notaSinMetas" style="display:none;">Todavía no se cargaron metas en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver esta comparación con datos reales.</p>
-  <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la meta diaria en la pestaña "Metas_Diarias" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
+  <p class="note" id="notaSinMetaLeads" style="display:none;">Todavía no se cargó la columna "Meta Leads" en la pestaña "Metas" del Google Sheet — llénala y vuelve a correr "Actualizar dashboard" para ver el cumplimiento de leads.</p>
 
   <section>
     <h2>Ventas por mes: completo vs. a la fecha de corte</h2>
@@ -831,6 +831,10 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // aca la "llave" son 4 columnas en vez de 3 -- el producto se sigue mandando al final, como
   // siempre, y este mismo colapsarTuplasPorProducto() lo filtra/quita sin cambios.
   ['sales_vintage_call',4], ['dias_matriz_call',4],
+  // dias_suma_dia / dias_suma_dia_call: soporte de la fila "Promedio" de la tabla de Días de
+  // conversión (llegada agosto 2026) -- mismo patrón que dias_matriz/dias_matriz_call de arriba,
+  // solo que acá se suman 2 columnas de valor (suma de días + cantidad) en vez de 1.
+  ['dias_suma_dia',2], ['dias_suma_dia_call',3],
   // Etiqueta / propensión ajustada (DetalleEvaluacion, solo Vida): mismo patrón que el resto --
   // leads_by_etiqueta es un aggLeadsPorDim normal (3 columnas de llave); los cruces de 3
   // dimensiones (etiqueta, propensión, call) son igual forma que sales_tri_fuente_rangoprima_call
@@ -976,7 +980,7 @@ fetch(OUTPUT_URL)
       'cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage','sales_vintage_call',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
-      'leads_by_clics','sales_by_clics','dias_matriz','dias_matriz_call','ventas_dni','dias_gestion_calendario',
+      'leads_by_clics','sales_by_clics','dias_matriz','dias_matriz_call','dias_suma_dia','dias_suma_dia_call','ventas_dni','dias_gestion_calendario',
       'leads_cross_producto_call','sales_cross_producto_call','leads_by_tasa','sales_by_tasa','leads_by_prima',
       'sales_by_prima','leads_by_edad','sales_by_edad','leads_cross_fuente_tasa','sales_cross_fuente_tasa',
       'leads_cross_fuente_prima','sales_cross_fuente_prima','leads_cross_subfuente_tasa',
@@ -1173,7 +1177,24 @@ function proyectarCierreCall(field, valorActual, corte, filtroCall){
   return proyectarGenerico(valorActual, corte, m => (DATA.sales_by_call||[]).filter(r=>r[0]===m && callBucketVoz(r[2])===filtroCall).reduce((s,r)=>s+(r[idx]||0),0));
 }
 
+// Unidades proyectadas = leads proyectados × efectividad real del corte (ventas reales ÷ leads
+// reales, ambos día 1 al corte) -- a pedido explícito del usuario: antes, la proyección de
+// Ventas/Unidades salía de un modelo de ritmo (ventas ÷ días de gestión) totalmente
+// independiente de Leads y de la Efectividad real, así que "leads proyectados × efectividad"
+// (calculado a mano por el usuario) y "proyección de Unidades" de la tabla podían no coincidir.
+// Si todavía no hay ningún lead real en el corte (división por cero), cae al modelo anterior
+// (proyectarGenerico) para no romper ni mostrar NaN/Infinity.
+function proyectarVentasPorEfectividad(ventasActual, leadsActual, leadsProy, corte, historicoVentasFn){
+  const efect = leadsActual>0 ? (ventasActual/leadsActual) : null;
+  return efect!==null ? Math.round(leadsProy*efect) : Math.round(proyectarGenerico(ventasActual, corte, historicoVentasFn));
+}
+
 // ---------- METAS (pestañas "Metas" y "Metas_Diarias" del Google Sheet) ----------
+// Con un producto específico (Vida Cash / Endoso) elegido en el desplegable de arriba, la fila
+// "Total" de las 4 tablas de "Cómo vamos vs. meta" debe leer la fila de la hoja "Metas" de ESE
+// producto ("Total Vida cash (todos los canales)" / "Total Endoso (todos los canales)") en vez
+// de la fila combinada -- mismos nombres exactos que ya usa el equipo en el Sheet.
+const METAS_TOTAL_KEY_POR_PRODUCTO = { vidacash: 'Total Vida cash (todos los canales)', endoso: 'Total Endoso (todos los canales)' };
 function buildMetaTable(tableId, headers, rows){
   let html = '<thead><tr>' + headers.map(h=>'<th>'+h+'</th>').join('') + '</tr></thead><tbody>';
   rows.forEach(r => { html += '<tr>' + r.map(c => '<td>'+c+'</td>').join('') + '</tr>'; });
@@ -1194,7 +1215,7 @@ function cumplimientoMeta(real, meta){
 // Total reusa exactamente los mismos totales que ya muestran las tarjetas KPI de arriba (para
 // que no haya 2 fuentes de verdad del mismo numero), salvo la PNA (esa tarjeta muestra "Prima",
 // no PNA, asi que el total de PNA se calcula aparte con el campo 'pna' de sales_daily).
-function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
+function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal, metaTotalKey){
   if(!mesActual) return;
   const metasPorCall = {};
   (DATA.metas||[]).forEach(m => { metasPorCall[m.call] = m; });
@@ -1224,8 +1245,12 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
       prima: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[4],0),
       pna: rowsVentas.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[8],0)
     };
+    const leadsBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
+    const leadsProyBucket = proyectarGenerico(leadsBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===bucket).reduce((s,r)=>s+r[3],0));
     const proy = {
-      ventas: proyectarGenerico(real.ventas, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[3],0))
+      // Unidades proyectadas = leads proyectados de ESTE call × efectividad real de ESTE call
+      // (a pedido explícito) -- ver proyectarVentasPorEfectividad más arriba.
+      ventas: proyectarVentasPorEfectividad(real.ventas, leadsBucket, leadsProyBucket, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[3],0))
     };
     // PNA proyección = Ventas proyectadas × PP actual (a pedido explícito, ronda 13) -- PP
     // actual = la misma prima promedio real que ya muestra el gráfico "Evolución de la prima
@@ -1238,7 +1263,6 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
     const ppActualBucket = real.ventas>0 ? (real.prima/real.ventas) : null;
     proy.pna = ppActualBucket!==null ? proy.ventas*ppActualBucket
       : proyectarGenerico(real.pna, corte, m => DATA.sales_by_call.filter(r=>r[0]===m && callBucketVoz(r[2])===bucket).reduce((s,r)=>s+r[8],0));
-    const leadsBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
     // Efectividad = TODAS las ventas de ese call (real.ventas, cualquier mes de lead) ÷ leads
     // de ese call, ambos a la fecha de corte -- misma definición que el resto de esta sección.
     const efect = leadsBucket>0 ? (real.ventas/leadsBucket)*100 : null;
@@ -1266,11 +1290,13 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
     const d = datosPorBucket(b);
     // La meta de la fila "Total" sale de una fila DISTINTA en la hoja "Metas" a la de
     // Interno/Biznes: el equipo carga ahí dos totales distintos (uno que es solo la suma de
-    // los call centers, y otro que es el total real de todos los canales) -- para no
-    // confundirlos, el Call de esta fila debe decir exactamente "Total (todos los canales)"
-    // en la hoja "Metas" del Sheet.
-    const meta = b==='Total' ? (metasPorCall['Total (todos los canales)'] || {}) : (metasPorCall[b] || {});
-    const label = b==='Total' ? 'Total (todos los canales)' : b;
+    // los call centers, y otro que es el total real de todos los canales), más una fila propia
+    // por producto (Vida Cash / Endoso) -- metaTotalKey trae el nombre EXACTO de la fila a usar
+    // (pasado desde render(), según el filtro de producto de arriba), y esa misma cadena se usa
+    // también como etiqueta de la fila, para que diga literalmente el nombre que el equipo ya
+    // usa en el Sheet.
+    const meta = b==='Total' ? (metasPorCall[metaTotalKey] || {}) : (metasPorCall[b] || {});
+    const label = b==='Total' ? metaTotalKey : b;
     rowsUnidades.push([label, fmtMetaN(meta.unidades), fmtMetaN(d.real.ventas), fmtMetaN(d.proy.ventas), cumplimientoMeta(d.proy.ventas, meta.unidades)]);
     rowsPna.push([label, fmtMetaMoney(meta.pna), fmtMetaMoney(d.real.pna), fmtMetaMoney(d.proy.pna), cumplimientoMeta(d.proy.pna, meta.pna)]);
     rowsEfect.push([label, fmtMetaPct(meta.efectividad), fmtMetaPct(d.efect), cumplimientoMeta(d.efect, meta.efectividad)]);
@@ -1284,44 +1310,44 @@ function renderMetasResumen(corte, ventasActualTotal, ventasProyTotal){
 // Tabla "Leads" al costado de Efectividad en el Resumen: mismas filas que las otras 3 tablas
 // de esta sección (Interno / Biznes / Total), para que las 4 se lean juntas de forma consistente.
 // Real y Proyección por call salen de leads_by_call (mismo patrón que datosPorBucket de arriba).
-// La Meta solo existe cargada a nivel de mes completo (meta diaria de "Metas_Diarias" x días
-// del mes) -- no hay una meta de leads por call en el Sheet, así que, a pedido explícito, se
-// reparte la meta total entre Interno y Biznes según REPARTO_META_LEADS (en Vida, 55% Interno /
-// 45% Biznes).
-const REPARTO_META_LEADS = { Interno: 0.55, Biznes: 0.45 };
-function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal){
+// La Meta ahora sale de la columna "Meta Leads" de la hoja "Metas" -- mismo mecanismo que ya
+// usan Unidades/PNA/Efectividad: metasPorCall[bucket].leads para Interno/Biznes, y
+// metasPorCall[metaTotalKey].leads para el Total (con la fila de producto específica cuando el
+// filtro de arriba está en Vida Cash o Endoso). Reemplaza el reparto fijo 55%/45% de antes, que
+// no tenía relación real con lo que el equipo carga en la hoja Metas.
+function renderLeadsMeta(corte, leadsActualTotal, leadsProyTotal, metaTotalKey){
   if(!mesActual) return;
-  const metasDiarias = DATA.metas_diarias || [];
+  const metasPorCall = {};
+  (DATA.metas||[]).forEach(m => { metasPorCall[m.call] = m; });
+  const hayMetaLeads = (DATA.metas||[]).some(m => m.leads!==null && m.leads!==undefined);
   const nota = document.getElementById('notaSinMetaLeads');
-  const hayMetaDiaria = metasDiarias.length>0 && metasDiarias.some(m => m.meta>0);
-  if(nota) nota.style.display = hayMetaDiaria ? 'none' : 'block';
-  if(!hayMetaDiaria){ buildMetaTable('tableMetaLeads', ['Call'], []); return; }
-
-  const diasDelMes = diasEnMes(mesActual);
-  const metaMesTotal = metasDiarias.reduce((s,m) => s+(m.meta||0), 0) * diasDelMes;
+  if(nota) nota.style.display = hayMetaLeads ? 'none' : 'block';
+  if(!hayMetaLeads){ buildMetaTable('tableMetaLeads', ['Call'], []); return; }
 
   // Interno/Biznes: leads de esos calls, según el bucket general (callBucket) -- a diferencia
   // de las ventas de "Cómo vamos vs. la meta", los leads no tienen un canal WhatsApp aparte que
   // haya que excluir (eso se mide en "sesiones", no en leads_by_call), así que no hace falta el
   // filtro estricto callBucketVoz aquí. El "Total" usa directamente leadsActualTotal/
-  // leadsProyTotal/metaMesTotal (los mismos totales de "Seguimiento diario" y el gráfico de
-  // proyección de leads) para garantizar que siempre coincidan, en vez de sumar Interno+Biznes.
+  // leadsProyTotal (los mismos totales de "Seguimiento diario" y el gráfico de proyección de
+  // leads, o los del producto filtrado) para garantizar que siempre coincidan, en vez de sumar
+  // Interno+Biznes.
   function datosLeadsPorCall(b){
-    const metaBucket = Math.round(metaMesTotal * REPARTO_META_LEADS[b]);
     const rowsLeads = DATA.leads_by_call.filter(r => r[0]===mesActual && callBucket(r[2])===b);
     const realBucket = rowsLeads.filter(r=>r[1]<=corte).reduce((s,r)=>s+r[3],0);
     const proyBucket = proyectarGenerico(realBucket, corte, m => DATA.leads_by_call.filter(r=>r[0]===m && callBucket(r[2])===b).reduce((s,r)=>s+r[3],0));
-    return { metaBucket, realBucket, proyBucket };
+    return { realBucket, proyBucket };
   }
   const dInterno = datosLeadsPorCall('Interno'), dBiznes = datosLeadsPorCall('Biznes');
 
   const buckets = ['Interno','Biznes','Total'];
   const rows = buckets.map(b => {
     if(b==='Total'){
-      return ['Total (todos los canales)', fmtMetaN(metaMesTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaMesTotal)];
+      const metaTotal = metasPorCall[metaTotalKey] ? metasPorCall[metaTotalKey].leads : null;
+      return [metaTotalKey, fmtMetaN(metaTotal), fmtMetaN(leadsActualTotal), fmtMetaN(leadsProyTotal), cumplimientoMeta(leadsProyTotal, metaTotal)];
     }
     const d = b==='Interno' ? dInterno : dBiznes;
-    return [b, fmtMetaN(d.metaBucket), fmtMetaN(d.realBucket), fmtMetaN(d.proyBucket), cumplimientoMeta(d.proyBucket, d.metaBucket)];
+    const metaBucket = metasPorCall[b] ? metasPorCall[b].leads : null;
+    return [b, fmtMetaN(metaBucket), fmtMetaN(d.realBucket), fmtMetaN(d.proyBucket), cumplimientoMeta(d.proyBucket, metaBucket)];
   });
 
   buildMetaTable('tableMetaLeads', ['Call','Meta del mes','Real (corte)','Proyección','% vs meta'], rows);
@@ -1517,10 +1543,14 @@ function actualizarTextosMes(){
   document.getElementById('resumenSub').textContent = 'Indicadores de ' + actualFull + ', calculados hasta el día seleccionado arriba';
   document.getElementById('tituloProyVentas').textContent = 'Proyección de cierre de ' + actualFull + ' — ventas';
   document.getElementById('tituloProyLeads').textContent = 'Proyección de cierre de ' + actualFull + ' — leads';
-  document.getElementById('tituloMetaUnidades').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Unidades (ventas)';
-  document.getElementById('tituloMetaPna').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — PNA';
-  document.getElementById('tituloMetaEfectividad').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Efectividad';
-  document.getElementById('tituloMetaLeads').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Leads';
+  // Ronda 19/21: con Vida Cash o Endoso elegido arriba, las 4 tablas de "Cómo vamos vs. meta"
+  // (incluida Leads, desde esta ronda) dejan de ser el combinado -- el sufijo deja explícito en
+  // pantalla que esas tablas ya no muestran "Ambos".
+  const sufijoProd = (filtroProductoActual==='vidacash' || filtroProductoActual==='endoso') ? (' — ' + ETIQUETA_PRODUCTO[filtroProductoActual]) : '';
+  document.getElementById('tituloMetaUnidades').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Unidades (ventas)' + sufijoProd;
+  document.getElementById('tituloMetaPna').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — PNA' + sufijoProd;
+  document.getElementById('tituloMetaEfectividad').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Efectividad' + sufijoProd;
+  document.getElementById('tituloMetaLeads').textContent = 'Cómo vamos vs. la meta de ' + actualFull + ' — Leads' + sufijoProd;
   document.getElementById('tituloSeguimiento').textContent = 'Seguimiento diario de leads — ' + actualFull;
   // El subtitulo del header ya no muestra el rango de meses (enero-julio, enero-agosto...):
   // eso obligaba a tocarlo cada mes. Ahora solo muestra el año, y no hay que volver a
@@ -1659,7 +1689,11 @@ function render(desde, corte){
       chVentasCorte.update();
     }
 
-    ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+    // Unidades proyectadas = leads proyectados × efectividad real del corte (a pedido
+    // explícito) -- ver proyectarVentasPorEfectividad. Por eso leadsProy se calcula ANTES que
+    // ventasProy (antes iba después).
+    ventasProy = proyectarVentasPorEfectividad(ventasActual, leadsActual, leadsProy, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
     // Misma fórmula que "Cómo vamos vs. meta -> PNA -> Total" (Ronda 13/14): Ventas proyectadas
     // × PP actual (prima real ÷ ventas reales, día 1 al corte -- mismo dato que el gráfico
     // "Evolución de la prima promedio"). Al usar exactamente los mismos insumos (mesActual,
@@ -1668,7 +1702,6 @@ function render(desde, corte){
     const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
     const ppActualKPI = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
     primaProy = ppActualKPI!==null ? ventasProy*ppActualKPI : proyectarCierre('pna', primaActual, corte);
-    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
     const ventasRestante = Math.max(0, ventasProy - ventasActual);
     const leadsRestante = Math.max(0, leadsProy - leadsActual);
 
@@ -1741,8 +1774,25 @@ function render(desde, corte){
   intentar('renderPolizasCliente', () => conDatosSinFiltro(() => renderPolizasCliente(corte)));
   intentar('renderInsights', () => conDatosSinFiltro(() => renderInsights(corte)));
   intentar('renderComite', () => renderComite(corte));
-  intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy)));
-  intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy)));
+  // Con un producto específico (Vida Cash / Endoso) elegido arriba, las 4 tablas de "Cómo vamos
+  // vs. meta" (Unidades, PNA, Efectividad y Leads) dejan de mostrar el combinado y pasan a
+  // mostrar los datos y la meta de ESE producto -- por eso, a diferencia del resto de Resumen,
+  // ya NO se envuelven con conDatosSinFiltro cuando el filtro no está en "Ambos": corren con
+  // DATA tal cual (ya filtrada por aplicarFiltroProducto). Con "Ambos" siguen exactamente igual
+  // que siempre (combinado, mismos ventasActual/ventasProy/leadsActual/leadsProy de las
+  // tarjetas KPI de arriba).
+  if(filtroProductoActual === 'todos'){
+    intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy, 'Total (todos los canales)')));
+    intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy, 'Total (todos los canales)')));
+  } else {
+    const ventasActualProd = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'ventas', corte) : 0;
+    const leadsActualProd = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+    const leadsProyProd = Math.round(proyectarCierre('leads', leadsActualProd, corte));
+    const ventasProyProd = proyectarVentasPorEfectividad(ventasActualProd, leadsActualProd, leadsProyProd, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+    const metaKeyProd = METAS_TOTAL_KEY_POR_PRODUCTO[filtroProductoActual];
+    intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActualProd, ventasProyProd, metaKeyProd));
+    intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActualProd, leadsProyProd, metaKeyProd));
+  }
   intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
 }
 
@@ -2001,6 +2051,19 @@ function renderDiasConversion(corte){
     html += '<tr><td>'+b+'</td>' + cols.map(m => { const v=(matriz[b]||{})[m]; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
   });
   html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => { const tot=bins.reduce((s,b)=>s+((matriz[b]||{})[m]||0),0); return '<td>'+(tot>0?tot.toLocaleString():'–')+'</td>'; }).join('') + '</tr>';
+  // Fila "Promedio": promedio EXACTO de días (no aproximado por bin), sumando dias_suma_dia --
+  // a diferencia de la mediana de abajo (referencial, de mes completo), este promedio SÍ respeta
+  // el mismo rango desde-hasta que ya respeta el resto de la tabla (los bins y la fila Total).
+  const sumaPorMes = {}, nPorMes = {};
+  (DATA.dias_suma_dia||[]).forEach(([mv,dia,suma,n]) => {
+    if(dia > corte || dia < desdeActual) return;
+    sumaPorMes[mv] = (sumaPorMes[mv]||0) + suma; nPorMes[mv] = (nPorMes[mv]||0) + n;
+  });
+  html += '<tr style="font-style:italic;color:var(--text-3);border-top:1px solid var(--border);"><td>Promedio</td>' + cols.map(m => {
+    const n = nPorMes[m]||0;
+    if(!n) return '<td>–</td>';
+    return '<td>'+(Math.round((sumaPorMes[m]/n)*10)/10)+'</td>';
+  }).join('') + '</tr>';
   html += '</tbody>';
   document.getElementById('tableDiasConversion').innerHTML = html;
 
@@ -2043,11 +2106,18 @@ function renderCallFiltroVintage(corte){
     ldMap[key].leads += r[3]; ldMap[key].convertidos += r[4];
   });
 
-  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes;
+  // dias_suma_dia_call: [mes,dia,call,suma,n(,producto)] -- call en índice 2 (distinto de dias_matriz_call
+  // donde call está en índice 3), porque acá solo hay 2 columnas de valor (suma,n) en vez de 1 (n por bin).
+  // A esta altura CAMPOS_TUPLA_PRODUCTO ya coló DATA.dias_suma_dia_call por el filtro de producto vigente
+  // y le quitó el "producto" final, igual que a dias_matriz_call de arriba -- por eso solo se usan 5 campos.
+  const sdFiltrado = (DATA.dias_suma_dia_call||[]).filter(r => callBucket(r[2])===bucket).map(r => [r[0],r[1],r[3],r[4]]);
+
+  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes, origSD = DATA.dias_suma_dia;
   DATA.sales_vintage = svFiltrado;
   DATA.dias_matriz = dmFiltrado;
   DATA.leads_daily = Object.values(ldMap);
   DATA.dias_mediana_mes = medianaPorBucketVintage(bucket);
+  DATA.dias_suma_dia = sdFiltrado;
   try {
     renderVintageTable(corte);
     renderDiasConversion(corte);
@@ -2056,6 +2126,7 @@ function renderCallFiltroVintage(corte){
     DATA.dias_matriz = origDM;
     DATA.leads_daily = origLD;
     DATA.dias_mediana_mes = origMed;
+    DATA.dias_suma_dia = origSD;
   }
 }
 document.getElementById('vintageCallSelect').addEventListener('change', e => {
