@@ -1419,6 +1419,37 @@ function renderSeguimientoDiario(){
       return (d>corteReal || v===undefined) ? '–' : fmtMetaN(v);
     })]);
   });
+
+  // Sub fuentes (leads por día) -- a pedido explícito del usuario, debajo de las filas de Vida
+  // Cash/Endoso: solo para ver cuántos leads están llegando por día de cada sub fuente, SIN
+  // meta (son filas informativas, no de cumplimiento). Se leen directo de
+  // DATA.leads_by_subfuente -- la MISMA fuente de datos que ya usa la pestaña "Por fuente y sub
+  // fuente" (con el mismo colapso por producto que aplique el filtro global de arriba, si hay
+  // uno activo) -- así esta tabla siempre dice exactamente lo mismo que esa otra pestaña ("todo
+  // tiene que conversar"), solo que aquí desglosado por día en vez de por mes. El orden (más
+  // leads primero, catch-all al final) usa la misma regla que ya usa esa pestaña
+  // (esCatchAll/pushCatchAllLast, definidas más abajo).
+  const leadsPorDiaSubfuente = {};
+  (DATA.leads_by_subfuente||[]).filter(r => r[0]===mesActual).forEach(r => {
+    const dia = r[1], sub = r[2], leads = r[3];
+    leadsPorDiaSubfuente[dia] = leadsPorDiaSubfuente[dia] || {};
+    leadsPorDiaSubfuente[dia][sub] = (leadsPorDiaSubfuente[dia][sub]||0) + leads;
+  });
+  let subfuentesOrden = [...new Set((DATA.leads_by_subfuente||[]).filter(r=>r[0]===mesActual).map(r=>r[2]))];
+  const totalMesSubfuente = {};
+  subfuentesOrden.forEach(s => { totalMesSubfuente[s] = diasArr.reduce((acc,d) => acc + ((leadsPorDiaSubfuente[d]||{})[s]||0), 0); });
+  subfuentesOrden = subfuentesOrden.sort((a,b) => totalMesSubfuente[b]-totalMesSubfuente[a]);
+  subfuentesOrden = pushCatchAllLast(subfuentesOrden);
+  if(subfuentesOrden.length){
+    rows.push(['Sub fuentes (leads/día)', ...diasArr.map(()=>'')]);
+    subfuentesOrden.forEach(s => {
+      rows.push(['&nbsp;&nbsp;' + s, ...diasArr.map(d => {
+        const v = (leadsPorDiaSubfuente[d]||{})[s];
+        return (d>corteReal || v===undefined) ? '–' : fmtMetaN(v);
+      })]);
+    });
+  }
+
   if(productos.length > 1){
     rows.push(['Total', ...diasArr.map(d => d>corteReal ? '–' : fmtMetaN(totalDelDia(d)))]);
     // Con más de un producto (Vida Cash + Endoso) se muestra la meta y el cumplimiento de
@@ -1484,6 +1515,17 @@ function renderSeguimientoDiario(){
     const desfase = realTotal - metaADiaCorte;
     textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': <strong>' + proyTotal.toLocaleString() + ' leads</strong>' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesCompleto.toLocaleString() + ')' : '') + '.'
       + ' Desfase vs. la meta al mismo día (real acumulado − meta acumulada al día ' + corteReal + '): ' + fmtDesfase(desfase, metaADiaCorte) + '.';
+  }
+  // Resumen de sub fuentes: promedio de leads por día de cada sub fuente (a pedido explícito),
+  // usando solo los días con datos reales (1 al corteReal) -- mismo set de sub fuentes y mismo
+  // orden que las filas de arriba.
+  if(subfuentesOrden.length && corteReal>0){
+    const partesSub = subfuentesOrden.map(s => {
+      const totalSub = diasArr.filter(d=>d<=corteReal).reduce((acc,d) => acc + ((leadsPorDiaSubfuente[d]||{})[s]||0), 0);
+      const prom = Math.round((totalSub/corteReal)*10)/10;
+      return '<strong>' + s + ':</strong> ' + prom.toLocaleString() + '/día';
+    });
+    textoBox += ' Promedio diario por sub fuente (días 1 al ' + corteReal + '): ' + partesSub.join(' &nbsp;·&nbsp; ') + '.';
   }
   if(box) box.innerHTML = textoBox;
 }
@@ -3310,9 +3352,24 @@ function renderTablaComite(tableId, filtroCall, corte){
       const mismoMesActualComite = ventasVals[i] ? ventasVals[i].mismoMes : 0;
       const leadsActualComite = leadsVals[i] || 0;
       const pnaActualComite = pnaVals[i] || 0;
-      const ventasProyC = Math.round(proyectarCierreCall('ventas', ventasActualComite, corte, filtroCall));
-      const mismoMesProyC = Math.round(proyectarCierreCall('mismoMes', mismoMesActualComite, corte, filtroCall));
+      // leadsProyC se calcula ANTES que ventasProyC porque la proyección de Ventas ahora
+      // depende de ella (ver comentario abajo) -- mismo orden que ya usa datosPorBucketVoz.
       const leadsProyC = Math.round(proyectarCierreCall('leads', leadsActualComite, corte, filtroCall));
+      // Ventas proyectadas = leads proyectados de este call × efectividad real de este call
+      // (ronda 22, a pedido explícito) -- EXACTAMENTE el mismo modelo que ya usa "Cómo vamos vs.
+      // la meta" del Resumen (ver proyectarVentasPorEfectividad / datosPorBucketVoz más arriba),
+      // con la misma función histórica de respaldo (idéntica a la que ya usaba
+      // proyectarCierreCall('ventas',...) para no cambiar el comportamiento cuando todavía no
+      // hay ningún lead real en el corte). Antes, esta fila usaba proyectarCierreCall('ventas',
+      // ...) -- un modelo de ritmo (ventas ÷ días de gestión) totalmente independiente de Leads
+      // -- lo que hacía que Comité pudiera mostrar una proyección de Ventas/PNA distinta a la
+      // que ya mostraban el Resumen y "Cómo vamos vs. la meta" para el mismo mes y el mismo
+      // call (ej.: Consolidado proyectando S/1.5MM en Comité vs. S/1.7MM en Resumen).
+      const historicoVentasComite = m2 => filtroCall
+        ? (DATA.sales_by_call||[]).filter(r=>r[0]===m2 && callBucketVoz(r[2])===filtroCall).reduce((s,r)=>s+r[3],0)
+        : aggMonth(DATA.sales_daily, m2, 'ventas', null);
+      const ventasProyC = proyectarVentasPorEfectividad(ventasActualComite, leadsActualComite, leadsProyC, corte, historicoVentasComite);
+      const mismoMesProyC = Math.round(proyectarCierreCall('mismoMes', mismoMesActualComite, corte, filtroCall));
       // PNA proyección = Ventas proyectadas × PP actual (a pedido explícito, ronda 13) -- mismo
       // cambio que en "Cómo vamos vs. la meta" del Resumen (ver datosPorBucketVoz más arriba),
       // para que las 2 vistas sigan cuadrando entre sí. PP actual = fila "PP" de esta misma
