@@ -1256,6 +1256,35 @@ function renderSeguimientoDiario(){
       return (d>corteReal || v===undefined) ? '–' : fmtMetaN(v);
     })]);
   });
+
+  // Sub fuentes (leads por día) -- a pedido explícito del usuario, igual que en el dashboard de
+  // Vida: solo para ver cuántos leads están llegando por día de cada sub fuente, SIN meta (son
+  // filas informativas, no de cumplimiento). Se leen directo de DATA.leads_by_subfuente -- la
+  // MISMA fuente de datos que ya usa la pestaña "Por fuente y sub fuente" -- así esta tabla
+  // siempre dice exactamente lo mismo que esa otra pestaña, solo que aquí desglosado por día en
+  // vez de por mes. El orden (más leads primero, catch-all al final) usa la misma regla que ya
+  // usa esa pestaña (esCatchAll/pushCatchAllLast, definidas más abajo).
+  const leadsPorDiaSubfuente = {};
+  (DATA.leads_by_subfuente||[]).filter(r => r[0]===mesActual).forEach(r => {
+    const dia = r[1], sub = r[2], leads = r[3];
+    leadsPorDiaSubfuente[dia] = leadsPorDiaSubfuente[dia] || {};
+    leadsPorDiaSubfuente[dia][sub] = (leadsPorDiaSubfuente[dia][sub]||0) + leads;
+  });
+  let subfuentesOrden = [...new Set((DATA.leads_by_subfuente||[]).filter(r=>r[0]===mesActual).map(r=>r[2]))];
+  const totalMesSubfuente = {};
+  subfuentesOrden.forEach(s => { totalMesSubfuente[s] = diasArr.reduce((acc,d) => acc + ((leadsPorDiaSubfuente[d]||{})[s]||0), 0); });
+  subfuentesOrden = subfuentesOrden.sort((a,b) => totalMesSubfuente[b]-totalMesSubfuente[a]);
+  subfuentesOrden = pushCatchAllLast(subfuentesOrden);
+  if(subfuentesOrden.length){
+    rows.push(['Sub fuentes (leads/día)', ...diasArr.map(()=>'')]);
+    subfuentesOrden.forEach(s => {
+      rows.push(['&nbsp;&nbsp;' + s, ...diasArr.map(d => {
+        const v = (leadsPorDiaSubfuente[d]||{})[s];
+        return (d>corteReal || v===undefined) ? '–' : fmtMetaN(v);
+      })]);
+    });
+  }
+
   if(productos.length > 1){
     rows.push(['Total', ...diasArr.map(d => d>corteReal ? '–' : fmtMetaN(totalDelDia(d)))]);
   }
@@ -1303,6 +1332,17 @@ function renderSeguimientoDiario(){
     const desfase = realTotal - metaADiaCorte;
     textoBox = 'Proyectando, al ritmo de leads que llegan hasta el día ' + corteReal + ' de ' + labelFull(mesActual) + ': <strong>' + proyTotal.toLocaleString() + ' leads</strong>' + (pct!==null ? ' (' + pct + '% de la meta de ' + metaMesCompleto.toLocaleString() + ')' : '') + '.'
       + ' Desfase vs. la meta al mismo día (real acumulado − meta acumulada al día ' + corteReal + '): ' + fmtDesfase(desfase, metaADiaCorte) + '.';
+  }
+  // Resumen de sub fuentes: promedio de leads por día de cada sub fuente (a pedido explícito),
+  // usando solo los días con datos reales (1 al corteReal) -- mismo set de sub fuentes y mismo
+  // orden que las filas de arriba. Igual que en el dashboard de Vida.
+  if(subfuentesOrden.length && corteReal>0){
+    const partesSub = subfuentesOrden.map(s => {
+      const totalSub = diasArr.filter(d=>d<=corteReal).reduce((acc,d) => acc + ((leadsPorDiaSubfuente[d]||{})[s]||0), 0);
+      const prom = Math.round((totalSub/corteReal)*10)/10;
+      return '<strong>' + s + ':</strong> ' + prom.toLocaleString() + '/día';
+    });
+    textoBox += ' Promedio diario por sub fuente (días 1 al ' + corteReal + '): ' + partesSub.join(' &nbsp;·&nbsp; ') + '.';
   }
   if(box) box.innerHTML = textoBox;
 }
