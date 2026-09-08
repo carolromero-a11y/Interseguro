@@ -1450,7 +1450,14 @@ function renderSeguimientoDiario(){
     leadsPorDiaSubfuente[dia] = leadsPorDiaSubfuente[dia] || {};
     leadsPorDiaSubfuente[dia][sub] = (leadsPorDiaSubfuente[dia][sub]||0) + leads;
   });
-  let subfuentesOrden = [...new Set((DATA.leads_by_subfuente||[]).filter(r=>r[0]===mesActual).map(r=>r[2]))];
+  // "Venta directa (sin lead)" no es una sub fuente real de leads -- es un lead "sintético" que
+  // el backend arma a partir de la FECHA DE LA VENTA, para ventas sin ningún lead real
+  // encontrado (para que la pestaña "Por fuente y sub fuente" pueda atribuir esa venta a algo).
+  // No representa un lead que haya llegado ese día, así que a pedido explícito del usuario se
+  // excluye de esta tabla (que es específicamente de leads por día) -- sí se sigue viendo
+  // normal en "Por fuente y sub fuente", donde no se toca nada.
+  let subfuentesOrden = [...new Set((DATA.leads_by_subfuente||[]).filter(r=>r[0]===mesActual).map(r=>r[2]))]
+    .filter(s => s !== 'Venta directa (sin lead)');
   const totalMesSubfuente = {};
   subfuentesOrden.forEach(s => { totalMesSubfuente[s] = diasArr.reduce((acc,d) => acc + ((leadsPorDiaSubfuente[d]||{})[s]||0), 0); });
   subfuentesOrden = subfuentesOrden.sort((a,b) => totalMesSubfuente[b]-totalMesSubfuente[a]);
