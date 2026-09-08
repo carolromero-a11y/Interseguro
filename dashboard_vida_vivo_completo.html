@@ -1393,11 +1393,26 @@ function renderSeguimientoDiario(){
     });
   }
 
-  // "Hoy" para esta pestaña = el último día del mes con datos reales de leads (ya no depende
-  // del slider de corte, que se oculta en esta vista). Solo se usa para la proyección y para
-  // saber a partir de qué día mostrar "–" en vez de 0 (día futuro sin datos todavía).
+  // "Hoy" para esta pestaña = el último día del mes CERRADO (completo) con datos reales de
+  // leads (ya no depende del slider de corte, que se oculta en esta vista). Solo se usa para la
+  // proyección y para saber a partir de qué día mostrar "–" en vez de 0 (día futuro sin datos
+  // todavía).
+  // Ronda 29: antes se tomaba directo el último día con CUALQUIER dato, aunque fuera parcial
+  // (el día de hoy, recién empezando a llegar) -- eso hacía ver un "Cumplimiento día" de hoy
+  // calculado con datos incompletos (siempre se ve bajo, engañoso, a pedido explícito del
+  // usuario se corrige). Ahora, si el mes que se muestra es el mes real actual, el corte nunca
+  // pasa de "ayer" (día de hoy - 1): el día de hoy se trata igual que un día futuro (todas sus
+  // filas, incluida la de leads y las de sub fuentes, muestran "–") hasta que cierre y sea
+  // "ayer" recién mañana. Si se está viendo un mes ya cerrado, no aplica ningún tope: se sigue
+  // usando el último día con datos, como antes.
   const diasConDatos = Object.keys(leadsPorDiaProducto).map(Number).filter(d => productos.some(p => (leadsPorDiaProducto[d][p]||0) > 0));
-  const corteReal = diasConDatos.length ? Math.max(...diasConDatos) : 0;
+  let corteReal = diasConDatos.length ? Math.max(...diasConDatos) : 0;
+  const hoyRealSeg = new Date();
+  const esMesActualRealSeg = mesActual === (hoyRealSeg.getFullYear() + '-' + String(hoyRealSeg.getMonth()+1).padStart(2,'0'));
+  if(esMesActualRealSeg){
+    const ayerSeg = Math.max(hoyRealSeg.getDate() - 1, 0);
+    corteReal = Math.min(corteReal, ayerSeg);
+  }
 
   const dgMes = diasGestionDeMes(mesActual);
   const diasArr = Array.from({length: diasDelMes}, (_,i) => i+1);
@@ -1641,7 +1656,16 @@ function configurarRangoFechas(){
     ...DATA.sales_daily.filter(r=>r.mes===mesActual).map(r=>r.dia),
     ...DATA.leads_daily.filter(r=>r.mes===mesActual).map(r=>r.dia)
   ];
-  const ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  let ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  // Ronda 29: igual que en "Seguimiento diario", si se está en el mes real actual este rango
+  // tampoco debe arrancar incluyendo el día de hoy (parcial) por defecto. El usuario puede
+  // seguir moviendo el rango manualmente hasta hoy si lo necesita -- esto solo cambia el valor
+  // inicial con el que arranca el calendario.
+  const hoyRealRango = new Date();
+  const esMesActualRealRango = mesActual === (hoyRealRango.getFullYear() + '-' + String(hoyRealRango.getMonth()+1).padStart(2,'0'));
+  if(esMesActualRealRango){
+    ultimoDiaConDatos = Math.min(ultimoDiaConDatos, Math.max(hoyRealRango.getDate() - 1, 1));
+  }
   rangoDesdeEl.value = mesActual ? (mesActual + '-01') : fechaMin;
   rangoHastaEl.value = mesActual ? (mesActual + '-' + String(ultimoDiaConDatos).padStart(2,'0')) : fechaMax;
 }
@@ -2812,7 +2836,13 @@ function configurarRangoFechasVentas(){
   desdeEl.min = fechaMin; desdeEl.max = fechaMax;
   hastaEl.min = fechaMin; hastaEl.max = fechaMax;
   const diasConDatos = DATA.sales_daily.filter(r=>r.mes===mesActual).map(r=>r.dia);
-  const ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  let ultimoDiaConDatos = diasConDatos.length ? Math.max(...diasConDatos) : 1;
+  // Ronda 29: mismo tope de "ayer" que en configurarRangoFechas() -- ver ese comentario.
+  const hoyRealRangoV = new Date();
+  const esMesActualRealRangoV = mesActual === (hoyRealRangoV.getFullYear() + '-' + String(hoyRealRangoV.getMonth()+1).padStart(2,'0'));
+  if(esMesActualRealRangoV){
+    ultimoDiaConDatos = Math.min(ultimoDiaConDatos, Math.max(hoyRealRangoV.getDate() - 1, 1));
+  }
   desdeEl.value = mesActual ? (mesActual + '-01') : fechaMin;
   hastaEl.value = mesActual ? (mesActual + '-' + String(ultimoDiaConDatos).padStart(2,'0')) : fechaMax;
 }
