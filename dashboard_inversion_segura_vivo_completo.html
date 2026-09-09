@@ -243,66 +243,78 @@
       <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
       <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
     </div>
-    <section>
-      <h2>Leads y % Participación por fuente — todos los meses</h2>
-      <p class="sub">Fuente de campaña (Google/Facebook/TikTok), a partir de la columna "source" de la hoja "Gestión Leads". Solo Google y Facebook tienen datos reales por ahora; todo lo demás (sin campaña, JSON sin utm_source, leads de "Leads de TRAD a DIG"/"LeadAds" que no tienen esta columna, ventas directas/referidas, etc.) va agrupado en "Otros".</p>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteLeadsMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas por fuente — todos los meses</h2>
-      <p class="sub">Todas las ventas del mes atribuidas a esa fuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas con lead del mismo mes — por fuente</h2>
-      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteMismoMesMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Venta Colchón — por fuente</h2>
-      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonMatrix"></table></div>
-    </section>
-    <section>
-      <h2>% Participación Colchón — por fuente</h2>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteColchonPartMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Efectividad por fuente — todos los meses</h2>
-      <p class="sub">Ventas de esa fuente con lead también de ese mes ÷ leads de esa fuente, mismo mes. Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
-      <p class="note">"Otros" mezcla fuentes reales de bajo volumen con ventas directas/referidas y leads sin dato de campaña (que siempre convierten distinto a una campaña real), así que su efectividad puede verse algo distorsionada. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
-    </section>
-    <section>
-      <h2>Leads y % Participación por subfuente — todos los meses</h2>
-      <p class="sub">Paid Search y PMax dentro de Google, PSocial dentro de Facebook (mismos nombres que Vida/Rumbo); todo lo demás va a "Otros". Con los datos actuales, todos los leads de Google llegan como Paid Search y todos los de Facebook como PSocial (todavía no hay PMax ni TikTok en la data real).</p>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteLeadsMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas por subfuente — todos los meses</h2>
-      <p class="sub">Todas las ventas del mes atribuidas a esa subfuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Ventas con lead del mismo mes — por subfuente</h2>
-      <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteMismoMesMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Venta Colchón — por subfuente</h2>
-      <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonMatrix"></table></div>
-    </section>
-    <section>
-      <h2>% Participación Colchón — por subfuente</h2>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonPartMatrix"></table></div>
-    </section>
-    <section>
-      <h2>Efectividad por subfuente — todos los meses</h2>
-      <p class="sub">Ventas de esa subfuente con lead también de ese mes ÷ leads de esa subfuente, mismo mes. Usa el día de corte.</p>
-      <div class="table-wrap"><table class="data-table" id="tableSubfuenteEfectMatrix"></table></div>
-      <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con ventas directas/referidas y leads sin dato de campaña, así que su efectividad puede verse algo distorsionada.</p>
-    </section>
+    <div class="grid-2">
+      <section>
+        <h2>Leads y % Participación por fuente — todos los meses</h2>
+        <p class="sub">Fuente de campaña (Google/Facebook/TikTok), a partir de la columna "source" de la hoja "Gestión Leads" (y, cuando esa columna está vacía, de las columnas "Fuente"/"Campaña"). Solo Google y Facebook tienen datos reales por ahora; todo lo demás (sin campaña, leads de "Leads de TRAD a DIG"/"LeadAds" que no tienen esta columna, ventas directas/referidas, etc.) va agrupado en "Otros".</p>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteLeadsMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Ventas por fuente — todos los meses</h2>
+        <p class="sub">Todas las ventas del mes atribuidas a esa fuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteVentasMatrix"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Ventas con lead del mismo mes — por fuente</h2>
+        <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteMismoMesMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Venta Colchón — por fuente</h2>
+        <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteColchonMatrix"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>% Participación Colchón — por fuente</h2>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteColchonPartMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Efectividad por fuente — todos los meses</h2>
+        <p class="sub">Ventas de esa fuente con lead también de ese mes ÷ leads de esa fuente, mismo mes. Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableFuenteEfectMatrix"></table></div>
+        <p class="note">"Otros" mezcla fuentes reales de bajo volumen con ventas directas/referidas y leads sin dato de campaña (que siempre convierten distinto a una campaña real), así que su efectividad puede verse algo distorsionada. <span class="up" style="padding:1px 6px;border-radius:4px;">Verde</span>/<span class="down" style="padding:1px 6px;border-radius:4px;">rojo</span> = subió/bajó 15%+ vs. mes anterior, solo si tiene participación relevante (≥8%).</p>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Leads y % Participación por subfuente — todos los meses</h2>
+        <p class="sub">Paid Search y PMax dentro de Google, PSocial dentro de Facebook (mismos nombres que Vida/Rumbo); todo lo demás va a "Otros".</p>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteLeadsMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Ventas por subfuente — todos los meses</h2>
+        <p class="sub">Todas las ventas del mes atribuidas a esa subfuente, sin importar en qué mes se asignó el lead (incluye Venta Colchón). Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteVentasMatrix"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>Ventas con lead del mismo mes — por subfuente</h2>
+        <p class="sub">Solo ventas donde el lead también fue asignado ese mismo mes (no incluye Venta Colchón). Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteMismoMesMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Venta Colchón — por subfuente</h2>
+        <p class="sub">Ventas con lead de mes anterior (no del mes en curso)</p>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonMatrix"></table></div>
+      </section>
+    </div>
+    <div class="grid-2">
+      <section>
+        <h2>% Participación Colchón — por subfuente</h2>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteColchonPartMatrix"></table></div>
+      </section>
+      <section>
+        <h2>Efectividad por subfuente — todos los meses</h2>
+        <p class="sub">Ventas de esa subfuente con lead también de ese mes ÷ leads de esa subfuente, mismo mes. Usa el día de corte.</p>
+        <div class="table-wrap"><table class="data-table" id="tableSubfuenteEfectMatrix"></table></div>
+        <p class="note">"Otros" mezcla subfuentes reales de bajo volumen con ventas directas/referidas y leads sin dato de campaña, así que su efectividad puede verse algo distorsionada.</p>
+      </section>
+    </div>
   </div>
 
   <!-- ===== TAB: VENTAS (por rango de monto) ===== -->
@@ -1135,6 +1147,13 @@ function render(desde, corte){
           {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
           {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
         ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+          // Ronda: se agrega padding arriba del área del gráfico -- sin esto, cuando la barra más
+          // alta del mes toca justo el máximo del eje Y (ej. agosto llegando a 9, con el eje
+          // también terminando en 9), el número que va ARRIBA de esa barra (dlPlain usa
+          // anchor:'end', align:'top') no tiene espacio y queda cortado/invisible, aunque la
+          // barra sí se dibuja bien. Con este padding siempre queda un margen libre arriba,
+          // sin importar qué tan alto llegue el valor.
+          layout:{ padding:{ top:18 } },
           scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
       });
     } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
@@ -1296,3 +1315,4 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
+
