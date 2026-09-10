@@ -46,6 +46,12 @@
   .dropdown-filter-panel label:hover{ background:var(--bg); border-radius:5px; }
   .dropdown-filter-panel .df-actions{ display:flex; gap:8px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
   .dropdown-filter-panel .df-actions button{ font-size:11px; background:none; border:none; color:var(--amber); cursor:pointer; padding:2px 4px; }
+  .dropdown-filter-panel.campana-filter-panel{ min-width:320px; max-width:420px; }
+  .dropdown-filter-panel.campana-filter-panel.open{ display:flex; flex-direction:column; }
+  .campana-filter-search{ font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; }
+  .campana-filter-search:focus{ outline:none; border-color:var(--amber); }
+  .campana-filter-list{ overflow-y:auto; max-height:260px; }
+  .campana-filter-list .cf-empty{ padding:8px 4px; font-size:12px; color:var(--text-3); }
   section{ margin-bottom:32px; }
   section h2{ font-size:15px; font-weight:600; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.03em;}
   section .sub{ font-size:13px; color:var(--text-3); margin:0 0 14px; }
@@ -593,10 +599,20 @@
 
     <section>
       <h2>Campañas con más leads</h2>
-      <p class="sub">Top 12 campañas por mes (mes completo)</p>
-      <div class="controls" style="margin-bottom:16px;">
-        <label for="mesCampana">Mes</label>
-        <select id="mesCampana"></select>
+      <p class="sub">Top 12 campañas por mes (mes completo). Si eliges más de un mes, se muestran los totales combinados (sumados) de esos meses. Usa el buscador de campaña para elegir una o varias campañas puntuales (incluidas las que no entran en el Top 12).</p>
+      <div class="filter-bar" style="margin-bottom:16px;">
+        <div class="dropdown-filter" data-tab="campana-mes">
+          <button type="button" class="dropdown-filter-btn" data-role="campana-mes-filter-btn">Meses: <span data-role="campana-mes-filter-label">—</span> ▾</button>
+          <div class="dropdown-filter-panel" data-role="campana-mes-filter-panel"></div>
+        </div>
+        <div class="dropdown-filter" data-tab="campana">
+          <button type="button" class="dropdown-filter-btn" data-role="campana-filter-btn">Campaña: <span data-role="campana-filter-label">Top 12 (por defecto)</span> ▾</button>
+          <div class="dropdown-filter-panel campana-filter-panel" data-role="campana-filter-panel">
+            <input type="text" class="campana-filter-search" placeholder="Buscar campaña por nombre..." autocomplete="off">
+            <div class="campana-filter-list" data-role="campana-filter-list"></div>
+            <div class="df-actions"><button type="button" data-act="limpiar">Limpiar selección</button></div>
+          </div>
+        </div>
       </div>
       <div class="table-wrap"><table class="data-table" id="tableCampana"></table></div>
     </section>
@@ -1569,6 +1585,10 @@ function render(desde, corte){
           {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
           {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
         ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+          // Ronda: padding arriba del área del gráfico -- evita que el número de la barra más
+          // alta del mes (dlPlain, anchor:'end'/align:'top') quede cortado cuando esa barra
+          // toca justo el máximo del eje Y. Ver detalle en el mismo fix de Inversión Segura.
+          layout:{ padding:{ top:18 } },
           scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
       });
     } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
@@ -2596,17 +2616,166 @@ function renderAllCrossTabs(corte){
 }
 
 // ---------- CAMPAÑAS ----------
-function fillMonthSelect(selectId, months, labels){
-  const sel = document.getElementById(selectId); if(!sel || sel.dataset.filled) return;
-  months.forEach((m,i) => { const opt=document.createElement('option'); opt.value=m; opt.textContent=labels[i];
-    if(m===mesActual) opt.selected=true; sel.appendChild(opt); });
-  sel.dataset.filled='1'; sel.addEventListener('change', renderCampanaTable);
+// ---------- Meses (elegir 1 o varios; si se eligen varios, se SUMAN en una sola tabla) ----------
+// Antes esta sección tenía un <select> de un solo mes. Ahora es un desplegable de checkboxes
+// (mismo estilo que "Meses" en otras pestañas) que permite elegir varios meses a la vez; cuando
+// hay más de uno elegido, la tabla combina (suma) los leads/convertidos de esos meses por
+// campaña -- no arma una tabla de comparación mes a mes.
+let mesCampanaSeleccion = new Set([mesActual]);
+function mesesCampanaEfectivos(){
+  return mesCampanaSeleccion.size ? mesesV.filter(m => mesCampanaSeleccion.has(m)) : [mesActual];
 }
-fillMonthSelect('mesCampana', mesesV, labelsV);
+function construirDropdownMesesCampana(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="campana-mes"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="campana-mes-filter-btn"]');
+  const label = wrap.querySelector('[data-role="campana-mes-filter-label"]');
+  const panel = wrap.querySelector('[data-role="campana-mes-filter-panel"]');
+  if(!btn || !panel || panel.dataset.filled) return;
+  panel.innerHTML = mesesV.map(m =>
+    '<label><input type="checkbox" value="'+m+'" '+(mesCampanaSeleccion.has(m)?'checked':'')+'> '+labelAbr(m)+'</label>'
+  ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button><button type="button" data-act="ult3">Últimos 3</button></div>';
+  panel.dataset.filled = '1';
+  panel.addEventListener('click', e => e.stopPropagation());
+  panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if(cb.checked) mesCampanaSeleccion.add(cb.value); else mesCampanaSeleccion.delete(cb.value);
+      actualizarLabelMesesCampana();
+      renderCampanaTable();
+    });
+  });
+  panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+    mesCampanaSeleccion = new Set(mesesV);
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+    actualizarLabelMesesCampana(); renderCampanaTable();
+  });
+  panel.querySelector('[data-act="ult3"]').addEventListener('click', () => {
+    mesCampanaSeleccion = new Set(ultimosN(mesesV,3));
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = mesCampanaSeleccion.has(cb.value));
+    actualizarLabelMesesCampana(); renderCampanaTable();
+  });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+  actualizarLabelMesesCampana();
+}
+function actualizarLabelMesesCampana(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="campana-mes"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="campana-mes-filter-label"]');
+  if(!label) return;
+  const elegidos = mesesCampanaEfectivos();
+  label.textContent = elegidos.length ? elegidos.map(labelAbr).join(', ') : 'ninguno';
+}
+construirDropdownMesesCampana();
+
+// ---------- Buscador de campañas (elegir 1 o varias) ----------
+// Antes el Sheet ya mandaba solo el Top-12 de cada mes (con un renglon "Otras campañas (N)"
+// agrupando el resto), asi que la tabla no podia mostrar ninguna campaña fuera de ese Top-12.
+// Ahora el Sheet manda TODAS las campañas de cada mes (ver Codigo_Completo.gs), y aca se arma
+// un desplegable con buscador (igual en espiritu a la lupa de "Buscar tabla") para elegir
+// cualquier campaña real por nombre. Si no se elige ninguna, la tabla se sigue viendo EXACTO
+// igual que antes (Top 12 + "Otras campañas"), calculado ahora en el HTML en vez del Sheet.
+let campanaFiltroSeleccion = new Set();
+function universoCampanas(){
+  const totales = {};
+  (DATA.campanas || []).forEach(r => { totales[r.campana] = (totales[r.campana] || 0) + r.leads; });
+  return Object.keys(totales).sort((a,b) => totales[b]-totales[a]);
+}
+function construirDropdownCampana(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="campana"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="campana-filter-btn"]');
+  const panel = wrap.querySelector('[data-role="campana-filter-panel"]');
+  const search = panel.querySelector('.campana-filter-search');
+  const list = panel.querySelector('[data-role="campana-filter-list"]');
+  if(!btn || !panel || panel.dataset.filled) return;
+  const nombres = universoCampanas();
+  function pintarLista(filtroTexto){
+    const q = (filtroTexto || '').trim().toLowerCase();
+    const visibles = q ? nombres.filter(n => n.toLowerCase().includes(q)) : nombres;
+    if(!visibles.length){ list.innerHTML = '<p class="cf-empty">No se encontró ninguna campaña con ese nombre.</p>'; return; }
+    list.innerHTML = visibles.map(n =>
+      '<label title="'+n.replace(/"/g,'&quot;')+'"><input type="checkbox" value="'+n.replace(/"/g,'&quot;')+'" '+(campanaFiltroSeleccion.has(n)?'checked':'')+'> '+(n.length>60 ? n.slice(0,60)+'…' : n)+'</label>'
+    ).join('');
+    list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) campanaFiltroSeleccion.add(cb.value); else campanaFiltroSeleccion.delete(cb.value);
+        actualizarLabelCampana();
+        renderCampanaTable();
+      });
+    });
+  }
+  pintarLista('');
+  panel.dataset.filled = '1';
+  // Igual que en los demas desplegables de filtro: evita que un clic adentro (buscador,
+  // checkbox, boton) burbujee hasta el listener global que cierra todos los desplegables.
+  panel.addEventListener('click', e => e.stopPropagation());
+  search.addEventListener('input', () => pintarLista(search.value));
+  panel.querySelector('[data-act="limpiar"]').addEventListener('click', () => {
+    campanaFiltroSeleccion.clear();
+    search.value = '';
+    pintarLista('');
+    actualizarLabelCampana();
+    renderCampanaTable();
+  });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+    if(panel.classList.contains('open')) search.focus();
+  });
+  actualizarLabelCampana();
+}
+function actualizarLabelCampana(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="campana"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="campana-filter-label"]');
+  if(!label) return;
+  const n = campanaFiltroSeleccion.size;
+  if(n===0){ label.textContent = 'Top 12 (por defecto)'; return; }
+  if(n===1){ const nom = Array.from(campanaFiltroSeleccion)[0]; label.textContent = nom.length>30 ? nom.slice(0,30)+'…' : nom; return; }
+  label.textContent = n+' seleccionadas';
+}
+construirDropdownCampana();
+
+function filasCampanaCombinadas(meses){
+  // Suma leads/convertidos por campaña a través de todos los meses elegidos, para que la tabla
+  // (que muestra una fila por campaña) pueda combinar más de un mes en una sola vista.
+  const acc = {};
+  meses.forEach(mes => {
+    (DATA.campanas || []).filter(r => r.mes===mes).forEach(r => {
+      acc[r.campana] = acc[r.campana] || { campana: r.campana, leads: 0, convertidos: 0 };
+      acc[r.campana].leads += r.leads;
+      acc[r.campana].convertidos += r.convertidos;
+    });
+  });
+  return Object.values(acc);
+}
 function renderCampanaTable(){
-  const sel = document.getElementById('mesCampana'); const mes = sel.value || mesActual;
-  const rows = DATA.campanas.filter(r => r.mes===mes).sort((a,b)=> (esCatchAll(a.campana)?1:0)-(esCatchAll(b.campana)?1:0) || b.leads-a.leads);
-  const totalLeadsMes = DATA.leads_total_mes[mes] || rows.reduce((s,r)=>s+r.leads,0);
+  const mesesElegidos = mesesCampanaEfectivos();
+  const todasDelMes = filasCampanaCombinadas(mesesElegidos);
+  let rows;
+  if(campanaFiltroSeleccion.size > 0){
+    // Campañas puntuales elegidas en el buscador: se muestran exactamente esas, sin límite de
+    // 12 ni fila "Otras campañas", ordenadas por leads de mayor a menor.
+    rows = todasDelMes.filter(r => campanaFiltroSeleccion.has(r.campana)).sort((a,b)=>b.leads-a.leads);
+  } else {
+    // Sin ninguna campaña elegida: misma vista de siempre (Top 12 + "Otras campañas (N)"),
+    // calculada aquí porque el Sheet ahora manda la lista completa de campañas del mes.
+    const ordenadas = todasDelMes.slice().sort((a,b)=>b.leads-a.leads);
+    const top = ordenadas.slice(0,12);
+    const resto = ordenadas.slice(12);
+    rows = top.slice();
+    if(resto.length > 0){
+      rows.push({ campana: 'Otras campañas (' + resto.length + ')',
+        leads: resto.reduce((s,r)=>s+r.leads,0), convertidos: resto.reduce((s,r)=>s+r.convertidos,0) });
+    }
+  }
+  let totalLeadsMes = mesesElegidos.reduce((s,m)=>s+(DATA.leads_total_mes[m]||0),0);
+  if(!totalLeadsMes) totalLeadsMes = todasDelMes.reduce((s,r)=>s+r.leads,0);
   let html = '<thead><tr><th>Campaña</th><th>Leads</th><th>Convertidos</th><th>% Participación</th><th>Efectividad</th></tr></thead><tbody>';
   let totLeads=0, totConv=0;
   rows.forEach(r => {
