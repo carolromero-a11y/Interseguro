@@ -771,8 +771,8 @@
       <div class="table-wrap"><table class="data-table" id="tableTipoLeadColchonPartMatrix"></table></div>
     </section>
     <section>
-      <h2>Efectividad de ventas con leads del mes, por tipo de lead (Caliente / Tibio / Frío)</h2>
-      <p class="sub">Ventas de ese tipo de lead con lead también de ese mes ÷ leads de ese tipo, mismo mes. Un lead "Caliente" convierte varias veces más que uno "Frío" o "No evaluable".</p>
+      <h2>Efectividad de ventas con leads del mes, por tipo de lead (Alto / Medio / Bajo)</h2>
+      <p class="sub">Ventas de ese tipo de lead con lead también de ese mes ÷ leads de ese tipo, mismo mes. Un lead "Alto" convierte varias veces más que uno "Bajo" o "No evaluable".</p>
       <div class="table-wrap"><table class="data-table" id="tableTipoLeadEfectMatrix"></table></div>
     </section>
     <section>
@@ -1868,7 +1868,7 @@ function renderAllMatrixSets(corte){
   renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], true, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'perfil');
   renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], true, null, corte, 'fuente');
   renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], true, null, corte, 'fuente');
-  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], true, ['Caliente','Tibio','Frío','No evaluable'], corte, 'calidad');
+  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], true, ['Alto','Medio','Bajo','No evaluable'], corte, 'calidad');
   // Las tablas de Tasa/Prima/Edad (pestaña Perfil) y de Fuente/Subfuente (pestaña Fuente) que
   // se acaban de dibujar arriba se reemplazan por una version con el call center como columna,
   // si el desplegable de call de esa pestaña esta disponible -- mismo patron que
