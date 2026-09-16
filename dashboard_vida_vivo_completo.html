@@ -17,16 +17,41 @@
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
-  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--teal); }
+  header{ background:var(--navy); color:#fff; padding:28px 32px 20px; border-bottom:4px solid var(--teal); }
   header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
   header h1{ margin:0; font-size:26px; font-weight:600; }
-  header p.desc{ margin:6px 0 20px; color:#C3D2DE; font-size:14px; }
+  header p.desc{ margin:6px 0 0; color:#C3D2DE; font-size:14px; }
+  header .tabs-current{ margin:14px 0 0; font-size:13px; color:#B7C6D4; }
+  header .tabs-current strong{ color:#fff; }
   .tabs{ display:flex; gap:4px; }
   .tab-btn{ background:transparent; border:none; color:#B7C6D4; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:500;
     padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; }
   .tab-btn.active{ color:#fff; border-bottom-color:var(--teal); }
   .tab-btn:hover{ color:#fff; }
   main{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
+  /* ---------- BARRA LATERAL DE PESTAÑAS ---------- */
+  #sidebarToggleBtn{ background:var(--navy-2); color:#fff; border:1px solid #2E4E70; border-radius:7px; padding:10px 16px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  #sidebarToggleBtn:hover{ background:#26456B; }
+  #sidebarOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10000; }
+  #sidebarOverlay.open{ display:block; }
+  #sidebarNav{ position:fixed; top:0; left:0; bottom:0; width:300px; max-width:85vw; background:var(--navy); color:#fff; z-index:10001;
+    box-shadow:4px 0 24px rgba(0,0,0,0.3); transform:translateX(-100%); transition:transform .22s ease; display:flex; flex-direction:column; }
+  #sidebarNav.open{ transform:translateX(0); }
+  #sidebarNav .sidebar-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px;
+    font-weight:600; font-size:15px; border-bottom:1px solid #2E4E70; flex-shrink:0; }
+  #sidebarCloseBtn{ background:none; border:none; color:#B7C6D4; font-size:18px; cursor:pointer; line-height:1; padding:4px; }
+  #sidebarCloseBtn:hover{ color:#fff; }
+  #sidebarSearchInput{ margin:14px 18px; padding:10px 12px; border-radius:8px; border:1px solid #2E4E70; background:#0F2138;
+    color:#fff; font-family:inherit; font-size:13px; flex-shrink:0; }
+  #sidebarSearchInput::placeholder{ color:#7E93A8; }
+  #sidebarSearchInput:focus{ outline:none; border-color:var(--teal); }
+  #sidebarNav .tabs{ display:flex; flex-direction:column; gap:2px; overflow-y:auto; padding:0 10px 18px; }
+  #sidebarNav .tab-btn{ text-align:left; border-radius:7px; border-bottom:none; padding:11px 12px; }
+  #sidebarNav .tab-btn.active{ background:var(--teal); color:#fff; border-bottom-color:transparent; }
+  #sidebarNav .tab-btn:hover{ background:#1D3A5F; color:#fff; }
+  #sidebarNav .tab-btn.tab-btn-oculto{ display:none; }
+  #sidebarNav .tabs-empty{ padding:12px; font-size:13px; color:#8FA6BB; }
   .tabpanel{ display:none; }
   .tabpanel.active{ display:block; }
   .controls{ display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; flex-wrap:wrap; }
@@ -164,10 +189,46 @@
   </div>
 </div>
 
+<!-- ---------- BARRA LATERAL DE PESTAÑAS ---------- -->
+<!-- A pedido explícito del usuario (set. 2026): antes las 10 pestañas vivían en una fila
+     horizontal siempre visible en el header, y el dashboard recalculaba las ~60 tablas de las
+     10 pestañas con cada filtro aunque solo una estuviera a la vista (ver "RENDER PEREZOSO POR
+     PESTAÑA" en el bloque de JavaScript, más abajo, para el otro lado de este mismo arreglo). Ahora las
+     pestañas viven en este panel lateral (se abre con el botón "☰ Pestañas" del header), con un
+     buscador arriba de la lista. Los <button class="tab-btn" data-tab="..."> son EXACTAMENTE
+     los mismos de siempre (mismas clases/atributos, solo se movieron de lugar) -- el buscador de
+     tablas, "restaurar pestaña activa" y el redimensionado de columnas siguen funcionando sin
+     tocarlos, porque siguen viendo los mismos elementos .tab-btn/data-tab de siempre. -->
+<div id="sidebarOverlay"></div>
+<nav id="sidebarNav" aria-label="Pestañas del dashboard">
+  <div class="sidebar-header">
+    <span>Pestañas</span>
+    <button id="sidebarCloseBtn" type="button" aria-label="Cerrar panel de pestañas">✕</button>
+  </div>
+  <input type="text" id="sidebarSearchInput" placeholder="Buscar pestaña…" autocomplete="off">
+  <div class="tabs" id="sidebarTabList">
+    <button class="tab-btn active" data-tab="resumen">Resumen</button>
+    <button class="tab-btn" data-tab="call">Por call center</button>
+    <button class="tab-btn" data-tab="producto">Por producto</button>
+    <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
+    <button class="tab-btn" data-tab="tipificacion">Por tipificación</button>
+    <button class="tab-btn" data-tab="ventas">Ventas</button>
+    <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
+    <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
+    <button class="tab-btn" data-tab="comite">Comité</button>
+    <button class="tab-btn" data-tab="seguimiento">Seguimiento diario</button>
+  </div>
+</nav>
+
 <header>
-  <p class="eyebrow">InterSeguro · Productos digitales</p>
-  <h1>Dashboard de ventas — Vida</h1>
-  <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026</p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p class="eyebrow">InterSeguro · Productos digitales</p>
+      <h1>Dashboard de ventas — Vida</h1>
+      <p class="desc" id="headerDesc">Vida Cash y Endosos · 2026</p>
+    </div>
+    <button id="sidebarToggleBtn" type="button">☰ Pestañas</button>
+  </div>
   <!-- Filtro global de producto: afecta TODAS las tablas de TODAS las hojas (no es un filtro
        por pestaña como los demas desplegables). Al cambiarlo se recarga la pagina para
        reconstruir todo el dashboard desde cero con los datos ya filtrados -- es la forma mas
@@ -181,18 +242,7 @@
       <option value="endoso">Endoso</option>
     </select>
   </div>
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="resumen">Resumen</button>
-    <button class="tab-btn" data-tab="call">Por call center</button>
-    <button class="tab-btn" data-tab="producto">Por producto</button>
-    <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
-    <button class="tab-btn" data-tab="tipificacion">Por tipificación</button>
-    <button class="tab-btn" data-tab="ventas">Ventas</button>
-    <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
-    <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
-    <button class="tab-btn" data-tab="comite">Comité</button>
-    <button class="tab-btn" data-tab="seguimiento">Seguimiento diario</button>
-  </div>
+  <p class="tabs-current">Viendo: <strong id="tabsCurrentLabel">Resumen</strong></p>
 </header>
 
 <main>
@@ -1609,6 +1659,241 @@ function renderSeguimientoDiario(){
   if(box) box.innerHTML = textoBox;
 }
 
+// corteActual = el limite "hasta" (mismo rol que el viejo "dia de corte" de siempre).
+// desdeActual = el nuevo limite "desde" (dia 1 por defecto = mismo comportamiento de antes).
+// AVISO IMPORTANTE: las tarjetas KPI de Resumen, "Como vamos vs. meta", Comite y los Insights
+// del mes traen pegada una "Proyeccion de cierre" -- esas siguen usando SOLO corteActual
+// (exactamente como el viejo dia de corte), sin importar el valor de desdeActual. Se decidio
+// asi a proposito: proyectar el resto del mes a partir de una tasa calculada con un pedazo
+// suelto de dias (ej. del 16 al 31) no tiene una base de negocio clara, y es el mismo tipo de
+// calculo que causo el bug de PNA que ya se arreglo antes. El resto de las tablas (por call,
+// por fuente/subfuente, antiguedad del lead, campañas, polizas por cliente, etc.) SI usan el
+// rango desde-hasta completo.
+// NOTA: corteActual/desdeActual se declaran ACA (antes de la sección de pestañas, más abajo) y
+// no donde estaban antes (después de restaurarPestañaActiva) porque el nuevo render perezoso por
+// pestaña (ver más abajo) necesita poder leerlas ni bien alguien hace click en una pestaña -- si
+// quedaran declaradas más abajo, un click disparado ANTES de esa línea (ej. el click automático
+// de restaurarPestañaActiva) rompería con un error de "usada antes de declararse".
+let corteActual = 16;
+let desdeActual = 1;
+
+// ---------- RENDER PEREZOSO POR PESTAÑA ----------
+// A pedido explícito del usuario (set. 2026): el dashboard se ponía muy lento / no respondía al
+// aplicar cualquier filtro, porque ANTES cada filtro (de cualquier pestaña) volvía a calcular y
+// redibujar las ~60 tablas de las 10 pestañas a la vez, aunque solo una estuviera visible. Ahora
+// cada filtro solo recalcula la pestaña que se está mirando en ese momento; las demás quedan
+// "pendientes" y se recalculan recién la primera vez que el usuario las abre después de ese
+// filtro (ese primer click sí tarda lo que tardaba antes -- ese cálculo no se puede evitar --
+// pero ya no se repite para las 9 pestañas que nadie está mirando).
+//
+// TAB_KEYS: mismos valores que los data-tab de los botones de la barra lateral (más abajo).
+// renderTab(key, corte): contiene TODO lo que antes hacía render() de una sola vez, ahora
+// repartido por pestaña -- cada rama de abajo es EXACTAMENTE el mismo código que antes, solo
+// movido de lugar (nada de lo que calcula cada tabla cambió).
+const TAB_KEYS = ['resumen','call','producto','fuente','tipificacion','ventas','vintage','calidad','comite','seguimiento'];
+let activeTabKey = 'resumen';
+let tabsPendientes = new Set(TAB_KEYS);
+function renderTab(key, corte){
+  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+  // La pestaña "Resumen" SIEMPRE muestra el combinado de VidaCash + Endoso, sin importar el
+  // filtro de producto elegido (a pedido explícito) -- las demás pestañas sí se filtran con
+  // normalidad. Todas las funciones que pintan Resumen leen la variable global DATA (por
+  // closure), así que en vez de reescribirlas para aceptar un parámetro extra, se intercambia
+  // temporalmente DATA por la copia sin filtrar (DATA_TODOS) solo mientras corre esa función,
+  // y se restaura enseguida -- ninguna otra pestaña nota el cambio porque todo es síncrono.
+  const DATA_FILTRADA = DATA;
+  function conDatosSinFiltro(fn){
+    DATA = DATA_TODOS || DATA_FILTRADA;
+    try { fn(); } finally { DATA = DATA_FILTRADA; }
+  }
+  if(key === 'resumen'){
+    // Los KPIs y las 3 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
+    // resto de secciones -- si algo falla aquí (ej. Chart.js sin cargar por un problema de red)
+    // ya no corta en seco el resto de esta pestaña.
+    let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
+    intentar('renderResumenKPIs', () => conDatosSinFiltro(() => {
+      const idxActual = mesesV.indexOf(mesActual);
+      const idxAnterior = idxActual - 1;
+      const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
+      ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+      const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+      // Ronda 14, a pedido explícito: esta tarjeta ("PNA [mes] (real)") y la tarjeta de
+      // proyección de abajo deben mostrar el mismo número que la fila "Total (todos los canales)"
+      // de "Cómo vamos vs. meta -> PNA" -- antes usaban el campo "prima" (Prima x Frecuencia, una
+      // columna DISTINTA de "PNA" en el Sheet), así que nunca iban a coincidir con esa tabla. Ahora
+      // usan el campo real "pna", igual que la tabla (misma fuente sales_daily, mismo corte, y
+      // como esta función corre con conDatosSinFiltro, siempre es el combinado Vida Cash + Endoso,
+      // todos los canales).
+      primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
+      leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+
+      document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+      const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
+      const diffEl = document.getElementById('kVsJun');
+      diffEl.textContent = (diff>=0?'+':'') + diff + '%';
+      diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
+      document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
+
+      if(!chVentasCorte){
+        chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
+          type:'bar',
+          data:{ labels:labelsV, datasets:[
+            {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
+            {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
+          ]},
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+            // Ronda: padding arriba del área del gráfico -- evita que el número de la barra más
+            // alta del mes (dlPlain, anchor:'end'/align:'top') quede cortado cuando esa barra
+            // toca justo el máximo del eje Y. Ver detalle en el mismo fix de Inversión Segura.
+            layout:{ padding:{ top:18 } },
+            scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else {
+        chVentasCorte.data.datasets[0].data = ventasCompleto;
+        chVentasCorte.data.datasets[1].data = ventasCorte;
+        chVentasCorte.update();
+      }
+
+      leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+      // Unidades proyectadas = leads proyectados × efectividad real del corte (a pedido
+      // explícito) -- ver proyectarVentasPorEfectividad. Por eso leadsProy se calcula ANTES que
+      // ventasProy (antes iba después).
+      ventasProy = proyectarVentasPorEfectividad(ventasActual, leadsActual, leadsProy, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+      // Misma fórmula que "Cómo vamos vs. meta -> PNA -> Total" (Ronda 13/14): Ventas proyectadas
+      // × PP actual (prima real ÷ ventas reales, día 1 al corte -- mismo dato que el gráfico
+      // "Evolución de la prima promedio"). Al usar exactamente los mismos insumos (mesActual,
+      // corte, ventasActual, ventasProy) que esa tabla, esta tarjeta queda garantizada a mostrar
+      // el mismo número que la fila "Total", sin tener que sincronizarlos a mano.
+      const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+      const ppActualKPI = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
+      primaProy = ppActualKPI!==null ? ventasProy*ppActualKPI : proyectarCierre('pna', primaActual, corte);
+      const ventasRestante = Math.max(0, ventasProy - ventasActual);
+      const leadsRestante = Math.max(0, leadsProy - leadsActual);
+
+      document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
+      document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
+      document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
+
+      const mesesCerradosProy = mesesV.slice(0, -1);
+      const labelsCerradosProy = labelsV.slice(0, -1);
+      const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+      const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const proyLabels = [...labelsCerradosProy, actualAbrCorto];
+      const proyReal = [...ventasCerradosArr, ventasActual];
+      const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+
+      if(!chProyeccion){
+        chProyeccion = new Chart(document.getElementById('chProyeccion'), {
+          type:'bar',
+          data:{ labels:proyLabels, datasets:[
+            {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+            {label:'Proyección resto del mes', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+          ]},
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+            scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else {
+        chProyeccion.data.datasets[0].data = proyReal;
+        chProyeccion.data.datasets[1].data = proyRestoArr;
+        chProyeccion.update();
+      }
+
+      const dgTranscurridos = mesActual ? sumaDiasGestion(mesActual, corte) : 0;
+      const dgTotales = mesActual ? sumaDiasGestion(mesActual, null) : 0;
+      const pctAvance = dgTotales>0 ? Math.round((dgTranscurridos/dgTotales)*1000)/10 : 0;
+      document.getElementById('proyNote').textContent =
+        'Van ' + dgTranscurridos + ' de ' + dgTotales + ' días de gestión de ' + (mesActual?labelFull(mesActual):'') + ' (' + pctAvance + '% del mes) — a mayor avance, más peso tiene el ritmo real de este mes en la proyección.';
+
+      const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
+      const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
+      const proyLeadsReal = [...leadsCerradosArr, leadsActual];
+      const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
+
+      if(!chProyeccionLeads){
+        chProyeccionLeads = new Chart(document.getElementById('chProyeccionLeads'), {
+          type:'bar',
+          data:{ labels:proyLeadsLabels, datasets:[
+            {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+            {label:'Proyección resto del mes', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
+          ]},
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+            scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else {
+        chProyeccionLeads.data.datasets[0].data = proyLeadsReal;
+        chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
+        chProyeccionLeads.update();
+      }
+    }));
+    intentar('renderCampanaTable', () => renderCampanaTable());
+    // Composición por canal, prima promedio, cohorte y pólizas por cliente son parte de la
+    // pestaña Resumen -> siempre combinado, sin importar el filtro de producto.
+    intentar('renderCanalYPrimaProm', () => conDatosSinFiltro(() => renderCanalYPrimaProm(corte)));
+    intentar('renderCohortTable', () => conDatosSinFiltro(() => renderCohortTable(corte)));
+    intentar('renderPolizasCliente', () => conDatosSinFiltro(() => renderPolizasCliente(corte)));
+    intentar('renderInsights', () => conDatosSinFiltro(() => renderInsights(corte)));
+    // Con un producto específico (Vida Cash / Endoso) elegido arriba, las 4 tablas de "Cómo vamos
+    // vs. meta" (Unidades, PNA, Efectividad y Leads) dejan de mostrar el combinado y pasan a
+    // mostrar los datos y la meta de ESE producto -- por eso, a diferencia del resto de Resumen,
+    // ya NO se envuelven con conDatosSinFiltro cuando el filtro no está en "Ambos": corren con
+    // DATA tal cual (ya filtrada por aplicarFiltroProducto). Con "Ambos" siguen exactamente igual
+    // que siempre (combinado, mismos ventasActual/ventasProy/leadsActual/leadsProy de las
+    // tarjetas KPI de arriba).
+    if(filtroProductoActual === 'todos'){
+      intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy, 'Total (todos los canales)')));
+      intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy, 'Total (todos los canales)')));
+    } else {
+      const ventasActualProd = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'ventas', corte) : 0;
+      const leadsActualProd = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+      const leadsProyProd = Math.round(proyectarCierre('leads', leadsActualProd, corte));
+      const ventasProyProd = proyectarVentasPorEfectividad(ventasActualProd, leadsActualProd, leadsProyProd, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const metaKeyProd = METAS_TOTAL_KEY_POR_PRODUCTO[filtroProductoActual];
+      intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActualProd, ventasProyProd, metaKeyProd));
+      intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActualProd, leadsProyProd, metaKeyProd));
+    }
+  } else if(key === 'call'){
+    intentar('renderMatrixSet Call', () => renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], corte, 'call'));
+  } else if(key === 'producto'){
+    intentar('renderMatrixSet Prod', () => renderMatrixSet('Prod', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte, 'producto'));
+    intentar('renderCallFiltroProducto', () => renderCallFiltroProducto(corte));
+  } else if(key === 'fuente'){
+    intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte, 'fuente'));
+    intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte, 'fuente'));
+    intentar('renderCallFiltroFuente', () => renderCallFiltroFuente(corte));
+    intentar('renderEtiquetaPropensionFuente', () => renderEtiquetaPropensionFuente(corte));
+  } else if(key === 'tipificacion'){
+    intentar('renderTablaTipificacion', () => renderTablaTipificacion(corte));
+  } else if(key === 'ventas'){
+    intentar('renderVentasTab', () => renderVentasTab());
+  } else if(key === 'vintage'){
+    intentar('renderVintageTable', () => renderVintageTable(corte));
+    intentar('renderDiasConversion', () => renderDiasConversion(corte));
+    intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
+  } else if(key === 'calidad'){
+    intentar('renderMatrixSet TipoLead', () => renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], corte, 'calidad', true));
+    intentar('renderMatrixSet Clics', () => renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true));
+    intentar('renderPPyPNA', () => renderPPyPNA(corte));
+  } else if(key === 'comite'){
+    intentar('renderComite', () => renderComite(corte));
+  } else if(key === 'seguimiento'){
+    intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
+  }
+}
+// Vuelve a calcular la pestaña "key" SOLO si quedó pendiente (por un filtro aplicado mientras
+// estaba cerrada, o porque todavía no se dibujó nunca). Si la pestaña falla (ej. porque se llamó
+// antes de que los datos terminaran de cargar -- ver restaurarPestañaActiva más abajo), se deja
+// pendiente para reintentar la próxima vez, en vez de darla por hecha.
+function renderTabSiPendiente(key){
+  if(!tabsPendientes.has(key)) return;
+  try {
+    renderTab(key, corteActual);
+    tabsPendientes.delete(key);
+  } catch(e) {
+    console.error('Error dibujando la pestaña "'+key+'":', e);
+  }
+}
+
 // ---------- TABS ----------
 // El slider "Día de corte" no aplica a "Seguimiento diario" (esa pestaña ya muestra el mes
 // completo, día por día, sin necesidad de elegir un corte), así que se oculta solo mientras
@@ -1624,8 +1909,50 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if(corteControls) corteControls.style.display = (btn.dataset.tab === 'seguimiento') ? 'none' : '';
     const rangoFechasBlock = document.getElementById('rangoFechasBlock');
     if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
+    // Indicador "Viendo: ..." del header (la barra lateral ya no queda siempre visible, así que
+    // esto deja claro en todo momento cuál de las 10 pestañas se está mirando).
+    const label = document.getElementById('tabsCurrentLabel');
+    if(label) label.textContent = btn.textContent.trim();
+    if(window.__cerrarSidebarPestañas) window.__cerrarSidebarPestañas();
+    // Render perezoso: si esta pestaña quedó pendiente por un filtro aplicado mientras estaba
+    // cerrada (o es la primera vez que se abre), se calcula recién ahora.
+    activeTabKey = btn.dataset.tab;
+    renderTabSiPendiente(activeTabKey);
   });
 });
+// ---------- BARRA LATERAL DE PESTAÑAS: abrir/cerrar + buscador ----------
+(function initSidebarPestañas(){
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const nav = document.getElementById('sidebarNav');
+  const overlay = document.getElementById('sidebarOverlay');
+  const closeBtn = document.getElementById('sidebarCloseBtn');
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if(!toggleBtn || !nav || !overlay || !closeBtn || !searchInput) return;
+  function normalizar(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+  function filtrar(){
+    const q = normalizar(searchInput.value);
+    Array.from(nav.querySelectorAll('.tab-btn')).forEach(b => {
+      const coincide = !q || normalizar(b.textContent).includes(q);
+      b.classList.toggle('tab-btn-oculto', !coincide);
+    });
+  }
+  function abrir(){
+    nav.classList.add('open'); overlay.classList.add('open');
+    searchInput.value = '';
+    filtrar();
+    setTimeout(() => searchInput.focus(), 30);
+  }
+  function cerrar(){
+    nav.classList.remove('open'); overlay.classList.remove('open');
+  }
+  toggleBtn.addEventListener('click', abrir);
+  closeBtn.addEventListener('click', cerrar);
+  overlay.addEventListener('click', cerrar);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && nav.classList.contains('open')) cerrar(); });
+  searchInput.addEventListener('input', filtrar);
+  // Expuesto para que el click handler de cada .tab-btn (arriba) cierre el panel al elegir una.
+  window.__cerrarSidebarPestañas = cerrar;
+})();
 // Si el usuario cambio el filtro de producto (lo que recarga la pagina), volvemos a la pestaña
 // en la que estaba en vez de mandarlo siempre a "Resumen".
 (function restaurarPestañaActiva(){
@@ -1638,18 +1965,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 })();
 
 let chVentasCorte, chProyeccion, chProyeccionLeads, chEfectividad, chMultiPoliza, chPPCall, chPNAProd;
-// corteActual = el limite "hasta" (mismo rol que el viejo "dia de corte" de siempre).
-// desdeActual = el nuevo limite "desde" (dia 1 por defecto = mismo comportamiento de antes).
-// AVISO IMPORTANTE: las tarjetas KPI de Resumen, "Como vamos vs. meta", Comite y los Insights
-// del mes traen pegada una "Proyeccion de cierre" -- esas siguen usando SOLO corteActual
-// (exactamente como el viejo dia de corte), sin importar el valor de desdeActual. Se decidio
-// asi a proposito: proyectar el resto del mes a partir de una tasa calculada con un pedazo
-// suelto de dias (ej. del 16 al 31) no tiene una base de negocio clara, y es el mismo tipo de
-// calculo que causo el bug de PNA que ya se arreglo antes. El resto de las tablas (por call,
-// por fuente/subfuente, antiguedad del lead, campañas, polizas por cliente, etc.) SI usan el
-// rango desde-hasta completo.
-let corteActual = 16;
-let desdeActual = 1;
 
 // Textos que dependen del mes actual/anterior: se arman una sola vez (no cambian con el
 // slider de corte, solo con los datos que llegaron del Sheet).
@@ -1755,179 +2070,14 @@ function render(desde, corte){
   desdeActual = desde;
   corteActual = corte;
   document.getElementById('corteVal').textContent = (desde > 1 ? ('Días ' + desde + '–' + corte) : ('Día ' + corte));
-  // Cada tabla/grafico se ejecuta de forma aislada: si una falla (por ejemplo por un dato
-  // faltante puntual), las demas se siguen dibujando con normalidad en vez de quedar en blanco.
-  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
-
-  // La pestaña "Resumen" SIEMPRE muestra el combinado de VidaCash + Endoso, sin importar el
-  // filtro de producto elegido (a pedido explícito) -- las demás pestañas sí se filtran con
-  // normalidad. Todas las funciones que pintan Resumen leen la variable global DATA (por
-  // closure), así que en vez de reescribirlas para aceptar un parámetro extra, se intercambia
-  // temporalmente DATA por la copia sin filtrar (DATA_TODOS) solo mientras corre esa función,
-  // y se restaura enseguida -- ninguna otra pestaña nota el cambio porque todo es síncrono.
-  const DATA_FILTRADA = DATA;
-  function conDatosSinFiltro(fn){
-    DATA = DATA_TODOS || DATA_FILTRADA;
-    try { fn(); } finally { DATA = DATA_FILTRADA; }
-  }
-
-  // Los KPIs y las 3 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
-  // resto de secciones de abajo -- antes NO lo tenían, y si algo fallaba aquí (ej. Chart.js sin
-  // cargar por un problema de red) toda la función se cortaba en seco y ninguna pestaña de abajo
-  // (Comité, Ventas, etc.) se llegaba a actualizar para ese corte, dejando la pestaña Resumen
-  // con el número nuevo pero Comité con uno viejo -- justo el tipo de "no es el mismo número"
-  // que se reportó. Con esto, un error aquí ya no le puede congelar los datos a las demás
-  // pestañas (y el error queda visible en la consola en vez de generar un numero desincronizado).
-  let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
-  intentar('renderResumenKPIs', () => conDatosSinFiltro(() => {
-    const idxActual = mesesV.indexOf(mesActual);
-    const idxAnterior = idxActual - 1;
-    const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-    ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
-    const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
-    // Ronda 14, a pedido explícito: esta tarjeta ("PNA [mes] (real)") y la tarjeta de
-    // proyección de abajo deben mostrar el mismo número que la fila "Total (todos los canales)"
-    // de "Cómo vamos vs. meta -> PNA" -- antes usaban el campo "prima" (Prima x Frecuencia, una
-    // columna DISTINTA de "PNA" en el Sheet), así que nunca iban a coincidir con esa tabla. Ahora
-    // usan el campo real "pna", igual que la tabla (misma fuente sales_daily, mismo corte, y
-    // como esta función corre con conDatosSinFiltro, siempre es el combinado Vida Cash + Endoso,
-    // todos los canales).
-    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
-    leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
-
-    document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
-    const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
-    const diffEl = document.getElementById('kVsJun');
-    diffEl.textContent = (diff>=0?'+':'') + diff + '%';
-    diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
-    document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
-
-    if(!chVentasCorte){
-      chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
-        type:'bar',
-        data:{ labels:labelsV, datasets:[
-          {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
-          {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
-        ]},
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
-          // Ronda: padding arriba del área del gráfico -- evita que el número de la barra más
-          // alta del mes (dlPlain, anchor:'end'/align:'top') quede cortado cuando esa barra
-          // toca justo el máximo del eje Y. Ver detalle en el mismo fix de Inversión Segura.
-          layout:{ padding:{ top:18 } },
-          scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else {
-      chVentasCorte.data.datasets[0].data = ventasCompleto;
-      chVentasCorte.data.datasets[1].data = ventasCorte;
-      chVentasCorte.update();
-    }
-
-    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
-    // Unidades proyectadas = leads proyectados × efectividad real del corte (a pedido
-    // explícito) -- ver proyectarVentasPorEfectividad. Por eso leadsProy se calcula ANTES que
-    // ventasProy (antes iba después).
-    ventasProy = proyectarVentasPorEfectividad(ventasActual, leadsActual, leadsProy, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-    // Misma fórmula que "Cómo vamos vs. meta -> PNA -> Total" (Ronda 13/14): Ventas proyectadas
-    // × PP actual (prima real ÷ ventas reales, día 1 al corte -- mismo dato que el gráfico
-    // "Evolución de la prima promedio"). Al usar exactamente los mismos insumos (mesActual,
-    // corte, ventasActual, ventasProy) que esa tabla, esta tarjeta queda garantizada a mostrar
-    // el mismo número que la fila "Total", sin tener que sincronizarlos a mano.
-    const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
-    const ppActualKPI = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
-    primaProy = ppActualKPI!==null ? ventasProy*ppActualKPI : proyectarCierre('pna', primaActual, corte);
-    const ventasRestante = Math.max(0, ventasProy - ventasActual);
-    const leadsRestante = Math.max(0, leadsProy - leadsActual);
-
-    document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
-    document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
-    document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
-
-    const mesesCerradosProy = mesesV.slice(0, -1);
-    const labelsCerradosProy = labelsV.slice(0, -1);
-    const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
-    const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const proyLabels = [...labelsCerradosProy, actualAbrCorto];
-    const proyReal = [...ventasCerradosArr, ventasActual];
-    const proyRestoArr = [...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
-
-    if(!chProyeccion){
-      chProyeccion = new Chart(document.getElementById('chProyeccion'), {
-        type:'bar',
-        data:{ labels:proyLabels, datasets:[
-          {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-          {label:'Proyección resto del mes', data:proyRestoArr, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
-        ]},
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else {
-      chProyeccion.data.datasets[0].data = proyReal;
-      chProyeccion.data.datasets[1].data = proyRestoArr;
-      chProyeccion.update();
-    }
-
-    const dgTranscurridos = mesActual ? sumaDiasGestion(mesActual, corte) : 0;
-    const dgTotales = mesActual ? sumaDiasGestion(mesActual, null) : 0;
-    const pctAvance = dgTotales>0 ? Math.round((dgTranscurridos/dgTotales)*1000)/10 : 0;
-    document.getElementById('proyNote').textContent =
-      'Van ' + dgTranscurridos + ' de ' + dgTotales + ' días de gestión de ' + (mesActual?labelFull(mesActual):'') + ' (' + pctAvance + '% del mes) — a mayor avance, más peso tiene el ritmo real de este mes en la proyección.';
-
-    const leadsCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.leads_daily, m, 'leads', null));
-    const proyLeadsLabels = [...labelsCerradosProy, actualAbrCorto];
-    const proyLeadsReal = [...leadsCerradosArr, leadsActual];
-    const proyLeadsResto = [...leadsCerradosArr.map(()=>0), Math.round(leadsRestante)];
-
-    if(!chProyeccionLeads){
-      chProyeccionLeads = new Chart(document.getElementById('chProyeccionLeads'), {
-        type:'bar',
-        data:{ labels:proyLeadsLabels, datasets:[
-          {label:'Real', data:proyLeadsReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-          {label:'Proyección resto del mes', data:proyLeadsResto, backgroundColor:'#6C5CC4', borderRadius:4, stack:'s'}
-        ]},
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else {
-      chProyeccionLeads.data.datasets[0].data = proyLeadsReal;
-      chProyeccionLeads.data.datasets[1].data = proyLeadsResto;
-      chProyeccionLeads.update();
-    }
-  }));
-  intentar('renderVintageTable', () => renderVintageTable(corte));
-  intentar('renderCampanaTable', () => renderCampanaTable());
-  intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
-  intentar('renderVentasTab', () => renderVentasTab());
-  // Composición por canal, prima promedio, cohorte y pólizas por cliente son parte de la
-  // pestaña Resumen -> siempre combinado, sin importar el filtro de producto.
-  intentar('renderCanalYPrimaProm', () => conDatosSinFiltro(() => renderCanalYPrimaProm(corte)));
-  intentar('renderCohortTable', () => conDatosSinFiltro(() => renderCohortTable(corte)));
-  intentar('renderPPyPNA', () => renderPPyPNA(corte));
-  intentar('renderDiasConversion', () => renderDiasConversion(corte));
-  intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
-  intentar('renderPolizasCliente', () => conDatosSinFiltro(() => renderPolizasCliente(corte)));
-  intentar('renderInsights', () => conDatosSinFiltro(() => renderInsights(corte)));
-  intentar('renderComite', () => renderComite(corte));
-  // Con un producto específico (Vida Cash / Endoso) elegido arriba, las 4 tablas de "Cómo vamos
-  // vs. meta" (Unidades, PNA, Efectividad y Leads) dejan de mostrar el combinado y pasan a
-  // mostrar los datos y la meta de ESE producto -- por eso, a diferencia del resto de Resumen,
-  // ya NO se envuelven con conDatosSinFiltro cuando el filtro no está en "Ambos": corren con
-  // DATA tal cual (ya filtrada por aplicarFiltroProducto). Con "Ambos" siguen exactamente igual
-  // que siempre (combinado, mismos ventasActual/ventasProy/leadsActual/leadsProy de las
-  // tarjetas KPI de arriba).
-  if(filtroProductoActual === 'todos'){
-    intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy, 'Total (todos los canales)')));
-    intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy, 'Total (todos los canales)')));
-  } else {
-    const ventasActualProd = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'ventas', corte) : 0;
-    const leadsActualProd = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
-    const leadsProyProd = Math.round(proyectarCierre('leads', leadsActualProd, corte));
-    const ventasProyProd = proyectarVentasPorEfectividad(ventasActualProd, leadsActualProd, leadsProyProd, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const metaKeyProd = METAS_TOTAL_KEY_POR_PRODUCTO[filtroProductoActual];
-    intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActualProd, ventasProyProd, metaKeyProd));
-    intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActualProd, leadsProyProd, metaKeyProd));
-  }
-  intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
+  // Antes, esta función recalculaba las ~60 tablas de las 10 pestañas cada vez que cambiaba
+  // CUALQUIER filtro (de cualquier pestaña) -- por eso el dashboard se ponía muy lento al
+  // filtrar. Ahora solo se marca que TODAS las pestañas quedaron "pendientes" de un nuevo
+  // cálculo, y se recalcula de una sola vez la que se está mirando en este momento -- el resto
+  // se recalcula recién cuando el usuario las abre (ver "RENDER PEREZOSO POR PESTAÑA" más arriba
+  // para el detalle completo, con el mapeo de qué función pinta cada pestaña).
+  TAB_KEYS.forEach(k => tabsPendientes.add(k));
+  renderTabSiPendiente(activeTabKey);
 }
 
 // Canal composition (ahora corte-aware)
@@ -2709,18 +2859,10 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
   return M;
 }
 
-function renderAllMatrixSets(corte){
-  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], corte, 'call');
-  renderMatrixSet('Prod', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte, 'producto');
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte, 'fuente');
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte, 'fuente');
-  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], corte, 'calidad', true);
-  renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true);
-  renderCallFiltroProducto(corte);
-  renderCallFiltroFuente(corte);
-  renderEtiquetaPropensionFuente(corte);
-  renderTablaTipificacion(corte);
-}
+// (La vieja renderAllMatrixSets(corte), que llamaba a las 10 funciones de abajo de una sola vez
+// para las 4 pestañas "call"/"producto"/"fuente"/"calidad"/"tipificacion", se separó: ahora cada
+// una se llama desde su propia rama dentro de renderTab(key, corte) -- ver "RENDER PEREZOSO POR
+// PESTAÑA" más arriba -- para que cambiar un filtro en una sola pestaña no recalcule las demás.)
 // ---------- FILTRO DE CALL CENTER (pestañas Producto y Fuente/Subfuente) ----------
 function callBucket(c){
   if(!c) return 'Otros';
