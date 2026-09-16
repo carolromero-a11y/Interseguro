@@ -588,16 +588,11 @@
       </div>
       <span class="filter-hint">Fuente/Sub fuente se cruzan por DNI contra el lead más reciente de Vida (filtran los datos). El call center agrega columnas, agrupando los meses debajo de cada uno. mcontact = Call Interno; a365 y cualquier otro valor van a "Otros".</span>
     </div>
-    <p class="note">Fila principal = Tipificación Nivel 1, sub-fila = Nivel 2, sub-sub-fila = Nivel 3 (clic en la fila principal para expandir/colapsar). Fuente: hoja "Tipificaciones" del Google Sheets de Vida. Respeta el filtro de producto (Vida Cash/Endoso/Ambos) de arriba y el día de corte.</p>
+    <p class="note">Fila principal = Tipificación Nivel 1, sub-fila = Nivel 2 (clic en la fila principal para expandir/colapsar; empiezan colapsadas). Fuente: hoja "Tipificaciones" del Google Sheets de Vida. Respeta el filtro de producto (Vida Cash/Endoso/Ambos) de arriba y el día de corte.</p>
     <section>
       <h2>Cantidad (DNI únicos) por tipificación — todos los meses</h2>
-      <p class="sub">Cantidad de documentos (DNI) únicos tipificados en el mes, contados una sola vez aunque un DNI haya sido re-tipificado varias veces ese mes (se toma su tipificación más reciente del mes).</p>
+      <p class="sub">Cantidad de documentos (DNI) únicos tipificados en el mes, contados una sola vez aunque un DNI haya sido re-tipificado varias veces ese mes (se toma su tipificación más reciente del mes). El % entre paréntesis es la participación: en la fila Nivel 1 (subtotal), sobre el total general; en la sub-fila Nivel 2, sobre el total de su Nivel 1.</p>
       <div class="table-wrap"><table class="data-table" id="tableTipifCantidadMatrix"></table></div>
-    </section>
-    <section>
-      <h2>% Participación por tipificación — todos los meses</h2>
-      <p class="sub">Participación de cada tipificación dentro de su nivel superior (Nivel 3 dentro de su Nivel 2, Nivel 2 dentro de su Nivel 1, Nivel 1 dentro del total general de ese mes/call).</p>
-      <div class="table-wrap"><table class="data-table" id="tableTipifPartMatrix"></table></div>
     </section>
     <section>
       <h2>Intentos (Q_LLAMADAS) por tipificación — todos los meses</h2>
@@ -783,7 +778,7 @@
       <h2>Solo Call Externo (Biznes)</h2>
       <div class="table-wrap"><table class="data-table" id="tableComiteExterno"></table></div>
     </section>
-    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
+    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). % Contactabilidad = DNI únicos tipificados como "1. Contacto Válido" (hoja "Tipificaciones") ÷ total de DNI únicos tipificados ese mes. Tasa de cierre (TC) = Ventas de ese mes/call ÷ esos DNI "1. Contacto Válido". Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
   </div>
 
   <!-- ===== TAB: SEGUIMIENTO DIARIO ===== -->
@@ -3154,16 +3149,16 @@ function dimsOrdenadosTipifN3(corte, n1, n2){
   dims = dims.sort((a,b)=> totals[b]-totals[a]);
   return pushSinDatoLast(dims);
 }
-// Tabla de 3 niveles (nivel1 = grupo expandible, nivel2 = sub-fila, nivel3 = sub-sub-fila) x
-// call center (columna agrupadora, solo los buckets elegidos en el desplegable) x mes
-// (sub-columna). Generaliza buildCallNestedSubfilasMulti (que solo tiene 2 niveles de fila) para
-// esta pestaña -- nivel2 y nivel3 comparten el mismo data-parent (el nivel1 al que pertenecen),
-// asi el toggle delegado ya existente en "document" (ver mas abajo, "TABLAS CON SUBFILAS") los
-// muestra/oculta juntos sin tocar ese listener: nivel2 se dibuja como un encabezado en negrita
-// dentro del grupo, sin flecha propia (no es un grupo independiente), y nivel3 va indentado un
-// nivel mas debajo de su nivel2. valueFn(agg, denom, nivel) recibe agg={dniCount,qllamadas} de
-// esa celda y denom=el total de su nivel INMEDIATO SUPERIOR (nivel3 -> total de su nivel2,
-// nivel2 -> total de su nivel1, "Subtotal nivel1" -> total general) para el % de participacion
+// Tabla de 2 niveles (nivel1 = grupo expandible, nivel2 = sub-fila) x call center (columna
+// agrupadora, solo los buckets elegidos en el desplegable) x mes (sub-columna). A pedido
+// explicito del usuario (setiembre 2026) se saco el nivel3 (sub-sub-fila) que tenia esta tabla
+// al principio -- se sigue AGREGANDO internamente en el total de nivel2 (totalN2BucketMes sigue
+// sumando todos los nivel3 de abajo, dimsOrdenadosTipifN3 no se toco), simplemente ya no se
+// dibuja fila por fila. Cada grupo nivel1 arranca COLAPSADO (tambien a pedido explicito, para no
+// mostrar todo expandido de entrada) -- se expande con el toggle de siempre (clic en la fila o
+// "Expandir todo"). valueFn(agg, denom, nivel) recibe agg={dniCount,qllamadas} de esa celda y
+// denom=el total de su nivel INMEDIATO SUPERIOR (nivel2 -> total de su nivel1, "Subtotal
+// nivel1" -> total general) para el % de participacion
 // jerarquico -- mismo criterio que ya usa buildCallNestedSubfilasMulti (etiqueta/propension).
 function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
   const rows = filasTipifFiltradas(corte);
@@ -3200,24 +3195,15 @@ function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
   const totalCols = gruposMostrar.length * cols.length;
   let html = nestedToggleBarHtml(tableId) + '<thead>'+head1+head2+'</thead><tbody>';
   n1s.forEach((n1, idx1) => {
-    html += nestedGroupRowHtml(tableId, idx1, n1, totalCols+1);
+    html += nestedGroupRowHtml(tableId, idx1, n1, totalCols+1, true);
     const n2s = dimsOrdenadosTipifN2(corte, n1);
     n2s.forEach(n2 => {
-      html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;font-weight:600;">'+n2+'</td>';
+      html += '<tr data-parent="'+tableId+'__'+idx1+'" style="display:none;"><td style="padding-left:22px;font-weight:600;">'+n2+'</td>';
       gruposMostrar.forEach(b => { cols.forEach((m,i) => {
         const cls = i===0 ? ' class="div-left"' : '';
         html += '<td'+cls+'>'+valueFn(totalN2BucketMes(n1,n2,b,m), totalN1BucketMes(n1,b,m), 'nivel2')+'</td>';
       }); });
       html += '</tr>';
-      const n3s = dimsOrdenadosTipifN3(corte, n1, n2);
-      n3s.forEach(n3 => {
-        html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:38px;color:var(--text-3);">'+n3+'</td>';
-        gruposMostrar.forEach(b => { cols.forEach((m,i) => {
-          const cls = i===0 ? ' class="div-left"' : '';
-          html += '<td'+cls+'>'+valueFn(aggConTotal(n1,n2,n3,b,m), totalN2BucketMes(n1,n2,b,m), 'nivel3')+'</td>';
-        }); });
-        html += '</tr>';
-      });
     });
     html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+n1+'</td>';
     gruposMostrar.forEach(b => { cols.forEach((m,i) => {
@@ -3241,13 +3227,20 @@ function renderTablaTipificacion(corte){
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['tipificacion'] && callFiltroTab['tipificacion'].has(b));
   if(!buckets.length || !(DATA.tipificaciones||[]).length) return;
   const cols = mesesVisiblesV('tipificacion');
-  buildTipifTriTable('tableTipifCantidadMatrix', corte, buckets, cols, (a) => a.dniCount>0 ? a.dniCount.toLocaleString() : '–');
-  buildTipifTriTable('tableTipifIntentosMatrix', corte, buckets, cols, (a) => a.qllamadas>0 ? a.qllamadas.toLocaleString() : '–');
-  buildTipifTriTable('tableTipifPartMatrix', corte, buckets, cols, (a, denom, nivel) => {
-    if(nivel==='total') return a.dniCount>0 ? '100%' : '–';
-    if(!denom || denom.dniCount===0) return '–';
-    return pctFmt((a.dniCount/denom.dniCount)*100);
+  // Cantidad: el % de participación va pegado al número entre paréntesis (a pedido explícito,
+  // setiembre 2026, mismo formato que las tablas "leads y % participación" del resto del
+  // dashboard) -- reemplaza a la tabla separada "% Participación" que existía antes (eliminada
+  // por quedar redundante). nivel2 muestra su % dentro de su nivel1 (denom = totalN1BucketMes);
+  // "Subtotal nivel1" muestra su % dentro del total general (denom = totalGeneralBucketMes); la
+  // fila "Total" general se deja sin % (100% no aporta información).
+  buildTipifTriTable('tableTipifCantidadMatrix', corte, buckets, cols, (a, denom, nivel) => {
+    if(a.dniCount<=0) return '–';
+    if((nivel==='nivel2' || nivel==='subtotal1') && denom && denom.dniCount>0){
+      return a.dniCount.toLocaleString()+' (<strong>'+pctFmt((a.dniCount/denom.dniCount)*100)+'</strong>)';
+    }
+    return a.dniCount.toLocaleString();
   });
+  buildTipifTriTable('tableTipifIntentosMatrix', corte, buckets, cols, (a) => a.qllamadas>0 ? a.qllamadas.toLocaleString() : '–');
 }
 
 // ---------- PESTAÑA "VENTAS" (por rango de prima mensual, con calendario propio) ----------
@@ -3390,8 +3383,10 @@ function nestedToggleBarHtml(tableId){
 }
 // Fila de grupo (dim1) clicable para expandir/colapsar sus sub-filas (dim2). idx identifica el
 // grupo dentro de la tabla (tableId+idx = clave usada por data-group/data-parent).
-function nestedGroupRowHtml(tableId, idx, label, colspan){
-  return '<tr class="nested-group-row" data-group="'+tableId+'__'+idx+'"><td colspan="'+colspan+'" style="font-weight:700;color:var(--navy);"><span class="nested-caret">▾</span> '+label+'</td></tr>';
+function nestedGroupRowHtml(tableId, idx, label, colspan, colapsado){
+  const claseExtra = colapsado ? ' collapsed' : '';
+  const caretInicial = colapsado ? '▸' : '▾';
+  return '<tr class="nested-group-row'+claseExtra+'" data-group="'+tableId+'__'+idx+'"><td colspan="'+colspan+'" style="font-weight:700;color:var(--navy);"><span class="nested-caret">'+caretInicial+'</span> '+label+'</td></tr>';
 }
 function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, desde, hasta){
   const rowsAll = DATA[triKey]||[];
@@ -3701,6 +3696,49 @@ function renderInsights(corte){
       }
     }
   });
+  // ---------- Insights de Tipificaciones (a pedido explícito, setiembre 2026): Tasa de Cierre
+  // (TC) y participación por categoría Nivel 2, comparando el mes actual vs. el mes anterior al
+  // MISMO día de corte -- mismo criterio (umbral 15% de cambio relativo, participación mínima
+  // 8% para no reportar categorías chicas) que el resto de insights de esta función. Si la hoja
+  // "Tipificaciones" no existe todavía (DATA.tipificaciones vacío), este bloque simplemente no
+  // aporta candidatos y el resto de insights sigue funcionando igual.
+  if((DATA.tipificaciones||[]).length){
+    function tipifRowsIns(m, corteDia){ return DATA.tipificaciones.filter(r => r[0]===m && r[1]<=corteDia); }
+    const rowsA = tipifRowsIns(mesActual, corte), rowsP = tipifRowsIns(mesAnterior, corte);
+    const totalA = rowsA.reduce((s,r)=>s+r[8],0), totalP = rowsP.reduce((s,r)=>s+r[8],0);
+    const validoA = rowsA.filter(r=>esNivel1ContactoValido(r[2])).reduce((s,r)=>s+r[8],0);
+    const validoP = rowsP.filter(r=>esNivel1ContactoValido(r[2])).reduce((s,r)=>s+r[8],0);
+    // TC (Tasa de Cierre) consolidada = ventas reales del mes (vA/vP, ya calculadas arriba en
+    // esta función) ÷ DNI "1. Contacto Válido" de ese mes al mismo día de corte.
+    if(validoA>0 && validoP>0){
+      const tcA = vA/validoA, tcP = vP/validoP;
+      if(tcP>0){
+        const rel = (tcA-tcP)/tcP;
+        if(Math.abs(rel)>=0.15){
+          candidatos.push({cat:'tc', mag:Math.abs(rel)+0.1,
+            text:'La Tasa de Cierre (TC) de '+labelFull(mesActual)+' al día '+corte+' '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' a la misma fecha ('+pctFmt(tcP*100)+' → '+pctFmt(tcA*100)+').'});
+        }
+      }
+    }
+    // Participación por categoría Nivel 2 (TIPIFICACION_NIVEL2_BEST): el mayor cambio de
+    // participación de una categoría sobre el total de DNI tipificados, mes actual vs. anterior.
+    if(totalA>0 && totalP>0){
+      const n2sIns = [...new Set(rowsA.concat(rowsP).map(r=>r[3]))];
+      n2sIns.forEach(n2 => {
+        const dA = rowsA.filter(r=>r[3]===n2).reduce((s,r)=>s+r[8],0);
+        const dP = rowsP.filter(r=>r[3]===n2).reduce((s,r)=>s+r[8],0);
+        const pA = dA/totalA, pP = dP/totalP;
+        if(((pA+pP)/2) < 0.08) return; // mismo umbral de relevancia que el resto de insights
+        if(pP>0){
+          const rel = (pA-pP)/pP;
+          if(Math.abs(rel)>=0.15){
+            candidatos.push({cat:'tipificacion', mag:Math.abs(rel),
+              text:'Participación de la tipificación <strong>'+n2+'</strong> '+(rel>=0?'subió':'bajó')+' '+Math.abs(Math.round(rel*1000)/10)+'% vs. '+labelFull(mesAnterior)+' a la misma fecha ('+pctFmt(pP*100)+' → '+pctFmt(pA*100)+').'});
+          }
+        }
+      });
+    }
+  }
   // KPIs generales del mes
   if(vP>0){
     candidatos.push({cat:'kpi', mag:Math.abs(relVentasTotal),
@@ -3774,6 +3812,25 @@ function renderInsights(corte){
 // ---------- PESTAÑA COMITÉ ----------
 // 3 tablas (consolidado, solo Call Interno, solo Call Externo/Biznes) con Leads, Ventas,
 // Efectividad, PNA y PP reales al dia de corte + fila de Proyeccion (dias de gestion).
+// Identifica la fila de TIPIFICACION_NIVEL1_BEST que corresponde a "Contacto Válido" (ej. "1.
+// Contacto Válido"), usada para "% Contactabilidad" y "Tasa de cierre (TC)" de Comité y para el
+// insight de TC (setiembre 2026, a pedido explícito). Se le quitan tildes/mayúsculas para no
+// depender del acento exacto -- "Contacto No Válido" NO matchea porque "no" queda en el medio
+// ("contacto no valido" no contiene "contacto valido" como substring contiguo).
+function esNivel1ContactoValido(nivel1){
+  const norm = String(nivel1||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return norm.indexOf('contacto valido') >= 0;
+}
+// DNI únicos tipificados (todas las categorías Nivel 1) y DNI únicos "Contacto Válido", para un
+// mes/call/día de corte dado -- misma fuente (DATA.tipificaciones) y mismo criterio de corte
+// (día <= corteDia) que el resto de este dashboard.
+function contactabilidadTipif(m, corteDia, filtroCall){
+  const rows = (DATA.tipificaciones||[]).filter(r => r[0]===m && r[1]<=corteDia && (!filtroCall || r[5]===filtroCall));
+  return {
+    totalDni: rows.reduce((s,r)=>s+r[8],0),
+    validoDni: rows.filter(r=>esNivel1ContactoValido(r[2])).reduce((s,r)=>s+r[8],0)
+  };
+}
 function filaComite(nombre, valores, fmt){
   return '<tr><td>'+nombre+'</td>' + valores.map(v => '<td>'+(v===null||v===undefined?'–':fmt(v))+'</td>').join('') + '</tr>';
 }
@@ -3880,6 +3937,25 @@ function renderTablaComite(tableId, filtroCall, corte){
   html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Análisis de efectividad</td></tr>';
   html += filaComite('Participación ventas leads mes pasado (% ventas colchón)', colchonPartVals, v=>v);
   html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
+  // % Contactabilidad y Tasa de cierre (TC), basados en la hoja "Tipificaciones" (a pedido
+  // explícito, setiembre 2026). %Contactabilidad = DNI únicos tipificados como "1. Contacto
+  // Válido" ese mes (al mismo día de corte) ÷ TOTAL de DNI únicos tipificados ese mes (todas las
+  // categorías Nivel 1: Contacto Válido + Contacto No Válido + No Contacto). TC (Tasa de Cierre)
+  // = Ventas reales de ese mes/call al mismo día de corte (la misma cifra de la fila "Ventas" de
+  // arriba) ÷ esos DNI "1. Contacto Válido" -- confirmado explícitamente con el usuario que NO es
+  // un cruce por DNI contra ventas, sino ventas totales del mes dividido entre esos DNI. Si la
+  // hoja "Tipificaciones" todavía no existe o no tiene datos de este call/mes, queda "–" (mismo
+  // criterio de "–" que el resto de filas de esta tabla).
+  const contactVals = cols.map((m,i) => {
+    const c = contactabilidadTipif(m, corte, filtroCall);
+    return c.totalDni>0 ? pctFmt((c.validoDni/c.totalDni)*100) : null;
+  });
+  const tcVals = cols.map((m,i) => {
+    const c = contactabilidadTipif(m, corte, filtroCall);
+    return c.validoDni>0 ? pctFmt((ventasVals[i].v/c.validoDni)*100) : null;
+  });
+  html += filaComite('% Contactabilidad', contactVals, v=>v);
+  html += filaComite('Tasa de cierre (TC)', tcVals, v=>v);
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
