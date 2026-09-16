@@ -17,16 +17,41 @@
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
-  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--amber); }
+  header{ background:var(--navy); color:#fff; padding:28px 32px 20px; border-bottom:4px solid var(--amber); }
   header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
   header h1{ margin:0; font-size:26px; font-weight:600; }
-  header p.desc{ margin:6px 0 20px; color:#C3D2DE; font-size:14px; }
+  header p.desc{ margin:6px 0 0; color:#C3D2DE; font-size:14px; }
+  header .tabs-current{ margin:14px 0 0; font-size:13px; color:#B7C6D4; }
+  header .tabs-current strong{ color:#fff; }
   .tabs{ display:flex; gap:4px; flex-wrap:wrap; }
   .tab-btn{ background:transparent; border:none; color:#B7C6D4; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:500;
     padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; }
   .tab-btn.active{ color:#fff; border-bottom-color:var(--amber); }
   .tab-btn:hover{ color:#fff; }
   main{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
+  /* ---------- BARRA LATERAL DE PESTAÑAS ---------- */
+  #sidebarToggleBtn{ background:var(--navy-2); color:#fff; border:1px solid #2E4E70; border-radius:7px; padding:10px 16px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  #sidebarToggleBtn:hover{ background:#26456B; }
+  #sidebarOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10000; }
+  #sidebarOverlay.open{ display:block; }
+  #sidebarNav{ position:fixed; top:0; left:0; bottom:0; width:300px; max-width:85vw; background:var(--navy); color:#fff; z-index:10001;
+    box-shadow:4px 0 24px rgba(0,0,0,0.3); transform:translateX(-100%); transition:transform .22s ease; display:flex; flex-direction:column; }
+  #sidebarNav.open{ transform:translateX(0); }
+  #sidebarNav .sidebar-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px;
+    font-weight:600; font-size:15px; border-bottom:1px solid #2E4E70; flex-shrink:0; }
+  #sidebarCloseBtn{ background:none; border:none; color:#B7C6D4; font-size:18px; cursor:pointer; line-height:1; padding:4px; }
+  #sidebarCloseBtn:hover{ color:#fff; }
+  #sidebarSearchInput{ margin:14px 18px; padding:10px 12px; border-radius:8px; border:1px solid #2E4E70; background:#0F2138;
+    color:#fff; font-family:inherit; font-size:13px; flex-shrink:0; }
+  #sidebarSearchInput::placeholder{ color:#7E93A8; }
+  #sidebarSearchInput:focus{ outline:none; border-color:var(--amber); }
+  #sidebarNav .tabs{ display:flex; flex-direction:column; gap:2px; overflow-y:auto; padding:0 10px 18px; }
+  #sidebarNav .tab-btn{ text-align:left; border-radius:7px; border-bottom:none; padding:11px 12px; }
+  #sidebarNav .tab-btn.active{ background:var(--amber); color:#fff; border-bottom-color:transparent; }
+  #sidebarNav .tab-btn:hover{ background:#1D3A5F; color:#fff; }
+  #sidebarNav .tab-btn.tab-btn-oculto{ display:none; }
+  #sidebarNav .tabs-empty{ padding:12px; font-size:13px; color:#8FA6BB; }
   .tabpanel{ display:none; }
   .tabpanel.active{ display:block; }
   .controls{ display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; flex-wrap:wrap; }
@@ -145,16 +170,39 @@
   </div>
 </div>
 
-<header>
-  <p class="eyebrow">InterSeguro · Productos digitales</p>
-  <h1>Dashboard de ventas — Inversión Segura</h1>
-  <p class="desc" id="headerDesc">Producto Inversión Segura · 2026</p>
-  <div class="tabs">
+<!-- BARRA LATERAL DE PESTAÑAS (setiembre 2026, mismo cambio que en Vida/Rumbo): antes las 4
+     pestañas estaban todas en una fila arriba, y CUALQUIER filtro recalculaba las 4 pestañas
+     aunque solo una estuviera a la vista (ver "RENDER PEREZOSO POR PESTAÑA" en el bloque de
+     JavaScript, más abajo, para el otro lado de este mismo arreglo). Ahora las pestañas viven en
+     este panel lateral (se abre con el botón "☰ Pestañas" del header), con un buscador arriba de
+     la lista. Los <button class="tab-btn" data-tab="..."> son EXACTAMENTE los mismos de siempre
+     (mismas clases/atributos, solo se movieron de lugar) -- el buscador de tablas y el
+     redimensionado de columnas siguen funcionando sin tocarlos. -->
+<div id="sidebarOverlay"></div>
+<nav id="sidebarNav" aria-label="Pestañas del dashboard">
+  <div class="sidebar-header">
+    <span>Pestañas</span>
+    <button id="sidebarCloseBtn" type="button" aria-label="Cerrar panel de pestañas">✕</button>
+  </div>
+  <input type="text" id="sidebarSearchInput" placeholder="Buscar pestaña…" autocomplete="off">
+  <div class="tabs" id="sidebarTabList">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="fuente">Por fuente</button>
     <button class="tab-btn" data-tab="ventas">Ventas</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
   </div>
+</nav>
+
+<header>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p class="eyebrow">InterSeguro · Productos digitales</p>
+      <h1>Dashboard de ventas — Inversión Segura</h1>
+      <p class="desc" id="headerDesc">Producto Inversión Segura · 2026</p>
+    </div>
+    <button id="sidebarToggleBtn" type="button">☰ Pestañas</button>
+  </div>
+  <p class="tabs-current">Viendo: <strong id="tabsCurrentLabel">Resumen</strong></p>
 </header>
 
 <main>
@@ -619,6 +667,100 @@ function proyectarCierre(field, valorActual, corte){
 }
 
 // ---------- TABS ----------
+// ---------- RENDER PEREZOSO POR PESTAÑA (setiembre 2026, mismo cambio que en Vida/Rumbo) ----------
+// Antes, render(desde, corte) recalculaba las 4 pestañas de una sola vez con cada filtro, sin
+// importar cual estuviera a la vista. Ahora cada filtro solo marca las 4 pestañas como
+// "pendientes" de un nuevo calculo, y recalcula de una sola vez la que se esta mirando en este
+// momento -- el resto se recalcula recien cuando el usuario las abre (ver renderTabSiPendiente).
+// Inversion Segura no tiene el mecanismo de "restaurar pestaña activa" (no hay filtro de
+// producto que recargue la pagina), asi que aca no hace falta reubicar corteActual/desdeActual.
+const TAB_KEYS = ['resumen','fuente','ventas','vintage'];
+let activeTabKey = 'resumen';
+let tabsPendientes = new Set(TAB_KEYS);
+function renderTab(key, corte){
+  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+  if(key === 'resumen'){
+    let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
+    intentar('renderResumenKPIs', () => {
+      const idxActual = mesesV.indexOf(mesActual);
+      const idxAnterior = idxActual - 1;
+      const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
+      ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+      const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+      primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
+      leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+
+      document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+      const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
+      const diffEl = document.getElementById('kVsAnt');
+      diffEl.textContent = (diff>=0?'+':'') + diff + '%';
+      diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
+      document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
+
+      if(!chVentasCorte){
+        chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
+          type:'bar', data:{ labels:labelsV, datasets:[
+            {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
+            {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+            layout:{ padding:{ top:18 } },
+            scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
+
+      ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+      primaProy = proyectarCierre('pna', primaActual, corte);
+      leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+      const ventasRestante = ventasProy - ventasActual;
+      document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
+      document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
+      document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
+
+      const mesesCerradosProy = mesesV.slice(0, -1);
+      const labelsCerradosProy = labelsV.slice(0, -1);
+      const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+      const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const proyLabels=[...labelsCerradosProy, actualAbrCorto];
+      const proyReal=[...ventasCerradosArr, ventasActual];
+      const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+      if(!chProyeccion){
+        chProyeccion = new Chart(document.getElementById('chProyeccion'), {
+          type:'bar', data:{ labels:proyLabels, datasets:[
+            {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+            {label:'Proyección resto del mes', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+            scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
+    });
+    intentar('renderCohortTable', () => renderCohortTable(corte));
+    intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
+    intentar('renderInsights', () => renderInsights(corte));
+  } else if(key === 'fuente'){
+    intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente', null, true));
+    intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], null, corte, 'fuente', null, true));
+    intentar('renderCampanaTable', () => renderCampanaTable());
+  } else if(key === 'ventas'){
+    intentar('renderMatrixSet Monto', () => renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto', filtroMonedaVentas));
+  } else if(key === 'vintage'){
+    intentar('renderVintageTable', () => renderVintageTable(corte));
+    intentar('renderDiasConversion', () => renderDiasConversion(corte));
+  }
+}
+// Vuelve a calcular la pestaña "key" SOLO si quedó pendiente (por un filtro aplicado mientras
+// estaba cerrada, o porque todavía no se dibujó nunca). Si la pestaña falla, se deja pendiente
+// para reintentar la próxima vez, en vez de darla por hecha.
+function renderTabSiPendiente(key){
+  if(!tabsPendientes.has(key)) return;
+  try {
+    renderTab(key, corteActual);
+    tabsPendientes.delete(key);
+  } catch(e) {
+    console.error('Error dibujando la pestaña "'+key+'":', e);
+  }
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -627,8 +769,45 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     const rangoFechasBlock = document.getElementById('rangoFechasBlock');
     if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
+    const label = document.getElementById('tabsCurrentLabel');
+    if(label) label.textContent = btn.textContent.trim();
+    if(window.__cerrarSidebarPestañas) window.__cerrarSidebarPestañas();
+    activeTabKey = btn.dataset.tab;
+    renderTabSiPendiente(activeTabKey);
   });
 });
+// ---------- BARRA LATERAL DE PESTAÑAS: abrir/cerrar + buscador ----------
+(function initSidebarPestañas(){
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const nav = document.getElementById('sidebarNav');
+  const overlay = document.getElementById('sidebarOverlay');
+  const closeBtn = document.getElementById('sidebarCloseBtn');
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if(!toggleBtn || !nav || !overlay || !closeBtn || !searchInput) return;
+  function normalizar(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+  function filtrar(){
+    const q = normalizar(searchInput.value);
+    Array.from(nav.querySelectorAll('.tab-btn')).forEach(b => {
+      const coincide = !q || normalizar(b.textContent).includes(q);
+      b.classList.toggle('tab-btn-oculto', !coincide);
+    });
+  }
+  function abrir(){
+    nav.classList.add('open'); overlay.classList.add('open');
+    searchInput.value = '';
+    filtrar();
+    setTimeout(() => searchInput.focus(), 30);
+  }
+  function cerrar(){
+    nav.classList.remove('open'); overlay.classList.remove('open');
+  }
+  toggleBtn.addEventListener('click', abrir);
+  closeBtn.addEventListener('click', cerrar);
+  overlay.addEventListener('click', cerrar);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && nav.classList.contains('open')) cerrar(); });
+  searchInput.addEventListener('input', filtrar);
+  window.__cerrarSidebarPestañas = cerrar;
+})();
 
 // ---------- FILTRO DE MESES POR HOJA ----------
 const TABS_CON_FILTRO_MESES = ['resumen','fuente','ventasmonto','vintage'];
@@ -865,19 +1044,14 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
   M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, relevancia[d]), null, null, ordenEfect, cols);
   return M;
 }
-function renderAllMatrixSets(corte){
-  // Fuente / Subfuente de CAMPAÑA (Google/Facebook/TikTok, Paid Search/PMax/PSocial), a partir
-  // de la columna "source" de Gestión Leads -- mismo formato de 6 tablas que usan Vida y Rumbo
-  // (Leads y %Part, Ventas, Ventas con lead del mismo mes, Venta Colchón, %Part Colchón,
-  // Efectividad) para cada una de las 2 dimensiones.
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente', null, true);
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], null, corte, 'fuente', null, true);
-  renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto', filtroMonedaVentas);
-  // Las tablas de "rango de edad" (Leads/Ventas/Efectividad) se quitaron: casi todos los leads
-  // y ventas caían en "Sin dato" (sin fecha de nacimiento disponible), así que no aportaban
-  // información útil. leads_by_edad/sales_by_edad se conservan en el .gs porque los sigue
-  // usando "Insights del mes" (Resumen), que ya descarta dimensiones con poca participación.
-}
+// renderAllMatrixSets(corte) ya no existe como función única: sus 3 llamadas a renderMatrixSet
+// (Fuente y Subfuente de campaña, y Monto) se movieron dentro de renderTab(), en las ramas
+// 'fuente' y 'ventas' respectivamente, para que el render perezoso por pestaña funcione (ver
+// bloque de JavaScript "RENDER PEREZOSO POR PESTAÑA" más arriba). Las tablas de "rango de edad"
+// (Leads/Ventas/Efectividad) se quitaron: casi todos los leads y ventas caían en "Sin dato" (sin
+// fecha de nacimiento disponible), así que no aportaban información útil. leads_by_edad/
+// sales_by_edad se conservan en el .gs porque los sigue usando "Insights del mes" (Resumen), que
+// ya descarta dimensiones con poca participación.
 // ---------- PÓLIZAS POR CLIENTE ----------
 function renderPolizasCliente(corte){
   const porDni = {};
@@ -1149,80 +1323,17 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
 });
 
 // ---------- RENDER PRINCIPAL ----------
+// render(desde, corte) ya no recalcula las 4 pestañas de una sola vez: ahora solo guarda el
+// corte/rango elegido, marca las 4 pestañas como pendientes de un nuevo cálculo, y de una sola
+// vez recalcula la que se está viendo en este momento (la lógica real de cada pestaña vive en
+// renderTab(), ver el bloque de JavaScript "RENDER PEREZOSO POR PESTAÑA" más arriba).
 function render(desde, corte){
   if (corte === undefined) { corte = desde; desde = desdeActual; }
   desdeActual = desde;
   corteActual = corte;
   document.getElementById('corteVal').textContent = (desde > 1 ? ('Días ' + desde + '–' + corte) : ('Día ' + corte));
-  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
-
-  let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
-  intentar('renderResumenKPIs', () => {
-    const idxActual = mesesV.indexOf(mesActual);
-    const idxAnterior = idxActual - 1;
-    const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-    ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
-    const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
-    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
-    leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
-
-    document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
-    const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
-    const diffEl = document.getElementById('kVsAnt');
-    diffEl.textContent = (diff>=0?'+':'') + diff + '%';
-    diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
-    document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
-
-    if(!chVentasCorte){
-      chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
-        type:'bar', data:{ labels:labelsV, datasets:[
-          {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
-          {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
-        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
-          // Ronda: se agrega padding arriba del área del gráfico -- sin esto, cuando la barra más
-          // alta del mes toca justo el máximo del eje Y (ej. agosto llegando a 9, con el eje
-          // también terminando en 9), el número que va ARRIBA de esa barra (dlPlain usa
-          // anchor:'end', align:'top') no tiene espacio y queda cortado/invisible, aunque la
-          // barra sí se dibuja bien. Con este padding siempre queda un margen libre arriba,
-          // sin importar qué tan alto llegue el valor.
-          layout:{ padding:{ top:18 } },
-          scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
-
-    ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
-    primaProy = proyectarCierre('pna', primaActual, corte);
-    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
-    const ventasRestante = ventasProy - ventasActual;
-    document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
-    document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
-    document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
-
-    const mesesCerradosProy = mesesV.slice(0, -1);
-    const labelsCerradosProy = labelsV.slice(0, -1);
-    const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
-    const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const proyLabels=[...labelsCerradosProy, actualAbrCorto];
-    const proyReal=[...ventasCerradosArr, ventasActual];
-    const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
-    if(!chProyeccion){
-      chProyeccion = new Chart(document.getElementById('chProyeccion'), {
-        type:'bar', data:{ labels:proyLabels, datasets:[
-          {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-          {label:'Proyección resto del mes', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
-        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
-  });
-  intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
-  intentar('renderCampanaTable', () => renderCampanaTable());
-  intentar('renderCohortTable', () => renderCohortTable(corte));
-  intentar('renderVintageTable', () => renderVintageTable(corte));
-  intentar('renderDiasConversion', () => renderDiasConversion(corte));
-  intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
-  intentar('renderInsights', () => renderInsights(corte));
+  TAB_KEYS.forEach(k => tabsPendientes.add(k));
+  renderTabSiPendiente(activeTabKey);
 }
 
 // ---------- "Campañas con más leads" (misma lógica y front que Vida/Rumbo; ver
