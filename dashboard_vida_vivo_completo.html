@@ -3306,31 +3306,33 @@ function filasTipifFiltradas(corte){
   const sSet = subfuenteFiltroTipif || new Set(universoSubfuenteTipif());
   return rowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte && fSet.has(r[6]) && sSet.has(r[7]));
 }
-// Orden de cada nivel: por cantidad de DNI (r[8]) de mayor a menor, "Sin dato" siempre al final
-// (mismo criterio que pushSinDatoLast, ya usado por Etiqueta/Propensión) -- nivel2/nivel3 se
-// ordenan DENTRO de su nivel superior (solo con las filas que ya matchean ese nivel1/nivel2).
+// Orden de cada nivel: ASCENDENTE por el número al inicio del texto (ej. "1. Contacto Válido",
+// "2. Contacto No Válido", "3. No Contacto"; dentro de cada nivel1, "1. Venta" ... "8. No Desea"
+// en orden creciente) -- a pedido explícito, setiembre 2026. Antes se ordenaba por cantidad de
+// DNI de mayor a menor; el usuario prefirió el orden numérico fijo de la tipificación en vez del
+// orden por volumen. "Sin dato" (sin número al inicio) sigue yendo siempre al final, igual que
+// antes (pushSinDatoLast) -- nivel2/nivel3 se ordenan DENTRO de su nivel superior (solo con las
+// filas que ya matchean ese nivel1/nivel2).
+function numeroPrefijoTipif(d){
+  const m = String(d).match(/^\s*(\d+)/);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
 function dimsOrdenadosTipifN1(corte){
   const rows = filasTipifFiltradas(corte);
   let dims = [...new Set(rows.map(r=>r[2]))];
-  const totals = {};
-  dims.forEach(d => { totals[d] = rows.filter(r=>r[2]===d).reduce((s,r)=>s+r[8],0); });
-  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  dims = dims.sort((a,b)=> numeroPrefijoTipif(a)-numeroPrefijoTipif(b));
   return pushSinDatoLast(dims);
 }
 function dimsOrdenadosTipifN2(corte, n1){
   const rows = filasTipifFiltradas(corte).filter(r=>r[2]===n1);
   let dims = [...new Set(rows.map(r=>r[3]))];
-  const totals = {};
-  dims.forEach(d => { totals[d] = rows.filter(r=>r[3]===d).reduce((s,r)=>s+r[8],0); });
-  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  dims = dims.sort((a,b)=> numeroPrefijoTipif(a)-numeroPrefijoTipif(b));
   return pushSinDatoLast(dims);
 }
 function dimsOrdenadosTipifN3(corte, n1, n2){
   const rows = filasTipifFiltradas(corte).filter(r=>r[2]===n1 && r[3]===n2);
   let dims = [...new Set(rows.map(r=>r[4]))];
-  const totals = {};
-  dims.forEach(d => { totals[d] = rows.filter(r=>r[4]===d).reduce((s,r)=>s+r[8],0); });
-  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  dims = dims.sort((a,b)=> numeroPrefijoTipif(a)-numeroPrefijoTipif(b));
   return pushSinDatoLast(dims);
 }
 // Tabla de 2 niveles (nivel1 = grupo expandible, nivel2 = sub-fila) x call center (columna
