@@ -3350,24 +3350,52 @@ function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
   function sumarAggTipif(parts){
     return { dniCount: parts.reduce((s,p)=>s+p.dniCount,0), qllamadas: parts.reduce((s,p)=>s+p.qllamadas,0) };
   }
+  // Memoización local a este render: antes, el subtotal de un nivel1 (totalN1BucketMes) se
+  // recalculaba desde cero por cada fila de nivel2 debajo de él (porque se llama una vez para
+  // pintar esa fila Y otra vez, indirectamente, dentro de totalN1BucketMes de sus hermanas) --
+  // igual pasaba con el total general, recalculado desde cero por cada nivel1 (fila "Subtotal").
+  // Con varios call centers/meses elegidos esto multiplicaba el trabajo varias veces de más y
+  // hacía sentir lenta la pestaña al aplicar un filtro. Ahora cada combinación (n1/n2/n3, bucket,
+  // mes) se calcula una sola vez y se reutiliza -- los Map() se crean de nuevo en cada llamada a
+  // buildTipifTriTable, así nunca quedan cifras viejas de un render anterior.
+  const cacheAgg = new Map();
   function agg(n1, n2, n3, bucket, mes){
+    const key = n1+''+n2+''+n3+''+bucket+''+mes;
+    if(cacheAgg.has(key)) return cacheAgg.get(key);
     const sub = rows.filter(r => r[2]===n1 && r[3]===n2 && r[4]===n3 && r[0]===mes && r[5]===bucket);
-    return { dniCount: sub.reduce((s,r)=>s+r[8],0), qllamadas: sub.reduce((s,r)=>s+r[9],0) };
+    const res = { dniCount: sub.reduce((s,r)=>s+r[8],0), qllamadas: sub.reduce((s,r)=>s+r[9],0) };
+    cacheAgg.set(key, res);
+    return res;
   }
   function aggConTotal(n1,n2,n3,bucket,mes){
     if(bucket==='Total') return sumarAggTipif(buckets.map(b=>agg(n1,n2,n3,b,mes)));
     return agg(n1,n2,n3,bucket,mes);
   }
+  const cacheN2 = new Map();
   function totalN2BucketMes(n1,n2,bucket,mes){
+    const key = n1+''+n2+''+bucket+''+mes;
+    if(cacheN2.has(key)) return cacheN2.get(key);
     const n3s = dimsOrdenadosTipifN3(corte,n1,n2);
-    return sumarAggTipif(n3s.map(n3=>aggConTotal(n1,n2,n3,bucket,mes)));
+    const res = sumarAggTipif(n3s.map(n3=>aggConTotal(n1,n2,n3,bucket,mes)));
+    cacheN2.set(key, res);
+    return res;
   }
+  const cacheN1 = new Map();
   function totalN1BucketMes(n1,bucket,mes){
+    const key = n1+''+bucket+''+mes;
+    if(cacheN1.has(key)) return cacheN1.get(key);
     const n2s = dimsOrdenadosTipifN2(corte,n1);
-    return sumarAggTipif(n2s.map(n2=>totalN2BucketMes(n1,n2,bucket,mes)));
+    const res = sumarAggTipif(n2s.map(n2=>totalN2BucketMes(n1,n2,bucket,mes)));
+    cacheN1.set(key, res);
+    return res;
   }
+  const cacheGeneral = new Map();
   function totalGeneralBucketMes(bucket,mes){
-    return sumarAggTipif(n1s.map(n1=>totalN1BucketMes(n1,bucket,mes)));
+    const key = bucket+''+mes;
+    if(cacheGeneral.has(key)) return cacheGeneral.get(key);
+    const res = sumarAggTipif(n1s.map(n1=>totalN1BucketMes(n1,bucket,mes)));
+    cacheGeneral.set(key, res);
+    return res;
   }
   const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
