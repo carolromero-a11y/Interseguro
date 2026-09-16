@@ -179,6 +179,7 @@
     <button class="tab-btn" data-tab="call">Por call center</button>
     <button class="tab-btn" data-tab="producto">Por producto</button>
     <button class="tab-btn" data-tab="fuente">Por fuente y subfuente</button>
+    <button class="tab-btn" data-tab="tipificacion">Por tipificación</button>
     <button class="tab-btn" data-tab="ventas">Ventas</button>
     <button class="tab-btn" data-tab="vintage">Antigüedad del lead</button>
     <button class="tab-btn" data-tab="calidad">Calidad de lead y PNA/PP</button>
@@ -559,6 +560,45 @@
     <p class="note" id="notaCallOtrosFuente" style="display:none;">"Otros" (en el filtro de call) agrupa A365, Inbound, Sin call - influencia directa y WhatsApp.</p>
   </div>
 
+  <!-- ===== TAB: POR TIPIFICACIÓN (hoja "Tipificaciones" del Google Sheets, solo Vida) ===== -->
+  <div class="tabpanel" id="tab-tipificacion">
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="tipificacion">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="tipificacion-call">
+        <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="tipif-fuente">
+        <button type="button" class="dropdown-filter-btn" data-role="tipif-fuente-filter-btn">Fuente: <span data-role="tipif-fuente-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="tipif-fuente-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="tipif-subfuente">
+        <button type="button" class="dropdown-filter-btn" data-role="tipif-subfuente-filter-btn">Sub fuente: <span data-role="tipif-subfuente-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="tipif-subfuente-filter-panel"></div>
+      </div>
+      <span class="filter-hint">Fuente/Sub fuente se cruzan por DNI contra el lead más reciente de Vida (filtran los datos). El call center agrega columnas, agrupando los meses debajo de cada uno. mcontact = Call Interno; a365 y cualquier otro valor van a "Otros".</span>
+    </div>
+    <p class="note">Fila principal = Tipificación Nivel 1, sub-fila = Nivel 2, sub-sub-fila = Nivel 3 (clic en la fila principal para expandir/colapsar). Fuente: hoja "Tipificaciones" del Google Sheets de Vida. Respeta el filtro de producto (Vida Cash/Endoso/Ambos) de arriba y el día de corte.</p>
+    <section>
+      <h2>Cantidad (DNI únicos) por tipificación — todos los meses</h2>
+      <p class="sub">Cantidad de documentos (DNI) únicos tipificados en el mes, contados una sola vez aunque un DNI haya sido re-tipificado varias veces ese mes (se toma su tipificación más reciente del mes).</p>
+      <div class="table-wrap"><table class="data-table" id="tableTipifCantidadMatrix"></table></div>
+    </section>
+    <section>
+      <h2>% Participación por tipificación — todos los meses</h2>
+      <p class="sub">Participación de cada tipificación dentro de su nivel superior (Nivel 3 dentro de su Nivel 2, Nivel 2 dentro de su Nivel 1, Nivel 1 dentro del total general de ese mes/call).</p>
+      <div class="table-wrap"><table class="data-table" id="tableTipifPartMatrix"></table></div>
+    </section>
+    <section>
+      <h2>Intentos (Q_LLAMADAS) por tipificación — todos los meses</h2>
+      <p class="sub">Suma de la columna Q_LLAMADAS de todas las gestiones de ese DNI en el mes (no se dedup: si un DNI fue tipificado varias veces en el mismo mes, sus llamadas se suman todas).</p>
+      <div class="table-wrap"><table class="data-table" id="tableTipifIntentosMatrix"></table></div>
+    </section>
+  </div>
+
   <!-- ===== TAB: VENTAS (por rango de prima mensual) ===== -->
   <div class="tabpanel" id="tab-ventas">
     <div class="filter-bar">
@@ -856,7 +896,11 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // dimensiones (etiqueta, propensión, call) son igual forma que sales_tri_fuente_rangoprima_call
   // (5 columnas de llave: mes, dia, d1, d2, d3) tanto para leads como para ventas.
   ['leads_by_etiqueta',3],
-  ['leads_tri_etiqueta_propension_call',5], ['sales_tri_etiqueta_propension_call',5]
+  ['leads_tri_etiqueta_propension_call',5], ['sales_tri_etiqueta_propension_call',5],
+  // Tipificaciones (hoja "Tipificaciones", pestaña "Por tipificación", solo Vida, agosto 2026):
+  // [mes, dia, nivel1, nivel2, nivel3, call, fuente, subfuente, dniCount, qllamadas, producto] --
+  // 8 columnas de llave (mes..subfuente) antes de los 2 valores a sumar (dniCount, qllamadas).
+  ['tipificaciones',8]
 ];
 
 // Aplica el filtro de producto sobre la variable global DATA (in-place). Se llama UNA vez,
@@ -1005,7 +1049,7 @@ fetch(OUTPUT_URL)
       'sales_by_rango_prima_venta','sales_cross_rangoprima_call','sales_cross_rangodevolucion_call',
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
       'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias',
-      'leads_by_etiqueta','leads_tri_etiqueta_propension_call','sales_tri_etiqueta_propension_call'];
+      'leads_by_etiqueta','leads_tri_etiqueta_propension_call','sales_tri_etiqueta_propension_call','tipificaciones'];
     const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto','dias_mediana_mes_call'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
@@ -2513,7 +2557,7 @@ function efectCellColored(agg_d, m, mesesArr, totalLeadsPorMesObj, esRelevante){
 // No afecta el dia de corte ni a las demas hojas -- solo oculta/muestra columnas; los calculos
 // (totales, comparacion vs. mes anterior, relevancia >=8%) siempre se hacen sobre el historico
 // completo.
-const TABS_CON_FILTRO_MESES = ['resumen','call','producto','fuente','vintage','calidad'];
+const TABS_CON_FILTRO_MESES = ['resumen','call','producto','fuente','vintage','calidad','tipificacion'];
 const filtroMesesTab = {};
 function ultimosN(lista, n){ return lista.slice(Math.max(0, lista.length-n)); }
 const mesMarzoRef = mesesL.find(m => m.endsWith('-03')) || mesesV.find(m => m.endsWith('-03')) || null;
@@ -2638,6 +2682,7 @@ function renderAllMatrixSets(corte){
   renderCallFiltroProducto(corte);
   renderCallFiltroFuente(corte);
   renderEtiquetaPropensionFuente(corte);
+  renderTablaTipificacion(corte);
 }
 // ---------- FILTRO DE CALL CENTER (pestañas Producto y Fuente/Subfuente) ----------
 function callBucket(c){
@@ -2662,7 +2707,7 @@ function callBucketVoz(c){
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
 // Un filtro de call independiente por pestaña (mismo patron que filtroMesesTab para los meses).
-const CALL_FILTRO_TABS = ['producto','fuente','ventas'];
+const CALL_FILTRO_TABS = ['producto','fuente','ventas','tipificacion'];
 let callFiltroTab = {};
 CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
 function construirDropdownCall(tab){
@@ -2959,6 +3004,243 @@ function renderEtiquetaPropensionFuente(corte){
   buildCallNestedSubfilasMulti('tableEtiquetaColchonMatrix', grupos, aggCelda, buckets, cols, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
   buildCallNestedSubfilasMulti('tableEtiquetaMismoMesMatrix', grupos, aggCelda, buckets, cols, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
   buildCallNestedSubfilasMulti('tableEtiquetaEfectMatrix', grupos, aggCelda, buckets, cols, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+}
+
+// ---------- PESTAÑA "POR TIPIFICACIÓN" (hoja "Tipificaciones", solo Vida, setiembre 2026) ----------
+// DATA.tipificaciones: [mes, dia, nivel1, nivel2, nivel3, call, fuente, subfuente, dniCount,
+// qllamadas] (el "producto", que el .gs manda al final de cada fila, ya fue consumido y quitado
+// por colapsarTuplasPorProducto() dentro de aplicarFiltroProducto() -- mismo mecanismo que el
+// resto de tuplas con filtro de producto). El call center (r[5]) ya viene normalizado a
+// 'Interno'/'Biznes'/'Otros' desde el propio .gs (normalizaCallTipificacion), así que acá NO
+// hace falta pasarlo por callBucket()/callBucketVoz() como sí hace el resto del dashboard con
+// el call center crudo de Leads/Ventas.
+//
+// Fuente/Sub fuente de esta pestaña son 2 desplegables NUEVOS que SI filtran los datos (a
+// diferencia del desplegable de call center, que solo agrupa como columna) -- mismo mecanismo
+// que "Rango de prima" en la pestaña Ventas (construirDropdownPrima/primaFiltroVentas): al
+// desmarcar una opción, esas filas quedan completamente excluidas de las 3 tablas de esta hoja
+// (totales, orden de filas, todo). Por default (antes del primer render, cuando todavía no se
+// conoce el universo real de fuentes) valen null y se tratan como "todas".
+let fuenteFiltroTipif = null, subfuenteFiltroTipif = null;
+function universoFuenteTipif(){ return pushCatchAllLast([...new Set((DATA.tipificaciones||[]).map(r=>r[6]))]); }
+function universoSubfuenteTipif(){ return pushCatchAllLast([...new Set((DATA.tipificaciones||[]).map(r=>r[7]))]); }
+function construirDropdownFuenteTipif(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="tipif-fuente"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="tipif-fuente-filter-btn"]');
+  const label = wrap.querySelector('[data-role="tipif-fuente-filter-label"]');
+  const panel = wrap.querySelector('[data-role="tipif-fuente-filter-panel"]');
+  if(!btn || !panel) return;
+  const universo = universoFuenteTipif();
+  if(!universo.length) return; // todavia no llegaron datos de Tipificaciones -- se reintenta en el siguiente render()
+  if(fuenteFiltroTipif === null) fuenteFiltroTipif = new Set(universo);
+  if(!panel.dataset.filled){
+    panel.innerHTML = universo.map(v =>
+      '<label><input type="checkbox" value="'+v+'" '+(fuenteFiltroTipif.has(v)?'checked':'')+'> '+v+'</label>'
+    ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
+    panel.dataset.filled = '1';
+    panel.addEventListener('click', e => e.stopPropagation());
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) fuenteFiltroTipif.add(cb.value); else fuenteFiltroTipif.delete(cb.value);
+        actualizarLabelFuenteTipif(); render(desdeActual, corteActual);
+      });
+    });
+    panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+      fuenteFiltroTipif = new Set(universo);
+      panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+      actualizarLabelFuenteTipif(); render(desdeActual, corteActual);
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+      panel.classList.toggle('open');
+    });
+  }
+  actualizarLabelFuenteTipif();
+}
+function actualizarLabelFuenteTipif(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="tipif-fuente"]');
+  if(!wrap || !fuenteFiltroTipif) return;
+  const label = wrap.querySelector('[data-role="tipif-fuente-filter-label"]');
+  if(!label) return;
+  const universo = universoFuenteTipif();
+  label.textContent = fuenteFiltroTipif.size >= universo.length ? 'Todas' : (Array.from(fuenteFiltroTipif).join(', ') || 'ninguna');
+}
+function construirDropdownSubfuenteTipif(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="tipif-subfuente"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="tipif-subfuente-filter-btn"]');
+  const label = wrap.querySelector('[data-role="tipif-subfuente-filter-label"]');
+  const panel = wrap.querySelector('[data-role="tipif-subfuente-filter-panel"]');
+  if(!btn || !panel) return;
+  const universo = universoSubfuenteTipif();
+  if(!universo.length) return;
+  if(subfuenteFiltroTipif === null) subfuenteFiltroTipif = new Set(universo);
+  if(!panel.dataset.filled){
+    panel.innerHTML = universo.map(v =>
+      '<label><input type="checkbox" value="'+v+'" '+(subfuenteFiltroTipif.has(v)?'checked':'')+'> '+v+'</label>'
+    ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
+    panel.dataset.filled = '1';
+    panel.addEventListener('click', e => e.stopPropagation());
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) subfuenteFiltroTipif.add(cb.value); else subfuenteFiltroTipif.delete(cb.value);
+        actualizarLabelSubfuenteTipif(); render(desdeActual, corteActual);
+      });
+    });
+    panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+      subfuenteFiltroTipif = new Set(universo);
+      panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+      actualizarLabelSubfuenteTipif(); render(desdeActual, corteActual);
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+      panel.classList.toggle('open');
+    });
+  }
+  actualizarLabelSubfuenteTipif();
+}
+function actualizarLabelSubfuenteTipif(){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="tipif-subfuente"]');
+  if(!wrap || !subfuenteFiltroTipif) return;
+  const label = wrap.querySelector('[data-role="tipif-subfuente-filter-label"]');
+  if(!label) return;
+  const universo = universoSubfuenteTipif();
+  label.textContent = subfuenteFiltroTipif.size >= universo.length ? 'Todas' : (Array.from(subfuenteFiltroTipif).join(', ') || 'ninguna');
+}
+
+// Filas de Tipificaciones dentro del rango de dia de corte y de los 2 filtros de fuente/sub
+// fuente (si todavia no se construyeron los desplegables -- ej. el primerisimo render antes de
+// que haya datos -- se tratan como "todas", igual que el resto de filtros de este dashboard).
+function filasTipifFiltradas(corte){
+  const rowsAll = DATA.tipificaciones||[];
+  const fSet = fuenteFiltroTipif || new Set(universoFuenteTipif());
+  const sSet = subfuenteFiltroTipif || new Set(universoSubfuenteTipif());
+  return rowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte && fSet.has(r[6]) && sSet.has(r[7]));
+}
+// Orden de cada nivel: por cantidad de DNI (r[8]) de mayor a menor, "Sin dato" siempre al final
+// (mismo criterio que pushSinDatoLast, ya usado por Etiqueta/Propensión) -- nivel2/nivel3 se
+// ordenan DENTRO de su nivel superior (solo con las filas que ya matchean ese nivel1/nivel2).
+function dimsOrdenadosTipifN1(corte){
+  const rows = filasTipifFiltradas(corte);
+  let dims = [...new Set(rows.map(r=>r[2]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = rows.filter(r=>r[2]===d).reduce((s,r)=>s+r[8],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushSinDatoLast(dims);
+}
+function dimsOrdenadosTipifN2(corte, n1){
+  const rows = filasTipifFiltradas(corte).filter(r=>r[2]===n1);
+  let dims = [...new Set(rows.map(r=>r[3]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = rows.filter(r=>r[3]===d).reduce((s,r)=>s+r[8],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushSinDatoLast(dims);
+}
+function dimsOrdenadosTipifN3(corte, n1, n2){
+  const rows = filasTipifFiltradas(corte).filter(r=>r[2]===n1 && r[3]===n2);
+  let dims = [...new Set(rows.map(r=>r[4]))];
+  const totals = {};
+  dims.forEach(d => { totals[d] = rows.filter(r=>r[4]===d).reduce((s,r)=>s+r[8],0); });
+  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  return pushSinDatoLast(dims);
+}
+// Tabla de 3 niveles (nivel1 = grupo expandible, nivel2 = sub-fila, nivel3 = sub-sub-fila) x
+// call center (columna agrupadora, solo los buckets elegidos en el desplegable) x mes
+// (sub-columna). Generaliza buildCallNestedSubfilasMulti (que solo tiene 2 niveles de fila) para
+// esta pestaña -- nivel2 y nivel3 comparten el mismo data-parent (el nivel1 al que pertenecen),
+// asi el toggle delegado ya existente en "document" (ver mas abajo, "TABLAS CON SUBFILAS") los
+// muestra/oculta juntos sin tocar ese listener: nivel2 se dibuja como un encabezado en negrita
+// dentro del grupo, sin flecha propia (no es un grupo independiente), y nivel3 va indentado un
+// nivel mas debajo de su nivel2. valueFn(agg, denom, nivel) recibe agg={dniCount,qllamadas} de
+// esa celda y denom=el total de su nivel INMEDIATO SUPERIOR (nivel3 -> total de su nivel2,
+// nivel2 -> total de su nivel1, "Subtotal nivel1" -> total general) para el % de participacion
+// jerarquico -- mismo criterio que ya usa buildCallNestedSubfilasMulti (etiqueta/propension).
+function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
+  const rows = filasTipifFiltradas(corte);
+  const n1s = dimsOrdenadosTipifN1(corte);
+  function sumarAggTipif(parts){
+    return { dniCount: parts.reduce((s,p)=>s+p.dniCount,0), qllamadas: parts.reduce((s,p)=>s+p.qllamadas,0) };
+  }
+  function agg(n1, n2, n3, bucket, mes){
+    const sub = rows.filter(r => r[2]===n1 && r[3]===n2 && r[4]===n3 && r[0]===mes && r[5]===bucket);
+    return { dniCount: sub.reduce((s,r)=>s+r[8],0), qllamadas: sub.reduce((s,r)=>s+r[9],0) };
+  }
+  function aggConTotal(n1,n2,n3,bucket,mes){
+    if(bucket==='Total') return sumarAggTipif(buckets.map(b=>agg(n1,n2,n3,b,mes)));
+    return agg(n1,n2,n3,bucket,mes);
+  }
+  function totalN2BucketMes(n1,n2,bucket,mes){
+    const n3s = dimsOrdenadosTipifN3(corte,n1,n2);
+    return sumarAggTipif(n3s.map(n3=>aggConTotal(n1,n2,n3,bucket,mes)));
+  }
+  function totalN1BucketMes(n1,bucket,mes){
+    const n2s = dimsOrdenadosTipifN2(corte,n1);
+    return sumarAggTipif(n2s.map(n2=>totalN2BucketMes(n1,n2,bucket,mes)));
+  }
+  function totalGeneralBucketMes(bucket,mes){
+    return sumarAggTipif(n1s.map(n1=>totalN1BucketMes(n1,bucket,mes)));
+  }
+  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
+  gruposMostrar.forEach(b => {
+    head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
+    head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
+  });
+  head1 += '</tr>'; head2 += '</tr>';
+  const totalCols = gruposMostrar.length * cols.length;
+  let html = nestedToggleBarHtml(tableId) + '<thead>'+head1+head2+'</thead><tbody>';
+  n1s.forEach((n1, idx1) => {
+    html += nestedGroupRowHtml(tableId, idx1, n1, totalCols+1);
+    const n2s = dimsOrdenadosTipifN2(corte, n1);
+    n2s.forEach(n2 => {
+      html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:22px;font-weight:600;">'+n2+'</td>';
+      gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+        const cls = i===0 ? ' class="div-left"' : '';
+        html += '<td'+cls+'>'+valueFn(totalN2BucketMes(n1,n2,b,m), totalN1BucketMes(n1,b,m), 'nivel2')+'</td>';
+      }); });
+      html += '</tr>';
+      const n3s = dimsOrdenadosTipifN3(corte, n1, n2);
+      n3s.forEach(n3 => {
+        html += '<tr data-parent="'+tableId+'__'+idx1+'"><td style="padding-left:38px;color:var(--text-3);">'+n3+'</td>';
+        gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+          const cls = i===0 ? ' class="div-left"' : '';
+          html += '<td'+cls+'>'+valueFn(aggConTotal(n1,n2,n3,b,m), totalN2BucketMes(n1,n2,b,m), 'nivel3')+'</td>';
+        }); });
+        html += '</tr>';
+      });
+    });
+    html += '<tr style="font-weight:600;background:var(--card);border-top:1px solid var(--border);"><td style="padding-left:22px;">Subtotal '+n1+'</td>';
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+      const cls = i===0 ? ' class="div-left"' : '';
+      html += '<td'+cls+'>'+valueFn(totalN1BucketMes(n1,b,m), totalGeneralBucketMes(b,m), 'subtotal1')+'</td>';
+    }); });
+    html += '</tr>';
+  });
+  html += '<tr style="font-weight:700;background:var(--teal-light);"><td>Total</td>';
+  gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+    const cls = i===0 ? ' class="div-left"' : '';
+    html += '<td'+cls+'>'+valueFn(totalGeneralBucketMes(b,m), null, 'total')+'</td>';
+  }); });
+  html += '</tr>';
+  html += '</tbody>';
+  const el = document.getElementById(tableId);
+  if(el) el.innerHTML = html;
+}
+function renderTablaTipificacion(corte){
+  construirDropdownFuenteTipif(); construirDropdownSubfuenteTipif();
+  const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['tipificacion'] && callFiltroTab['tipificacion'].has(b));
+  if(!buckets.length || !(DATA.tipificaciones||[]).length) return;
+  const cols = mesesVisiblesV('tipificacion');
+  buildTipifTriTable('tableTipifCantidadMatrix', corte, buckets, cols, (a) => a.dniCount>0 ? a.dniCount.toLocaleString() : '–');
+  buildTipifTriTable('tableTipifIntentosMatrix', corte, buckets, cols, (a) => a.qllamadas>0 ? a.qllamadas.toLocaleString() : '–');
+  buildTipifTriTable('tableTipifPartMatrix', corte, buckets, cols, (a, denom, nivel) => {
+    if(nivel==='total') return a.dniCount>0 ? '100%' : '–';
+    if(!denom || denom.dniCount===0) return '–';
+    return pctFmt((a.dniCount/denom.dniCount)*100);
+  });
 }
 
 // ---------- PESTAÑA "VENTAS" (por rango de prima mensual, con calendario propio) ----------
