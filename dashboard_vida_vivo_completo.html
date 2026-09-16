@@ -2394,44 +2394,84 @@ function filasCampanaCombinadas(meses){
   });
   return Object.values(acc);
 }
+// Antes: sin ninguna campaña elegida en el buscador, se armaba una fila "Otras campañas (N)" que
+// agrupaba todo lo que quedaba fuera del Top 12 por leads. A pedido explícito del usuario (set.
+// 2026): ya no hay ninguna fila agrupada -- "todo desglosado" para poder analizar campaña por
+// campaña -- y el criterio para elegir cuáles 15 campañas se muestran por defecto pasa a ser
+// Efectividad (no Leads): las 15 con MEJOR efectividad primero; si se clickea el encabezado
+// "Efectividad" para invertir el orden, se muestran las 15 con PEOR efectividad en su lugar. El
+// buscador de campañas puntuales (campanaFiltroSeleccion) sigue igual, sin tocar.
+let campanaOrdenEfectividad = 'desc'; // 'desc' = mejor efectividad primero (Top 15) · 'asc' = peor primero (Bottom 15)
+
 function renderCampanaTable(){
   if(!document.getElementById('tableCampana')) return;
   const mesesElegidos = mesesCampanaEfectivos();
   const todasDelMes = filasCampanaCombinadas(mesesElegidos);
   let rows;
   if(campanaFiltroSeleccion.size > 0){
-    // Campañas puntuales elegidas en el buscador: se muestran exactamente esas, sin límite de
-    // 12 ni fila "Otras campañas", ordenadas por leads de mayor a menor.
+    // Campañas puntuales elegidas en el buscador: se muestran exactamente esas, todas
+    // desglosadas, ordenadas por leads de mayor a menor (sin tocar, igual que antes).
     rows = todasDelMes.filter(r => campanaFiltroSeleccion.has(r.campana)).sort((a,b)=>b.leads-a.leads);
   } else {
-    // Sin ninguna campaña elegida: misma vista de siempre (Top 12 + "Otras campañas (N)"),
-    // calculada aquí porque el Sheet ahora manda la lista completa de campañas del mes.
-    const ordenadas = todasDelMes.slice().sort((a,b)=>b.leads-a.leads);
-    const top = ordenadas.slice(0,12);
-    const resto = ordenadas.slice(12);
-    rows = top.slice();
-    if(resto.length > 0){
-      rows.push({ campana: 'Otras campañas (' + resto.length + ')',
-        leads: resto.reduce((s,r)=>s+r.leads,0), convertidos: resto.reduce((s,r)=>s+r.convertidos,0) });
-    }
+    // Sin ninguna campaña elegida: 15 campañas desglosadas (nunca agrupadas), elegidas por
+    // Efectividad -- las 15 mejores por defecto, o las 15 peores si se invirtió el orden con un
+    // click en el encabezado "Efectividad".
+    const conEfectividad = todasDelMes.map(r => Object.assign({}, r, {
+      _efect: r.leads > 0 ? r.convertidos / r.leads : -1
+    }));
+    const factor = campanaOrdenEfectividad === 'asc' ? 1 : -1;
+    const ordenadas = conEfectividad.slice().sort((a,b) => (a._efect - b._efect) * factor);
+    rows = ordenadas.slice(0,15);
   }
   let totalLeadsMes = mesesElegidos.reduce((s,m)=>s+(DATA.leads_total_mes[m]||0),0);
   if(!totalLeadsMes) totalLeadsMes = todasDelMes.reduce((s,r)=>s+r.leads,0);
 
   const table = document.getElementById('tableCampana');
-  let html = '<thead><tr><th>Campaña</th><th>Leads</th><th>Convertidos</th><th>% Participación</th><th>Efectividad</th></tr></thead><tbody>';
+  const flecha = campanaOrdenEfectividad === 'desc' ? ' ▼' : ' ▲';
+  // El <th> de Efectividad ya sale con data-sort-ready="1" puesto a mano: eso hace que el módulo
+  // genérico de ordenar-y-redimensionar (más abajo en este archivo) NO le enganche su click de
+  // ordenar genérico (reordenar las mismas filas en el DOM), porque acá "ordenar" significa volver
+  // a elegir CUÁLES 15 campañas se muestran (Top 15 <-> Bottom 15), no solo reacomodar filas. El
+  // redimensionado de esta columna (y de todas las demás) sigue 100% genérico, sin tocar.
+  let html = '<thead><tr><th>Campaña</th><th>Leads</th><th>Convertidos</th><th>% Participación</th>'
+    + '<th data-sort-ready="1" style="cursor:pointer;">Efectividad<span class="sort-arrow">'+flecha+'</span></th></tr></thead><tbody>';
   let totLeads=0, totConv=0;
   rows.forEach(r => {
     const part = totalLeadsMes>0 ? Math.round((r.leads/totalLeadsMes)*1000)/10 : 0;
     const efect = r.leads>0 ? Math.round((r.convertidos/r.leads)*1000)/10 : 0;
-    const shortName = r.campana.length > 55 ? r.campana.slice(0,55)+'…' : r.campana;
+    // Nombre completo de la campaña, sin truncar en JS: el ancho real (fijo por defecto, o el que
+    // el usuario haya arrastrado con el redimensionado) más el "..." de CSS deciden cuánto se ve.
+    // '(Sin campaña)' es el único valor que no viene tal cual del Sheet (es el relleno de
+    // Codigo_Completo.gs cuando el lead no trae "Campaña Anuncio"/campaign_name) -- se muestra
+    // como "Sin campaña" para que quede claro que no es el nombre real de ninguna campaña.
+    const nombre = r.campana === '(Sin campaña)' ? 'Sin campaña' : r.campana;
     totLeads += r.leads; totConv += r.convertidos;
-    html += '<tr><td title="'+r.campana.replace(/"/g,'&quot;')+'" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;">'+shortName+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td>'+part+'%</td><td>'+efect+'%</td></tr>';
+    html += '<tr><td title="'+nombre.replace(/"/g,'&quot;')+'">'+nombre+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td>'+part+'%</td><td>'+efect+'%</td></tr>';
   });
   const totPart = totalLeadsMes>0 ? Math.round((totLeads/totalLeadsMes)*1000)/10 : 0;
   html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+totPart+'%</td><td>–</td></tr>';
   html += '</tbody>';
   table.innerHTML = html;
+
+  const thEfect = table.querySelector('thead th:last-child');
+  if(thEfect){
+    thEfect.addEventListener('click', () => {
+      campanaOrdenEfectividad = campanaOrdenEfectividad === 'desc' ? 'asc' : 'desc';
+      renderCampanaTable();
+    });
+  }
+  // Si con la versión anterior de esta tabla alguna vez se llegó a ordenar por "Efectividad" con
+  // el click genérico (guardado en el navegador de quien mira el dashboard), se limpia ese
+  // guardado acá para que no compita con el comportamiento nuevo (elegir Top/Bottom 15) -- el
+  // resto de lo guardado (anchos de columna, orden de las otras columnas) no se toca.
+  try {
+    const k = 'tablaUI_v1::vida::tableCampana';
+    const est = JSON.parse(window.localStorage.getItem(k) || 'null');
+    if(est && est.orden && est.orden.clave === 'Efectividad'){
+      delete est.orden;
+      window.localStorage.setItem(k, JSON.stringify(est));
+    }
+  } catch(e){}
 }
 
 function esCatchAll(d){
