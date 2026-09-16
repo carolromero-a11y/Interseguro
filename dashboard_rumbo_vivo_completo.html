@@ -17,16 +17,41 @@
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
-  header{ background:var(--navy); color:#fff; padding:28px 32px 0; border-bottom:4px solid var(--amber); }
+  header{ background:var(--navy); color:#fff; padding:28px 32px 20px; border-bottom:4px solid var(--amber); }
   header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8FB8CE; margin:0 0 6px;}
   header h1{ margin:0; font-size:26px; font-weight:600; }
-  header p.desc{ margin:6px 0 20px; color:#C3D2DE; font-size:14px; }
+  header p.desc{ margin:6px 0 0; color:#C3D2DE; font-size:14px; }
+  header .tabs-current{ margin:14px 0 0; font-size:13px; color:#B7C6D4; }
+  header .tabs-current strong{ color:#fff; }
   .tabs{ display:flex; gap:4px; flex-wrap:wrap; }
   .tab-btn{ background:transparent; border:none; color:#B7C6D4; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:500;
     padding:10px 14px; cursor:pointer; border-bottom:3px solid transparent; }
   .tab-btn.active{ color:#fff; border-bottom-color:var(--amber); }
   .tab-btn:hover{ color:#fff; }
   main{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
+  /* ---------- BARRA LATERAL DE PESTAÑAS ---------- */
+  #sidebarToggleBtn{ background:var(--navy-2); color:#fff; border:1px solid #2E4E70; border-radius:7px; padding:10px 16px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  #sidebarToggleBtn:hover{ background:#26456B; }
+  #sidebarOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10000; }
+  #sidebarOverlay.open{ display:block; }
+  #sidebarNav{ position:fixed; top:0; left:0; bottom:0; width:300px; max-width:85vw; background:var(--navy); color:#fff; z-index:10001;
+    box-shadow:4px 0 24px rgba(0,0,0,0.3); transform:translateX(-100%); transition:transform .22s ease; display:flex; flex-direction:column; }
+  #sidebarNav.open{ transform:translateX(0); }
+  #sidebarNav .sidebar-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px;
+    font-weight:600; font-size:15px; border-bottom:1px solid #2E4E70; flex-shrink:0; }
+  #sidebarCloseBtn{ background:none; border:none; color:#B7C6D4; font-size:18px; cursor:pointer; line-height:1; padding:4px; }
+  #sidebarCloseBtn:hover{ color:#fff; }
+  #sidebarSearchInput{ margin:14px 18px; padding:10px 12px; border-radius:8px; border:1px solid #2E4E70; background:#0F2138;
+    color:#fff; font-family:inherit; font-size:13px; flex-shrink:0; }
+  #sidebarSearchInput::placeholder{ color:#7E93A8; }
+  #sidebarSearchInput:focus{ outline:none; border-color:var(--amber); }
+  #sidebarNav .tabs{ display:flex; flex-direction:column; gap:2px; overflow-y:auto; padding:0 10px 18px; }
+  #sidebarNav .tab-btn{ text-align:left; border-radius:7px; border-bottom:none; padding:11px 12px; }
+  #sidebarNav .tab-btn.active{ background:var(--amber); color:#fff; border-bottom-color:transparent; }
+  #sidebarNav .tab-btn:hover{ background:#1D3A5F; color:#fff; }
+  #sidebarNav .tab-btn.tab-btn-oculto{ display:none; }
+  #sidebarNav .tabs-empty{ padding:12px; font-size:13px; color:#8FA6BB; }
   .tabpanel{ display:none; }
   .tabpanel.active{ display:block; }
   .controls{ display:flex; align-items:center; gap:16px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px; flex-wrap:wrap; }
@@ -165,11 +190,23 @@
   </div>
 </div>
 
-<header>
-  <p class="eyebrow">InterSeguro · Productos digitales</p>
-  <h1>Dashboard de ventas — Rumbo</h1>
-  <p class="desc" id="headerDesc">Producto Rumbo · 2026</p>
-  <div class="tabs">
+<!-- BARRA LATERAL DE PESTAÑAS (setiembre 2026, mismo cambio que en Vida): antes las 10 pestañas
+     estaban todas en una fila arriba, y CUALQUIER filtro recalculaba las ~10 pestañas aunque
+     solo una estuviera a la vista (ver "RENDER PEREZOSO POR PESTAÑA" en el bloque de JavaScript,
+     más abajo, para el otro lado de este mismo arreglo). Ahora las pestañas viven en este panel
+     lateral (se abre con el botón "☰ Pestañas" del header), con un buscador arriba de la lista.
+     Los <button class="tab-btn" data-tab="..."> son EXACTAMENTE los mismos de siempre (mismas
+     clases/atributos, solo se movieron de lugar) -- el buscador de tablas y el redimensionado de
+     columnas siguen funcionando sin tocarlos, porque siguen viendo los mismos elementos
+     .tab-btn/data-tab de siempre. -->
+<div id="sidebarOverlay"></div>
+<nav id="sidebarNav" aria-label="Pestañas del dashboard">
+  <div class="sidebar-header">
+    <span>Pestañas</span>
+    <button id="sidebarCloseBtn" type="button" aria-label="Cerrar panel de pestañas">✕</button>
+  </div>
+  <input type="text" id="sidebarSearchInput" placeholder="Buscar pestaña…" autocomplete="off">
+  <div class="tabs" id="sidebarTabList">
     <button class="tab-btn active" data-tab="resumen">Resumen</button>
     <button class="tab-btn" data-tab="call">Por call center</button>
     <button class="tab-btn" data-tab="perfil">Tasa / Prima / Edad</button>
@@ -181,6 +218,18 @@
     <button class="tab-btn" data-tab="comite">Comité</button>
     <button class="tab-btn" data-tab="seguimiento">Seguimiento diario</button>
   </div>
+</nav>
+
+<header>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p class="eyebrow">InterSeguro · Productos digitales</p>
+      <h1>Dashboard de ventas — Rumbo</h1>
+      <p class="desc" id="headerDesc">Producto Rumbo · 2026</p>
+    </div>
+    <button id="sidebarToggleBtn" type="button">☰ Pestañas</button>
+  </div>
+  <p class="tabs-current">Viendo: <strong id="tabsCurrentLabel">Resumen</strong></p>
 </header>
 
 <main>
@@ -1432,6 +1481,129 @@ function renderSeguimientoDiario(){
 // completo, día por día, sin necesidad de elegir un corte), así que se oculta solo mientras
 // esa pestaña está activa. El buscador de "Ver un rango de fechas específico" solo tiene
 // sentido en la pestaña "Ventas" (a pedido explícito), así que se muestra únicamente ahí.
+// ---------- RENDER PEREZOSO POR PESTAÑA (setiembre 2026, mismo cambio que en Vida) ----------
+// Antes, render(desde, corte) recalculaba las ~10 pestañas de una sola vez con cada filtro,
+// sin importar cual estuviera a la vista -- por eso el dashboard se ponia lento/pesado al
+// filtrar. Ahora cada filtro solo marca las 10 pestañas como "pendientes" de un nuevo calculo, y
+// recalcula de una sola vez la que se esta mirando en este momento -- el resto se recalcula
+// recien cuando el usuario las abre (ver renderTabSiPendiente). Rumbo no tiene el mecanismo de
+// "restaurar pestaña activa" que sí tiene Vida (no hay filtro de producto que recargue la
+// pagina), asi que aca no hace falta reubicar corteActual/desdeActual: ningun click sintetico se
+// dispara antes de que esas variables se hayan declarado.
+const TAB_KEYS = ['resumen','call','perfil','fuente','ventas','vintage','calidad','tipificacion','comite','seguimiento'];
+let activeTabKey = 'resumen';
+let tabsPendientes = new Set(TAB_KEYS);
+function renderTab(key, corte){
+  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
+  if(key === 'resumen'){
+    let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
+    intentar('renderResumenKPIs', () => {
+      const idxActual = mesesV.indexOf(mesActual);
+      const idxAnterior = idxActual - 1;
+      const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
+      ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
+      const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
+      // OJO: el KPI de esta seccion esta etiquetado "PNA" (no "Prima") -- usa la columna real de
+      // PNA (igual que se corrigio en el dashboard de Vida), no Prima x Frecuencia.
+      primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
+      leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
+
+      document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
+      const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
+      const diffEl = document.getElementById('kVsJun');
+      diffEl.textContent = (diff>=0?'+':'') + diff + '%';
+      diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
+      document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
+
+      if(!chVentasCorte){
+        chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
+          type:'bar', data:{ labels:labelsV, datasets:[
+            {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
+            {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
+            layout:{ padding:{ top:18 } },
+            scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
+
+      ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
+      const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
+      const ppActualTotal = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
+      primaProy = ppActualTotal!==null ? ventasProy*ppActualTotal : proyectarCierre('pna', primaActual, corte);
+      leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
+      const ventasRestante = ventasProy - ventasActual;
+      document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
+      document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
+      document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
+
+      const mesesCerradosProy = mesesV.slice(0, -1);
+      const labelsCerradosProy = labelsV.slice(0, -1);
+      const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
+      const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
+      const proyLabels=[...labelsCerradosProy, actualAbrCorto];
+      const proyReal=[...ventasCerradosArr, ventasActual];
+      const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
+      if(!chProyeccion){
+        chProyeccion = new Chart(document.getElementById('chProyeccion'), {
+          type:'bar', data:{ labels:proyLabels, datasets:[
+            {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
+            {label:'Proyección resto del mes', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
+            scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
+        });
+      } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
+    });
+    intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
+    intentar('renderCohortTable', () => renderCohortTable(corte));
+    intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
+    intentar('renderInsights', () => renderInsights(corte));
+    intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActual, ventasProy, primaActual, primaProy));
+    intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActual, leadsProy));
+  } else if(key === 'call'){
+    intentar('renderMatrixSet Call', () => renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], true, null, corte, 'call'));
+  } else if(key === 'perfil'){
+    intentar('renderMatrixSet Tasa', () => renderMatrixSet('Tasa', 'leads_by_tasa', 'sales_by_tasa', [], [], true, ['T1','T2','T3','Sin dato'], corte, 'perfil'));
+    intentar('renderMatrixSet Prima', () => renderMatrixSet('Prima', 'leads_by_prima', 'sales_by_prima', [], [], true, ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'], corte, 'perfil'));
+    intentar('renderMatrixSet Edad', () => renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], true, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'perfil'));
+    intentar('renderCallFiltroPerfil', () => renderCallFiltroPerfil(corte));
+    intentar('renderPrimaTasaMatrices', () => renderPrimaTasaMatrices(corte));
+  } else if(key === 'fuente'){
+    intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], true, null, corte, 'fuente'));
+    intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], true, null, corte, 'fuente'));
+    intentar('renderCallFiltroFuenteBasico', () => renderCallFiltroFuenteBasico(corte));
+    intentar('renderAllCrossTabs', () => renderAllCrossTabs(corte));
+  } else if(key === 'ventas'){
+    intentar('renderVentasTab', () => renderVentasTab(corte));
+    intentar('renderPrimaCruceTab', () => renderPrimaCruceTab(corte));
+  } else if(key === 'vintage'){
+    intentar('renderVintageTable', () => renderVintageTable(corte));
+    intentar('renderDiasConversion', () => renderDiasConversion(corte));
+    intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
+  } else if(key === 'calidad'){
+    intentar('renderMatrixSet TipoLead', () => renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], true, ['Alto','Medio','Bajo','No evaluable'], corte, 'calidad'));
+    intentar('renderPPyPNA', () => renderPPyPNA(corte));
+  } else if(key === 'tipificacion'){
+    intentar('renderTablaTipificacion', () => renderTablaTipificacion(corte));
+  } else if(key === 'comite'){
+    intentar('renderComite', () => renderComite(corte));
+  } else if(key === 'seguimiento'){
+    intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
+  }
+}
+// Vuelve a calcular la pestaña "key" SOLO si quedó pendiente (por un filtro aplicado mientras
+// estaba cerrada, o porque todavía no se dibujó nunca). Si la pestaña falla, se deja pendiente
+// para reintentar la próxima vez, en vez de darla por hecha.
+function renderTabSiPendiente(key){
+  if(!tabsPendientes.has(key)) return;
+  try {
+    renderTab(key, corteActual);
+    tabsPendientes.delete(key);
+  } catch(e) {
+    console.error('Error dibujando la pestaña "'+key+'":', e);
+  }
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1442,8 +1614,45 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if(corteControls) corteControls.style.display = (btn.dataset.tab === 'seguimiento') ? 'none' : '';
     const rangoFechasBlock = document.getElementById('rangoFechasBlock');
     if(rangoFechasBlock) rangoFechasBlock.style.display = (btn.dataset.tab === 'ventas') ? '' : 'none';
+    const label = document.getElementById('tabsCurrentLabel');
+    if(label) label.textContent = btn.textContent.trim();
+    if(window.__cerrarSidebarPestañas) window.__cerrarSidebarPestañas();
+    activeTabKey = btn.dataset.tab;
+    renderTabSiPendiente(activeTabKey);
   });
 });
+// ---------- BARRA LATERAL DE PESTAÑAS: abrir/cerrar + buscador ----------
+(function initSidebarPestañas(){
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const nav = document.getElementById('sidebarNav');
+  const overlay = document.getElementById('sidebarOverlay');
+  const closeBtn = document.getElementById('sidebarCloseBtn');
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if(!toggleBtn || !nav || !overlay || !closeBtn || !searchInput) return;
+  function normalizar(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+  function filtrar(){
+    const q = normalizar(searchInput.value);
+    Array.from(nav.querySelectorAll('.tab-btn')).forEach(b => {
+      const coincide = !q || normalizar(b.textContent).includes(q);
+      b.classList.toggle('tab-btn-oculto', !coincide);
+    });
+  }
+  function abrir(){
+    nav.classList.add('open'); overlay.classList.add('open');
+    searchInput.value = '';
+    filtrar();
+    setTimeout(() => searchInput.focus(), 30);
+  }
+  function cerrar(){
+    nav.classList.remove('open'); overlay.classList.remove('open');
+  }
+  toggleBtn.addEventListener('click', abrir);
+  closeBtn.addEventListener('click', cerrar);
+  overlay.addEventListener('click', cerrar);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && nav.classList.contains('open')) cerrar(); });
+  searchInput.addEventListener('input', filtrar);
+  window.__cerrarSidebarPestañas = cerrar;
+})();
 
 // ---------- FILTRO DE MESES POR HOJA ----------
 // Cada hoja tiene su propio selector de meses a mostrar en las tablas con meses en columnas.
@@ -1593,102 +1802,12 @@ function render(desde, corte){
   desdeActual = desde;
   corteActual = corte;
   document.getElementById('corteVal').textContent = (desde > 1 ? ('Días ' + desde + '–' + corte) : ('Día ' + corte));
-  function intentar(nombre, fn) { try { fn(); } catch(e) { console.error('Error dibujando "'+nombre+'":', e); } }
-
-  // Los KPIs y las 2 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
-  // resto de secciones de abajo -- antes NO lo tenían, y si algo fallaba aquí (ej. Chart.js sin
-  // cargar por un problema de red) toda la función se cortaba en seco y ninguna pestaña de abajo
-  // (Comité, Ventas, etc.) se llegaba a actualizar para ese corte, dejando la pestaña Resumen
-  // con el número nuevo pero Comité con uno viejo -- justo el tipo de "no es el mismo número"
-  // que se reportó. Con esto, un error aquí ya no le puede congelar los datos a las demás
-  // pestañas (y el error queda visible en la consola en vez de generar un numero desincronizado).
-  let ventasActual = 0, ventasProy = 0, primaActual = 0, primaProy = 0, leadsActual = 0, leadsProy = 0;
-  intentar('renderResumenKPIs', () => {
-    const idxActual = mesesV.indexOf(mesActual);
-    const idxAnterior = idxActual - 1;
-    const ventasCompleto = mesesV.map(m => m===mesActual ? null : aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const ventasCorte = mesesV.map(m => aggMonth(DATA.sales_daily, m, 'ventas', corte));
-    ventasActual = idxActual>=0 ? ventasCorte[idxActual] : 0;
-    const ventasAnterior = idxAnterior>=0 ? ventasCorte[idxAnterior] : 0;
-    // OJO: el KPI de esta seccion esta etiquetado "PNA" (no "Prima") -- usa la columna real de
-    // PNA (igual que se corrigio en el dashboard de Vida), no Prima x Frecuencia.
-    primaActual = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'pna', corte) : 0;
-    leadsActual = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
-
-    document.getElementById('kVentas').textContent = ventasActual.toLocaleString();
-    const diff = ventasAnterior > 0 ? Math.round(((ventasActual - ventasAnterior)/ventasAnterior)*1000)/10 : 0;
-    const diffEl = document.getElementById('kVsJun');
-    diffEl.textContent = (diff>=0?'+':'') + diff + '%';
-    diffEl.style.color = diff>=0 ? 'var(--teal)' : 'var(--red)';
-    document.getElementById('kPrima').textContent = 'S/ ' + Math.round(primaActual).toLocaleString();
-
-    if(!chVentasCorte){
-      chVentasCorte = new Chart(document.getElementById('chVentasCorte'), {
-        type:'bar', data:{ labels:labelsV, datasets:[
-          {label:'Mes completo', data:ventasCompleto, backgroundColor:'#1D3A5F', borderRadius:4},
-          {label:'A la fecha de corte', data:ventasCorte, backgroundColor:'#D98E3B', borderRadius:4}
-        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlPlain()},
-          // Ronda: padding arriba del área del gráfico -- evita que el número de la barra más
-          // alta del mes (dlPlain, anchor:'end'/align:'top') quede cortado cuando esa barra
-          // toca justo el máximo del eje Y. Ver detalle en el mismo fix de Inversión Segura.
-          layout:{ padding:{ top:18 } },
-          scales:{ x:{grid:{display:false}}, y:{grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else { chVentasCorte.data.datasets[0].data=ventasCompleto; chVentasCorte.data.datasets[1].data=ventasCorte; chVentasCorte.update(); }
-
-    // Proyeccion de cierre por dias de gestion (reemplaza al viejo modelo de promedio por dia
-    // de semana + factores manuales, que ya no tiene datos porque el .gs dejo de mandarlos).
-    ventasProy = Math.round(proyectarCierre('ventas', ventasActual, corte));
-    // PNA proyección ("primaProy", pese al nombre de la variable, es el KPI de PNA -- ver el
-    // comentario "OJO" un poco más arriba) = Ventas proyectadas × PP actual (a pedido explícito,
-    // ronda 13). PP actual = la misma prima promedio real que usa el gráfico "Evolución de la
-    // prima promedio" (prima real ÷ ventas reales, Prima x Frecuencia), calculada SIEMPRE de día
-    // 1 al corte (sin "desde"), igual que el resto de proyecciones de esta sección. Antes se
-    // proyectaba con su propio modelo de días de gestión, independiente de la proyección de
-    // Ventas. Este mismo cambio se hizo también en "Cómo vamos vs. meta" y en Comité (para que
-    // las 3 vistas sigan cuadrando entre sí) -- ver datosPorBucketVoz/renderTablaComite.
-    const primaRealParaPP = aggMonth(DATA.sales_daily, mesActual, 'prima', corte);
-    const ppActualTotal = ventasActual>0 ? (primaRealParaPP/ventasActual) : null;
-    primaProy = ppActualTotal!==null ? ventasProy*ppActualTotal : proyectarCierre('pna', primaActual, corte);
-    leadsProy = Math.round(proyectarCierre('leads', leadsActual, corte));
-    const ventasRestante = ventasProy - ventasActual;
-    document.getElementById('kProyVentas').textContent = ventasProy.toLocaleString();
-    document.getElementById('kProyPrima').textContent = 'S/ ' + Math.round(primaProy).toLocaleString();
-    document.getElementById('kProyLeads').textContent = leadsProy.toLocaleString();
-
-    const mesesCerradosProy = mesesV.slice(0, -1);
-    const labelsCerradosProy = labelsV.slice(0, -1);
-    const actualAbrCorto = mesActual ? labelAbr(mesActual) : '';
-    const ventasCerradosArr = mesesCerradosProy.map(m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-    const proyLabels=[...labelsCerradosProy, actualAbrCorto];
-    const proyReal=[...ventasCerradosArr, ventasActual];
-    const proyResto=[...ventasCerradosArr.map(()=>0), Math.round(ventasRestante)];
-    if(!chProyeccion){
-      chProyeccion = new Chart(document.getElementById('chProyeccion'), {
-        type:'bar', data:{ labels:proyLabels, datasets:[
-          {label:'Real', data:proyReal, backgroundColor:'#1D3A5F', borderRadius:4, stack:'s'},
-          {label:'Proyección resto del mes', data:proyResto, backgroundColor:'#0F8B7D', borderRadius:4, stack:'s'}
-        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels: dlStackPct()},
-          scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#EDEAE0'}, ticks:{color:'#8B8880'}} } }
-      });
-    } else { chProyeccion.data.datasets[0].data=proyReal; chProyeccion.data.datasets[1].data=proyResto; chProyeccion.update(); }
-  });
-  intentar('renderAllCrossTabs', () => renderAllCrossTabs(corte));
-  intentar('renderAllMatrixSets', () => renderAllMatrixSets(corte));
-  intentar('renderVentasTab', () => renderVentasTab(corte));
-  intentar('renderPrimaCruceTab', () => renderPrimaCruceTab(corte));
-  intentar('renderCanalYPrimaProm', () => renderCanalYPrimaProm(corte));
-  intentar('renderCohortTable', () => renderCohortTable(corte));
-  intentar('renderVintageTable', () => renderVintageTable(corte));
-  intentar('renderDiasConversion', () => renderDiasConversion(corte));
-  intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
-  intentar('renderPPyPNA', () => renderPPyPNA(corte));
-  intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
-  intentar('renderComite', () => renderComite(corte));
-  intentar('renderInsights', () => renderInsights(corte));
-  intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActual, ventasProy, primaActual, primaProy));
-  intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActual, leadsProy));
-  intentar('renderSeguimientoDiario', () => renderSeguimientoDiario());
+  // Antes, esta función recalculaba las ~10 pestañas de una sola vez con cada filtro -- ahora
+  // solo se marca que TODAS quedaron "pendientes" de un nuevo cálculo, y se recalcula de una
+  // sola vez la que se está mirando en este momento (ver "RENDER PEREZOSO POR PESTAÑA" más
+  // arriba para el detalle completo, con el mapeo de qué función pinta cada pestaña).
+  TAB_KEYS.forEach(k => tabsPendientes.add(k));
+  renderTabSiPendiente(activeTabKey);
 }
 
 let chCanal, chPrimaProm;
@@ -1900,21 +2019,25 @@ function filasTipifFiltradas(corte){
   const sSet = subfuenteFiltroTipif || new Set(universoSubfuenteTipif());
   return rowsAll.filter(r => r[1] >= desdeActual && r[1] <= corte && fSet.has(r[6]) && sSet.has(r[7]));
 }
-// Orden de cada nivel: por cantidad de DNI (r[8]) de mayor a menor, "Sin dato" siempre al final.
+// Orden de cada nivel: ASCENDENTE por el número al inicio del texto (ej. "1. Contacto Válido",
+// "2. Contacto No Válido", "3. No Contacto"; dentro de cada nivel1, "1. Venta" ... "8. No Desea"
+// en orden creciente) -- a pedido explícito, setiembre 2026, mismo cambio aplicado en Vida. Antes
+// se ordenaba por cantidad de DNI de mayor a menor. "Sin dato" (sin número al inicio) sigue
+// yendo siempre al final (pushSinDatoLast).
+function numeroPrefijoTipif(d){
+  const m = String(d).match(/^\s*(\d+)/);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
 function dimsOrdenadosTipifN1(corte){
   const rows = filasTipifFiltradas(corte);
   let dims = [...new Set(rows.map(r=>r[2]))];
-  const totals = {};
-  dims.forEach(d => { totals[d] = rows.filter(r=>r[2]===d).reduce((s,r)=>s+r[8],0); });
-  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  dims = dims.sort((a,b)=> numeroPrefijoTipif(a)-numeroPrefijoTipif(b));
   return pushSinDatoLast(dims);
 }
 function dimsOrdenadosTipifN2(corte, n1){
   const rows = filasTipifFiltradas(corte).filter(r=>r[2]===n1);
   let dims = [...new Set(rows.map(r=>r[3]))];
-  const totals = {};
-  dims.forEach(d => { totals[d] = rows.filter(r=>r[3]===d).reduce((s,r)=>s+r[8],0); });
-  dims = dims.sort((a,b)=> totals[b]-totals[a]);
+  dims = dims.sort((a,b)=> numeroPrefijoTipif(a)-numeroPrefijoTipif(b));
   return pushSinDatoLast(dims);
 }
 // Tabla de 2 niveles (nivel1 = grupo expandible, nivel2 = sub-fila) x call center (columna
@@ -1927,20 +2050,45 @@ function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
   function sumarAggTipif(parts){
     return { dniCount: parts.reduce((s,p)=>s+p.dniCount,0), qllamadas: parts.reduce((s,p)=>s+p.qllamadas,0) };
   }
+  // Memoización local a este render (mismo fix aplicado en Vida, setiembre 2026): antes,
+  // totalN1BucketMes se recalculaba desde cero por cada fila de nivel2 debajo de él, y
+  // totalGeneralBucketMes se recalculaba desde cero por cada nivel1 (fila "Subtotal") -- con
+  // varios call centers/meses elegidos esto multiplicaba el trabajo varias veces de más. Ahora
+  // cada combinación se calcula una sola vez y se reutiliza (los Map() se recrean en cada llamada
+  // a buildTipifTriTable, nunca quedan con cifras de un render anterior).
+  const cacheAgg = new Map();
   function agg(n1, n2, bucket, mes){
+    const key = n1+''+n2+''+bucket+''+mes;
+    if(cacheAgg.has(key)) return cacheAgg.get(key);
     const sub = rows.filter(r => r[2]===n1 && r[3]===n2 && r[0]===mes && r[5]===bucket);
-    return { dniCount: sub.reduce((s,r)=>s+r[8],0), qllamadas: sub.reduce((s,r)=>s+r[9],0) };
+    const res = { dniCount: sub.reduce((s,r)=>s+r[8],0), qllamadas: sub.reduce((s,r)=>s+r[9],0) };
+    cacheAgg.set(key, res);
+    return res;
   }
+  const cacheN2 = new Map();
   function totalN2BucketMes(n1,n2,bucket,mes){
-    if(bucket==='Total') return sumarAggTipif(buckets.map(b=>agg(n1,n2,b,mes)));
-    return agg(n1,n2,bucket,mes);
+    const key = n1+''+n2+''+bucket+''+mes;
+    if(cacheN2.has(key)) return cacheN2.get(key);
+    const res = (bucket==='Total') ? sumarAggTipif(buckets.map(b=>agg(n1,n2,b,mes))) : agg(n1,n2,bucket,mes);
+    cacheN2.set(key, res);
+    return res;
   }
+  const cacheN1 = new Map();
   function totalN1BucketMes(n1,bucket,mes){
+    const key = n1+''+bucket+''+mes;
+    if(cacheN1.has(key)) return cacheN1.get(key);
     const n2s = dimsOrdenadosTipifN2(corte,n1);
-    return sumarAggTipif(n2s.map(n2=>totalN2BucketMes(n1,n2,bucket,mes)));
+    const res = sumarAggTipif(n2s.map(n2=>totalN2BucketMes(n1,n2,bucket,mes)));
+    cacheN1.set(key, res);
+    return res;
   }
+  const cacheGeneral = new Map();
   function totalGeneralBucketMes(bucket,mes){
-    return sumarAggTipif(n1s.map(n1=>totalN1BucketMes(n1,bucket,mes)));
+    const key = bucket+''+mes;
+    if(cacheGeneral.has(key)) return cacheGeneral.get(key);
+    const res = sumarAggTipif(n1s.map(n1=>totalN1BucketMes(n1,bucket,mes)));
+    cacheGeneral.set(key, res);
+    return res;
   }
   const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
@@ -2105,23 +2253,10 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
 
 // (renderMatrixSet ahora se llama dentro de render(corte) para respetar el dia de corte)
 
-function renderAllMatrixSets(corte){
-  renderMatrixSet('Call', 'leads_by_call', 'sales_by_call', ['WhatsApp'], ['Sin call'], true, null, corte, 'call');
-  renderMatrixSet('Tasa', 'leads_by_tasa', 'sales_by_tasa', [], [], true, ['T1','T2','T3','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Prima', 'leads_by_prima', 'sales_by_prima', [], [], true, ['100-299','300-499','500-799','800-999','1000 a más','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Edad', 'leads_by_edad', 'sales_by_edad', [], [], true, ['18-24','25-29','30-34','35-39','40-44','45-49','50-54','55-60','Sin dato'], corte, 'perfil');
-  renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], true, null, corte, 'fuente');
-  renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], true, null, corte, 'fuente');
-  renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], true, ['Alto','Medio','Bajo','No evaluable'], corte, 'calidad');
-  // Las tablas de Tasa/Prima/Edad (pestaña Perfil) y de Fuente/Subfuente (pestaña Fuente) que
-  // se acaban de dibujar arriba se reemplazan por una version con el call center como columna,
-  // si el desplegable de call de esa pestaña esta disponible -- mismo patron que
-  // renderCallFiltroProducto/renderCallFiltroFuente en el dashboard de Vida.
-  renderCallFiltroPerfil(corte);
-  renderCallFiltroFuenteBasico(corte);
-  renderPrimaTasaMatrices(corte);
-  renderTablaTipificacion(corte);
-}
+// (La vieja renderAllMatrixSets(corte), que llamaba a las funciones de abajo de una sola vez
+// para las pestañas "call"/"perfil"/"fuente"/"calidad"/"tipificacion", se separó: ahora cada una
+// se llama desde su propia rama dentro de renderTab(key, corte) -- ver "RENDER PEREZOSO POR
+// PESTAÑA" más arriba, mismo cambio que en Vida.)
 
 // ---------- TABLAS "RANGO DE PRIMA x RANGO DE TASA" (pestaña "Tasa / Prima / Edad") ----------
 // A pedido explícito: 5 tablas con Rango de prima como fila principal (expandible/colapsable,
