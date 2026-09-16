@@ -826,11 +826,6 @@
       <p class="sub">Cantidad de documentos (DNI) únicos tipificados en el mes, contados una sola vez aunque un DNI haya sido re-tipificado varias veces ese mes (se toma su tipificación más reciente del mes). El % entre paréntesis es la participación: en la fila Nivel 1 (subtotal), sobre el total general; en la sub-fila Nivel 2, sobre el total de su Nivel 1.</p>
       <div class="table-wrap"><table class="data-table" id="tableTipifCantidadMatrix"></table></div>
     </section>
-    <section>
-      <h2>Intentos (Q_LLAMADAS) por tipificación — todos los meses</h2>
-      <p class="sub">Suma de la columna Q_LLAMADAS de todas las gestiones de ese DNI en el mes (no se dedup: si un DNI fue tipificado varias veces en el mismo mes, sus llamadas se suman todas).</p>
-      <div class="table-wrap"><table class="data-table" id="tableTipifIntentosMatrix"></table></div>
-    </section>
   </div>
 
   <!-- ===== TAB: COMITÉ ===== -->
@@ -1996,7 +1991,6 @@ function renderTablaTipificacion(corte){
     }
     return a.dniCount.toLocaleString();
   });
-  buildTipifTriTable('tableTipifIntentosMatrix', corte, buckets, cols, (a) => a.qllamadas>0 ? a.qllamadas.toLocaleString() : '–');
 }
 
 function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
@@ -2258,9 +2252,20 @@ function callBucketVoz(c){
   return 'Otros';
 }
 const CALL_FILTER_BUCKETS = ['Interno','Biznes','Otros'];
+// A pedido explícito del usuario (set. 2026): en las tablas donde el call center se desagrega
+// como COLUMNAS (Interno/Biznes/Otros lado a lado en la misma tabla), el valor por defecto pasa
+// a ser solo Interno + Biznes -- "Otros" no se quitó de ningún lado, se sigue pudiendo marcar a
+// mano en este mismo desplegable (o con el botón "Todos"), solo cambió qué viene tildado al
+// entrar. Excepción: la pestaña "ventasprima" (tabla "Prima cotizada (lead) vs. prima final de
+// venta") NO muestra el call center como columnas -- ahí es un filtro de qué ventas entran al
+// único total combinado de esa tabla, no una columna visible -- así que se deja con su default
+// de siempre (los 3 marcados), por no ser el "desagregado de columnas" que pidió el usuario.
+function callFiltroDefault(tab){
+  return tab === 'ventasprima' ? CALL_FILTER_BUCKETS.slice() : ['Interno','Biznes'];
+}
 const CALL_FILTRO_TABS = ['perfil','fuente','ventas','ventasprima','tipificacion'];
 let callFiltroTab = {};
-CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(CALL_FILTER_BUCKETS); });
+CALL_FILTRO_TABS.forEach(t => { callFiltroTab[t] = new Set(callFiltroDefault(t)); });
 function construirDropdownCall(tab){
   const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'-call"]');
   if(!wrap) return;
@@ -2268,8 +2273,9 @@ function construirDropdownCall(tab){
   const panel = wrap.querySelector('[data-role="call-filter-panel"]');
   if(!btn || !panel) return;
   if(!panel.dataset.filled){
+    const defaultBuckets = callFiltroDefault(tab);
     panel.innerHTML = CALL_FILTER_BUCKETS.map(b =>
-      '<label><input type="checkbox" value="'+b+'" checked> '+b+'</label>'
+      '<label><input type="checkbox" value="'+b+'"'+(defaultBuckets.includes(b)?' checked':'')+'> '+b+'</label>'
     ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
     panel.dataset.filled = '1';
     panel.addEventListener('click', e => e.stopPropagation());
