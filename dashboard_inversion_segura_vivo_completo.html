@@ -77,14 +77,21 @@
   .insight-box ul{ margin:4px 0 0; padding-left:18px; }
   .insight-box li{ margin-bottom:4px; }
   table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
-  table.data-table th, table.data-table td{ padding:9px 10px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.data-table th, table.data-table td{ padding:9px 10px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   table.data-table thead th.div-left{ border-left:2px solid rgba(255,255,255,.55); }
   table.data-table tbody td.div-left{ border-left:2px solid var(--navy-2); }
   table.data-table td:first-child{ text-align:left; font-weight:500; color:var(--navy); }
-  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; text-align:center; }
+  table.data-table thead th{ background:var(--navy); color:#fff; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.02em; text-align:center; position:relative; }
   table.data-table thead tr:first-child > th:first-child{ text-align:left; }
   table.data-table tbody tr:hover{ background:var(--bg); }
   table.data-table tbody tr:last-child td{ border-bottom:none; }
+  /* Ordenar por columna (clic en el encabezado) + redimensionar ancho de columna (arrastrar el
+     borde derecho del encabezado) -- pedido explicito del usuario, setiembre 2026, aplicado a
+     TODAS las tablas de este dashboard via table_ui_module.js (realce generico por JS). */
+  .col-resize-handle{ position:absolute; top:0; right:0; bottom:0; width:8px; cursor:col-resize; z-index:5; }
+  .col-resize-handle:hover, .col-resize-handle:active{ background:rgba(255,255,255,.35); }
+  .sort-arrow{ font-size:9px; margin-left:3px; }
+  table.data-table thead th[data-sort-ready]:hover{ background:var(--navy-2); }
   .table-wrap{ overflow-x:auto; border-radius:10px; }
   td.up{ background:#DEF2E6; color:#0F6B45; font-weight:600; }
   td.down{ background:#FBE4E1; color:#A32E20; font-weight:600; }
@@ -1497,6 +1504,283 @@ render(1, corteDefault);
 
 
 }
+
+// ==================== TABLA: ORDENAR POR COLUMNA + REDIMENSIONAR ANCHO (los 3 dashboards) ====================
+// Pedido explicito del usuario (setiembre 2026): en TODAS las tablas de los 3 dashboards (Vida,
+// Rumbo, Inversion Segura), poder (1) hacer clic en el encabezado de una columna para ordenar de
+// mayor a menor o viceversa, y (2) arrastrar el borde de una columna para agrandarla o achicarla
+// -- y que ambas cosas se recuerden la proxima vez que se abra el dashboard (confirmado con el
+// usuario: guardado en el navegador, por tabla).
+//
+// Se implemento como un realce GENERICO que actua solo sobre el HTML ya renderizado (no conoce
+// la logica de negocio de cada tabla) -- por eso funciona igual en CUALQUIER tabla existente o
+// que se agregue en el futuro, sin tener que tocar este bloque de nuevo. Como casi todas las
+// tablas del dashboard se reconstruyen enteras (innerHTML) cada vez que cambia un filtro, un
+// MutationObserver detecta cuando el <thead> de una tabla es "nuevo" (sus <th> todavia no tienen
+// el atributo data-ui-ready) y vuelve a engancharle los controles + reaplica lo guardado.
+//
+// Tablas con filas agrupadas (ej. "Por tipificacion", "Etiqueta/Propension", las tablas con
+// filtro de call center: <tr class="nested-group-row" data-group="..."> + sub-filas
+// <tr data-parent="..."> + una fila "Subtotal ..."): a pedido explicito del usuario, ordenar
+// mueve el GRUPO COMPLETO como bloque (usando el valor de su fila "Subtotal" en esa columna),
+// sin desarmar el orden interno de las sub-filas. La fila "Total" general (si existe, siempre al
+// final de la tabla) nunca se mueve del final.
+(function(){
+  var TABLE_UI_PRODUCT = 'invseg'; // 'vida' / 'rumbo' / 'invseg' -- separa el guardado en el navegador entre los 3 dashboards (mismo origen en GitHub Pages, mismos ids de tabla entre productos)
+  var STORAGE_PREFIX = 'tablaUI_v1::' + TABLE_UI_PRODUCT + '::';
+
+  function leerEstado(tableId){
+    try {
+      var raw = window.localStorage.getItem(STORAGE_PREFIX + tableId);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+  function guardarEstado(tableId, estado){
+    try { window.localStorage.setItem(STORAGE_PREFIX + tableId, JSON.stringify(estado)); } catch(e) {}
+  }
+
+  // Calcula, para cada columna "hoja" (la que realmente corresponde a una columna de datos en
+  // <tbody>), su <th>, su indice de columna real (considerando rowspan/colspan de encabezados de
+  // 2 filas, ej. las tablas con call center como columna agrupadora) y una "clave" de texto
+  // (encabezado agrupador + encabezado propio, ej. "Interno | Ago") para poder guardar el ancho y
+  // el orden asociados al NOMBRE de la columna en vez de a su posicion -- mas estable si cambian
+  // los meses/call centers elegidos y las columnas se corren de lugar entre un render y otro.
+  function calcularColumnasHoja(table){
+    var filas = table.tHead ? Array.prototype.slice.call(table.tHead.rows) : [];
+    if(!filas.length) return [];
+    var totalFilas = filas.length;
+    var ocupado = [], grid = [];
+    for(var i=0;i<totalFilas;i++){ ocupado.push({}); grid.push([]); }
+    var hojas = [];
+    filas.forEach(function(fila, r){
+      var c = 0;
+      Array.prototype.slice.call(fila.cells).forEach(function(celda){
+        while(ocupado[r][c]) c++;
+        var rowspan = celda.rowSpan || 1, colspan = celda.colSpan || 1;
+        for(var rr=r; rr<r+rowspan; rr++){
+          for(var cc=c; cc<c+colspan; cc++){ ocupado[rr][cc] = true; grid[rr][cc] = celda; }
+        }
+        if(celda.dataset.baseLabel === undefined) celda.dataset.baseLabel = celda.textContent.trim();
+        var filaFinal = r + rowspan - 1;
+        if(filaFinal === totalFilas - 1 && colspan === 1){
+          hojas.push({ celda: celda, colIndex: c });
+        }
+        c += colspan;
+      });
+    });
+    var claves = {};
+    hojas.forEach(function(h){
+      var vistos = [];
+      var partes = [];
+      for(var r=0; r<totalFilas; r++){
+        var celda = grid[r][h.colIndex];
+        if(celda && vistos.indexOf(celda) === -1){ vistos.push(celda); partes.push(celda.dataset.baseLabel || ''); }
+      }
+      var clave = partes.join(' | ');
+      var claveFinal = clave, n = 2;
+      while(Object.prototype.hasOwnProperty.call(claves, claveFinal)){ claveFinal = clave + ' #' + n; n++; }
+      claves[claveFinal] = true;
+      h.clave = claveFinal;
+    });
+    return hojas;
+  }
+
+  function agregarControlesResize(table, hojas){
+    hojas.forEach(function(h){
+      var celda = h.celda;
+      if(celda.querySelector('.col-resize-handle')) return; // ya tiene el control (misma celda reutilizada, ej. tras un re-orden)
+      if(!celda.style.position) celda.style.position = 'relative';
+      var handle = document.createElement('span');
+      handle.className = 'col-resize-handle';
+      handle.addEventListener('click', function(e){ e.stopPropagation(); });
+      handle.addEventListener('mousedown', function(e){
+        e.preventDefault(); e.stopPropagation();
+        prepararLayoutFijo(table, hojas);
+        var startX = e.clientX;
+        var startWidth = celda.getBoundingClientRect().width;
+        function onMove(ev){
+          var nuevoAncho = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
+          celda.style.width = nuevoAncho + 'px';
+        }
+        function onUp(){
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          var estado = leerEstado(table.id) || {};
+          estado.anchos = estado.anchos || {};
+          estado.anchos[h.clave] = celda.style.width;
+          guardarEstado(table.id, estado);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+      celda.appendChild(handle);
+    });
+  }
+
+  // Antes de activar table-layout:fixed (necesario para que un ancho angosto realmente trunque
+  // el contenido con "...", en vez de que la tabla lo ignore como pasa con table-layout:auto),
+  // se "congela" el ancho ACTUAL (medido) de todas las columnas que todavia no tengan un ancho
+  // propio -- asi el cambio de layout no reacomoda de golpe columnas que el usuario no toco.
+  function prepararLayoutFijo(table, hojas){
+    if(table.dataset.uiLayoutFijo) return;
+    hojas.forEach(function(h){
+      if(!h.celda.style.width) h.celda.style.width = Math.round(h.celda.getBoundingClientRect().width) + 'px';
+    });
+    table.style.tableLayout = 'fixed';
+    table.dataset.uiLayoutFijo = '1';
+  }
+
+  function textoCelda(tr, colIndex){
+    var celda = tr.cells[colIndex];
+    return celda ? celda.textContent.trim() : '';
+  }
+  // Extrae un numero de una celda con formato "1,234 (12.3%)", "S/ 1,234.56", "12.3%", "-8.2%",
+  // "–" (guion = sin dato), etc. -- se queda con el PRIMER numero de la celda (antes de
+  // cualquier parentesis), quitando comas de miles (formato usado por toLocaleString() en todo
+  // el dashboard).
+  function numeroCelda(texto){
+    if(!texto || texto === '–' || texto === '-') return null;
+    var m = texto.match(/-?[\d.,]*\d/);
+    if(!m) return null;
+    var limpio = m[0].replace(/,/g, '');
+    var n = parseFloat(limpio);
+    return isNaN(n) ? null : n;
+  }
+  function valorParaOrden(tr, colIndex){
+    var texto = textoCelda(tr, colIndex);
+    var n = numeroCelda(texto);
+    return n !== null ? n : texto.toLowerCase();
+  }
+  function esFilaTotal(tr){
+    var t = (tr.cells[0] && tr.cells[0].textContent || '').trim();
+    return /^total$/i.test(t);
+  }
+
+  function ordenarPorColumna(table, hoja, dir, guardar){
+    var tbody = table.tBodies[0];
+    if(!tbody) return;
+    var filas = Array.prototype.slice.call(tbody.rows);
+    var bloques = [], filaTotal = null, i = 0;
+    while(i < filas.length){
+      var fila = filas[i];
+      if(fila.classList.contains('nested-group-row')){
+        var clave = fila.dataset.group;
+        var grupo = [fila];
+        i++;
+        while(i < filas.length && filas[i].dataset.parent === clave){ grupo.push(filas[i]); i++; }
+        var filaValor = grupo[grupo.length-1];
+        if(i < filas.length && !filas[i].classList.contains('nested-group-row') && !filas[i].dataset.parent){
+          var primerTexto = (filas[i].cells[0] && filas[i].cells[0].textContent || '').trim();
+          if(/^subtotal/i.test(primerTexto)){ grupo.push(filas[i]); filaValor = filas[i]; i++; }
+        }
+        bloques.push({ filas: grupo, filaValor: filaValor });
+        continue;
+      }
+      if(esFilaTotal(fila) && i === filas.length - 1){ filaTotal = fila; i++; continue; }
+      bloques.push({ filas: [fila], filaValor: fila });
+      i++;
+    }
+    var factor = dir === 'desc' ? -1 : 1;
+    bloques.sort(function(a, b){
+      var va = valorParaOrden(a.filaValor, hoja.colIndex);
+      var vb = valorParaOrden(b.filaValor, hoja.colIndex);
+      if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * factor;
+      return String(va).localeCompare(String(vb), 'es') * factor;
+    });
+    var frag = document.createDocumentFragment();
+    bloques.forEach(function(b){ b.filas.forEach(function(f){ frag.appendChild(f); }); });
+    if(filaTotal) frag.appendChild(filaTotal);
+    tbody.appendChild(frag);
+
+    Array.prototype.slice.call(table.querySelectorAll('thead .sort-arrow')).forEach(function(s){ s.remove(); });
+    var arrow = document.createElement('span');
+    arrow.className = 'sort-arrow';
+    arrow.textContent = dir === 'desc' ? ' ▼' : ' ▲';
+    hoja.celda.appendChild(arrow);
+
+    if(guardar){
+      var estado = leerEstado(table.id) || {};
+      estado.orden = { clave: hoja.clave, dir: dir };
+      guardarEstado(table.id, estado);
+    }
+  }
+
+  function attachSortHandlers(table, hojas){
+    hojas.forEach(function(h){
+      if(h.celda.dataset.sortReady) return;
+      h.celda.dataset.sortReady = '1';
+      h.celda.style.cursor = 'pointer';
+      h.celda.addEventListener('click', function(){
+        var estadoPrevio = leerEstado(table.id);
+        var mismaColumna = estadoPrevio && estadoPrevio.orden && estadoPrevio.orden.clave === h.clave;
+        var dir = mismaColumna && estadoPrevio.orden.dir === 'desc' ? 'asc' : 'desc';
+        ordenarPorColumna(table, h, dir, true);
+      });
+    });
+  }
+
+  function aplicarEstadoGuardado(table, hojas){
+    var estado = leerEstado(table.id);
+    if(!estado) return;
+    if(estado.anchos && Object.keys(estado.anchos).length){
+      prepararLayoutFijo(table, hojas);
+      hojas.forEach(function(h){
+        if(estado.anchos[h.clave]) h.celda.style.width = estado.anchos[h.clave];
+      });
+    }
+    if(estado.orden && estado.orden.clave){
+      var hoja = null;
+      for(var i=0;i<hojas.length;i++){ if(hojas[i].clave === estado.orden.clave){ hoja = hojas[i]; break; } }
+      if(hoja) ordenarPorColumna(table, hoja, estado.orden.dir, false);
+    }
+  }
+
+  function enhanceTable(table){
+    if(!table.id) return; // sin id no se puede guardar/restaurar el estado de forma confiable
+    var hojas = calcularColumnasHoja(table);
+    if(!hojas.length) return;
+    agregarControlesResize(table, hojas);
+    attachSortHandlers(table, hojas);
+    hojas.forEach(function(h){ h.celda.dataset.uiReady = '1'; });
+    aplicarEstadoGuardado(table, hojas);
+  }
+
+  function tablasSinListo(root){
+    var out = [];
+    if(root.nodeType !== 1) return out;
+    if(root.matches && root.matches('table.data-table') && root.querySelector('thead th:not([data-ui-ready])')) out.push(root);
+    if(root.querySelectorAll){
+      Array.prototype.slice.call(root.querySelectorAll('table.data-table')).forEach(function(t){
+        if(t.querySelector('thead th:not([data-ui-ready])')) out.push(t);
+      });
+    }
+    var ancestro = root.closest && root.closest('table.data-table');
+    if(ancestro && ancestro.querySelector('thead th:not([data-ui-ready])')) out.push(ancestro);
+    return out;
+  }
+
+  var observer = new MutationObserver(function(mutaciones){
+    var tablas = [];
+    mutaciones.forEach(function(m){
+      if(m.target) tablasSinListo(m.target).forEach(function(t){ if(tablas.indexOf(t)===-1) tablas.push(t); });
+      if(m.addedNodes) Array.prototype.slice.call(m.addedNodes).forEach(function(n){
+        tablasSinListo(n).forEach(function(t){ if(tablas.indexOf(t)===-1) tablas.push(t); });
+      });
+    });
+    tablas.forEach(function(t){ enhanceTable(t); });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Por si al cargar este script ya hay tablas en el DOM (poco probable -- las tablas del
+  // dashboard se llenan despues via fetch -- pero por robustez).
+  Array.prototype.slice.call(document.querySelectorAll('table.data-table')).forEach(function(t){
+    if(t.id && t.querySelector('thead th')) enhanceTable(t);
+  });
+
+  // Expuesto para pruebas / depuracion manual.
+  window.__tableUI = { enhanceTable: enhanceTable, leerEstado: leerEstado, calcularColumnasHoja: calcularColumnasHoja };
+})();
+
 </script>
 </div>
 </body>
