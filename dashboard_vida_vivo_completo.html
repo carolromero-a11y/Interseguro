@@ -823,7 +823,7 @@
       <h2>Solo Call Externo (Biznes)</h2>
       <div class="table-wrap"><table class="data-table" id="tableComiteExterno"></table></div>
     </section>
-    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). % Contactabilidad = DNI únicos tipificados como "1. Contacto Válido" (hoja "Tipificaciones") ÷ total de DNI únicos tipificados ese mes. Tasa de cierre (TC) = Ventas de ese mes/call ÷ esos DNI "1. Contacto Válido". Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
+    <p class="note">Efectividad lead y venta mes = ventas con lead del mismo mes ÷ leads de ese mes (misma definición que en el resto del dashboard). Participación ventas leads mes pasado (% ventas colchón) = ventas con lead asignado el mes anterior ÷ ventas totales de ese mes. PP = prima promedio (Prima x Frecuencia). PNA = suma de la columna "PNA" (Cruce_Raw, con fallback a Ventas_Raw). % Contactabilidad = DNI únicos tipificados como "1. Contacto Válido" (hoja "Tipificaciones") ÷ total de DNI únicos tipificados ese mes. Tasa de cierre (TC) = Ventas de ese mes/call ÷ (Leads de ese mes/call × % Contactabilidad) -- es decir, los "contactados" se estiman aplicando el % Contactabilidad sobre el total de Leads del mes, no sobre el total de DNI tipificados. Las filas de arriba siempre están cortadas al mismo día de corte en las 4 columnas — ningún mes se muestra completo, ni siquiera los ya cerrados, para poder comparar el mismo tramo de días entre meses. La fila "Proyección de cierre" es distinta: en los meses ya cerrados (mayo, junio, julio) muestra el dato real con el que cerró el mes completo ("Mes cerrado"); solo en el mes actual (agosto) se calcula una proyección, usando el modelo de días de gestión (L-V = 1 día, sáb = 0.5, dom/feriado = 0) que mezcla el ritmo real del mes con el promedio de los últimos meses cerrados.</p>
   </div>
 
   <!-- ===== TAB: SEGUIMIENTO DIARIO ===== -->
@@ -3921,10 +3921,17 @@ function renderInsights(corte){
     const totalA = rowsA.reduce((s,r)=>s+r[8],0), totalP = rowsP.reduce((s,r)=>s+r[8],0);
     const validoA = rowsA.filter(r=>esNivel1ContactoValido(r[2])).reduce((s,r)=>s+r[8],0);
     const validoP = rowsP.filter(r=>esNivel1ContactoValido(r[2])).reduce((s,r)=>s+r[8],0);
-    // TC (Tasa de Cierre) consolidada = ventas reales del mes (vA/vP, ya calculadas arriba en
-    // esta función) ÷ DNI "1. Contacto Válido" de ese mes al mismo día de corte.
-    if(validoA>0 && validoP>0){
-      const tcA = vA/validoA, tcP = vP/validoP;
+    // TC (Tasa de Cierre) consolidada, ronda de setiembre 2026 (mismo cambio que en la tabla
+    // Comité): ventas reales del mes (vA/vP, ya calculadas arriba en esta función) ÷ contactados
+    // estimados = Leads consolidados de ese mes al mismo día de corte × % Contactabilidad de ese
+    // mes (validoA/totalA, validoP/totalP) -- NO se divide directo entre los DNI "1. Contacto
+    // Válido" reales.
+    const leadsInsA = aggMonth(DATA.leads_daily, mesActual, 'leads', corte);
+    const leadsInsP = aggMonth(DATA.leads_daily, mesAnterior, 'leads', corte);
+    const contactadosInsA = totalA>0 ? leadsInsA * (validoA/totalA) : 0;
+    const contactadosInsP = totalP>0 ? leadsInsP * (validoP/totalP) : 0;
+    if(contactadosInsA>0 && contactadosInsP>0){
+      const tcA = vA/contactadosInsA, tcP = vP/contactadosInsP;
       if(tcP>0){
         const rel = (tcA-tcP)/tcP;
         if(Math.abs(rel)>=0.15){
@@ -4150,22 +4157,32 @@ function renderTablaComite(tableId, filtroCall, corte){
   html += '<tr style="background:var(--bg);font-weight:600;"><td colspan="'+(cols.length+1)+'" style="text-align:left;">Análisis de efectividad</td></tr>';
   html += filaComite('Participación ventas leads mes pasado (% ventas colchón)', colchonPartVals, v=>v);
   html += filaComite('Efectividad lead y venta mes', efectVals, v=>v);
-  // % Contactabilidad y Tasa de cierre (TC), basados en la hoja "Tipificaciones" (a pedido
-  // explícito, setiembre 2026). %Contactabilidad = DNI únicos tipificados como "1. Contacto
-  // Válido" ese mes (al mismo día de corte) ÷ TOTAL de DNI únicos tipificados ese mes (todas las
-  // categorías Nivel 1: Contacto Válido + Contacto No Válido + No Contacto). TC (Tasa de Cierre)
-  // = Ventas reales de ese mes/call al mismo día de corte (la misma cifra de la fila "Ventas" de
-  // arriba) ÷ esos DNI "1. Contacto Válido" -- confirmado explícitamente con el usuario que NO es
-  // un cruce por DNI contra ventas, sino ventas totales del mes dividido entre esos DNI. Si la
-  // hoja "Tipificaciones" todavía no existe o no tiene datos de este call/mes, queda "–" (mismo
-  // criterio de "–" que el resto de filas de esta tabla).
+  // % Contactabilidad, basado en la hoja "Tipificaciones" (a pedido explícito, setiembre 2026).
+  // %Contactabilidad = DNI únicos tipificados como "1. Contacto Válido" ese mes (al mismo día de
+  // corte) ÷ TOTAL de DNI únicos tipificados ese mes (todas las categorías Nivel 1: Contacto
+  // Válido + Contacto No Válido + No Contacto). Si la hoja "Tipificaciones" todavía no existe o
+  // no tiene datos de este call/mes, queda "–" (mismo criterio de "–" que el resto de filas de
+  // esta tabla).
   const contactVals = cols.map((m,i) => {
     const c = contactabilidadTipif(m, corte, filtroCall);
     return c.totalDni>0 ? pctFmt((c.validoDni/c.totalDni)*100) : null;
   });
+  // Tasa de Cierre (TC), ronda de setiembre 2026 (a pedido explícito, tras confirmar con el
+  // usuario el cálculo exacto): YA NO se divide entre los DNI "Contacto Válido" reales de la hoja
+  // Tipificaciones. Ahora los "contactados" se estiman aplicando el mismo % Contactabilidad de
+  // arriba sobre el total de Leads del mes (fila "Leads" de esta misma tabla, hoja Gestión de
+  // leads) -- NO sobre el total de DNI tipificados. Es decir: contactados = Leads del mes ×
+  // %Contactabilidad; TC = Ventas del mes/call (misma cifra de la fila "Ventas") ÷ esos
+  // contactados. Esto es intencional aunque mezcla 2 universos distintos (Leads de "Gestión de
+  // leads" y el % de "Tipificaciones"): asume que la tasa de contacto medida sobre los leads ya
+  // tipificados aplicaría igual sobre el resto de los leads del mes que todavía no fueron
+  // tipificados a la fecha de corte. Por eso da un número distinto a "Ventas ÷ DNI Contacto
+  // Válido reales" cuando no todos los leads del mes ya fueron tipificados.
   const tcVals = cols.map((m,i) => {
     const c = contactabilidadTipif(m, corte, filtroCall);
-    return c.validoDni>0 ? pctFmt((ventasVals[i].v/c.validoDni)*100) : null;
+    if(c.totalDni<=0) return null;
+    const contactadosSobreLeads = leadsVals[i] * (c.validoDni / c.totalDni);
+    return contactadosSobreLeads>0 ? pctFmt((ventasVals[i].v/contactadosSobreLeads)*100) : null;
   });
   html += filaComite('% Contactabilidad', contactVals, v=>v);
   html += filaComite('Tasa de cierre (TC)', tcVals, v=>v);
