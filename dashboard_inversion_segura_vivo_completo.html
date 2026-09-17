@@ -1506,6 +1506,11 @@ function renderCampanaTable(){
   let totLeads=0, totConv=0;
   rows.forEach(r => {
     const part = totalLeadsMes>0 ? Math.round((r.leads/totalLeadsMes)*1000)/10 : 0;
+    // Valor SIN redondear de "% Participación" (ej. 0.0004 aunque se muestre "0%"): se guarda en
+    // data-order para que el ordenamiento genérico (ver más abajo) pueda distinguir filas que
+    // muestran el mismo texto redondeado pero tienen participación distinta -- si no, muchas
+    // campañas chicas empatarían siempre en "0%" y la columna parecería que no ordena.
+    const partExacto = totalLeadsMes>0 ? (r.leads/totalLeadsMes) : 0;
     const efect = r.leads>0 ? Math.round((r.convertidos/r.leads)*1000)/10 : 0;
     // Nombre completo de la campaña, sin truncar en JS: el ancho real (fijo por defecto, o el que
     // el usuario haya arrastrado con el redimensionado) más el "..." de CSS deciden cuánto se ve.
@@ -1514,7 +1519,7 @@ function renderCampanaTable(){
     // como "Sin campaña" para que quede claro que no es el nombre real de ninguna campaña.
     const nombre = r.campana === '(Sin campaña)' ? 'Sin campaña' : r.campana;
     totLeads += r.leads; totConv += r.convertidos;
-    html += '<tr><td title="'+nombre.replace(/"/g,'&quot;')+'">'+nombre+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td>'+part+'%</td><td>'+efect+'%</td></tr>';
+    html += '<tr><td title="'+nombre.replace(/"/g,'&quot;')+'">'+nombre+'</td><td>'+r.leads.toLocaleString()+'</td><td>'+r.convertidos.toLocaleString()+'</td><td data-order="'+partExacto+'">'+part+'%</td><td>'+efect+'%</td></tr>';
   });
   const totPart = totalLeadsMes>0 ? Math.round((totLeads/totalLeadsMes)*1000)/10 : 0;
   html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td><td>'+totLeads.toLocaleString()+'</td><td>'+totConv.toLocaleString()+'</td><td>'+totPart+'%</td><td>–</td></tr>';
@@ -1696,6 +1701,16 @@ render(1, corteDefault);
   function guardarEstado(tableId, estado){
     try { window.localStorage.setItem(STORAGE_PREFIX + tableId, JSON.stringify(estado)); } catch(e) {}
   }
+  // Lee la lista de columnas activas para ordenar, en orden de PRIORIDAD (la primera es la
+  // principal, las siguientes son criterios de desempate). Convierte automáticamente el formato
+  // viejo (una sola columna guardada en "estado.orden", de antes de setiembre 2026) al formato
+  // nuevo de lista, para no perder el ordenamiento que alguien ya tenía guardado en su navegador.
+  function normalizarOrdenes(estado){
+    if(!estado) return [];
+    if(Array.isArray(estado.ordenes)) return estado.ordenes;
+    if(estado.orden && estado.orden.clave) return [{ clave: estado.orden.clave, dir: estado.orden.dir }];
+    return [];
+  }
 
   // Calcula, para cada columna "hoja" (la que realmente corresponde a una columna de datos en
   // <tbody>), su <th>, su indice de columna real (considerando rowspan/colspan de encabezados de
@@ -1805,6 +1820,16 @@ render(1, corteDefault);
     return isNaN(n) ? null : n;
   }
   function valorParaOrden(tr, colIndex){
+    // Si la celda trae un "data-order" (valor numérico preciso, SIN redondear) se usa ese en vez
+    // del texto mostrado -- hace falta para columnas como "% Participación" donde varias filas
+    // pueden redondear al mismo texto visible (ej. "0%") y quedarían empatadas para siempre si
+    // se ordenara por el texto. Si la celda no trae ese atributo, el comportamiento es EXACTAMENTE
+    // el de antes (se sigue leyendo del texto mostrado).
+    var celda = tr.cells[colIndex];
+    if(celda && celda.dataset && celda.dataset.order !== undefined && celda.dataset.order !== ''){
+      var nOrden = parseFloat(celda.dataset.order);
+      if(!isNaN(nOrden)) return nOrden;
+    }
     var texto = textoCelda(tr, colIndex);
     var n = numeroCelda(texto);
     return n !== null ? n : texto.toLowerCase();
@@ -1814,9 +1839,42 @@ render(1, corteDefault);
     return /^total$/i.test(t);
   }
 
-  function ordenarPorColumna(table, hoja, dir, guardar){
+  // Numerito en superíndice para marcar la PRIORIDAD cuando hay más de una columna ordenada a la
+  // vez (¹ = criterio principal, ² = segundo criterio de desempate, etc.). Con una sola columna
+  // activa no se usa (se ve igual que siempre, sin numerito).
+  var SUPERINDICES = {1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'};
+  function superindice(n){ return SUPERINDICES[n] || ('^' + n); }
+
+  function pintarFlechasOrden(table, hojas, ordenes){
+    Array.prototype.slice.call(table.querySelectorAll('thead .sort-arrow')).forEach(function(s){ s.remove(); });
+    ordenes.forEach(function(o, idx){
+      var hoja = null;
+      for(var i=0;i<hojas.length;i++){ if(hojas[i].clave === o.clave){ hoja = hojas[i]; break; } }
+      if(!hoja) return;
+      var arrow = document.createElement('span');
+      arrow.className = 'sort-arrow';
+      var flechaBase = o.dir === 'desc' ? ' ▼' : ' ▲';
+      arrow.textContent = flechaBase + (ordenes.length > 1 ? superindice(idx + 1) : '');
+      hoja.celda.appendChild(arrow);
+    });
+  }
+
+  // Ordena la tabla por VARIAS columnas a la vez: "ordenes" es una lista de {clave, dir} en orden
+  // de prioridad (la primera es la clave principal, las siguientes son criterios de desempate,
+  // igual que "ordenar por A y despues por B" en Excel). Si alguna clave guardada ya no existe en
+  // la tabla actual (por ejemplo cambiaron los meses elegidos) simplemente se ignora, sin romper
+  // el resto. Mantiene intacta la lógica de mover en BLOQUE los grupos anidados (fila
+  // "nested-group-row" + sus sub-filas + Subtotal) y de dejar siempre la fila "Total" al final.
+  function ordenarPorColumnas(table, hojas, ordenes, guardar){
     var tbody = table.tBodies[0];
     if(!tbody) return;
+    var criterios = [];
+    ordenes.forEach(function(o){
+      var hoja = null;
+      for(var i=0;i<hojas.length;i++){ if(hojas[i].clave === o.clave){ hoja = hojas[i]; break; } }
+      if(hoja) criterios.push({ hoja: hoja, dir: o.dir });
+    });
+
     var filas = Array.prototype.slice.call(tbody.rows);
     var bloques = [], filaTotal = null, i = 0;
     while(i < filas.length){
@@ -1838,27 +1896,31 @@ render(1, corteDefault);
       bloques.push({ filas: [fila], filaValor: fila });
       i++;
     }
-    var factor = dir === 'desc' ? -1 : 1;
-    bloques.sort(function(a, b){
-      var va = valorParaOrden(a.filaValor, hoja.colIndex);
-      var vb = valorParaOrden(b.filaValor, hoja.colIndex);
-      if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * factor;
-      return String(va).localeCompare(String(vb), 'es') * factor;
-    });
+
+    if(criterios.length){
+      bloques.sort(function(a, b){
+        for(var c=0; c<criterios.length; c++){
+          var hoja = criterios[c].hoja, factor = criterios[c].dir === 'desc' ? -1 : 1;
+          var va = valorParaOrden(a.filaValor, hoja.colIndex);
+          var vb = valorParaOrden(b.filaValor, hoja.colIndex);
+          var cmp = (typeof va === 'number' && typeof vb === 'number') ? (va - vb) : String(va).localeCompare(String(vb), 'es');
+          if(cmp !== 0) return cmp * factor;
+        }
+        return 0; // empatan en todos los criterios activos: se deja el orden que ya tenían (sort estable)
+      });
+    }
+
     var frag = document.createDocumentFragment();
     bloques.forEach(function(b){ b.filas.forEach(function(f){ frag.appendChild(f); }); });
     if(filaTotal) frag.appendChild(filaTotal);
     tbody.appendChild(frag);
 
-    Array.prototype.slice.call(table.querySelectorAll('thead .sort-arrow')).forEach(function(s){ s.remove(); });
-    var arrow = document.createElement('span');
-    arrow.className = 'sort-arrow';
-    arrow.textContent = dir === 'desc' ? ' ▼' : ' ▲';
-    hoja.celda.appendChild(arrow);
+    pintarFlechasOrden(table, hojas, ordenes);
 
     if(guardar){
       var estado = leerEstado(table.id) || {};
-      estado.orden = { clave: hoja.clave, dir: dir };
+      estado.ordenes = ordenes;
+      delete estado.orden;
       guardarEstado(table.id, estado);
     }
   }
@@ -1869,10 +1931,22 @@ render(1, corteDefault);
       h.celda.dataset.sortReady = '1';
       h.celda.style.cursor = 'pointer';
       h.celda.addEventListener('click', function(){
-        var estadoPrevio = leerEstado(table.id);
-        var mismaColumna = estadoPrevio && estadoPrevio.orden && estadoPrevio.orden.clave === h.clave;
-        var dir = mismaColumna && estadoPrevio.orden.dir === 'desc' ? 'asc' : 'desc';
-        ordenarPorColumna(table, h, dir, true);
+        var ordenes = normalizarOrdenes(leerEstado(table.id)).slice();
+        var idx = -1;
+        for(var i=0;i<ordenes.length;i++){ if(ordenes[i].clave === h.clave){ idx = i; break; } }
+        if(idx === -1){
+          // 1er click en esta columna: se agrega al final de la lista (después de las columnas
+          // que ya estaban activas, que conservan su prioridad), empezando de mayor a menor.
+          ordenes.push({ clave: h.clave, dir: 'desc' });
+        } else if(ordenes[idx].dir === 'desc'){
+          // 2do click: pasa de mayor-a-menor a menor-a-mayor, sin mover su posición/prioridad.
+          ordenes[idx] = { clave: h.clave, dir: 'asc' };
+        } else {
+          // 3er click: se quita el ordenamiento de esta columna; las demás columnas activas y su
+          // prioridad entre ellas no se tocan.
+          ordenes.splice(idx, 1);
+        }
+        ordenarPorColumnas(table, hojas, ordenes, true);
       });
     });
   }
@@ -1886,11 +1960,8 @@ render(1, corteDefault);
         if(estado.anchos[h.clave]) h.celda.style.width = estado.anchos[h.clave];
       });
     }
-    if(estado.orden && estado.orden.clave){
-      var hoja = null;
-      for(var i=0;i<hojas.length;i++){ if(hojas[i].clave === estado.orden.clave){ hoja = hojas[i]; break; } }
-      if(hoja) ordenarPorColumna(table, hoja, estado.orden.dir, false);
-    }
+    var ordenes = normalizarOrdenes(estado);
+    if(ordenes.length) ordenarPorColumnas(table, hojas, ordenes, false);
   }
 
   // ---------- DESCARGA DE TABLAS EN CSV (a pedido explícito, setiembre 2026, mismo cambio que
@@ -2026,4 +2097,5 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
+
 
