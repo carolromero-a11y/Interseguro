@@ -118,6 +118,9 @@
   .sort-arrow{ font-size:9px; margin-left:3px; }
   table.data-table thead th[data-sort-ready]:hover{ background:var(--navy-2); }
   .table-wrap{ overflow-x:auto; border-radius:10px; }
+  .csv-download-wrap{ display:flex; justify-content:flex-end; margin:4px 0 16px; }
+  .csv-download-btn{ font-family:'IBM Plex Sans',sans-serif; font-size:12px; padding:5px 11px; border-radius:6px; border:1px solid var(--border); background:#fff; color:var(--text-2); cursor:pointer; font-weight:500; }
+  .csv-download-btn:hover{ border-color:var(--amber); color:var(--navy); }
   td.up{ background:#DEF2E6; color:#0F6B45; font-weight:600; }
   td.down{ background:#FBE4E1; color:#A32E20; font-weight:600; }
   footer{ max-width:1180px; margin:0 auto; padding:0 24px 40px; color:var(--text-3); font-size:12px; line-height:1.6;}
@@ -1890,7 +1893,90 @@ render(1, corteDefault);
     }
   }
 
+  // ---------- DESCARGA DE TABLAS EN CSV (a pedido explícito, setiembre 2026, mismo cambio que
+  // en Vida y Rumbo) ----------
+  // Botón genérico "Descargar CSV" agregado a CUALQUIER tabla del dashboard (actual o futura),
+  // enganchado al MISMO mecanismo de arriba (MutationObserver + tablasSinListo) que ya detecta
+  // cuando una tabla se acaba de (re)dibujar -- así no hace falta acordarse de agregarlo a mano
+  // en cada función que arma una tabla nueva. A propósito NO se exige `table.id` aquí (a
+  // diferencia de ordenar/redimensionar, que sí lo necesitan para guardar el estado): esto deja
+  // que también reciban botón las tablas armadas al vuelo sin id propio, como la de "Ver rango"
+  // (rangoResultado). El botón se agrega UNA sola vez por tabla (bandera `dataset.csvListo` en
+  // el <table>, que sobrevive a los re-renders porque solo se reemplaza el contenido interno de
+  // la tabla, nunca el elemento <table> en sí) y descarga, al momento del click (no al momento
+  // de agregarse el botón), exactamente lo que esa tabla tiene en ese instante.
+  //
+  // Simplificación consciente: no se intenta "desarmar" filas con colspan/rowspan (encabezados
+  // de 2 pisos) -- cada <tr> se exporta tal cual, igual a como se ve en pantalla. Los números
+  // salen con el mismo formato visible (comas de miles, "S/", "%"); quien lo abra en Excel puede
+  // limpiarlos con "Texto en columnas" si necesita sumarlos directamente.
+  function celdaATextoCSV(celda){
+    var t = (celda.textContent || '').replace(/\s+/g, ' ').trim();
+    if(/[",;\n]/.test(t)) t = '"' + t.replace(/"/g, '""') + '"';
+    return t;
+  }
+  function tablaATextoCSV(table){
+    var lineas = [];
+    Array.prototype.slice.call(table.querySelectorAll('tr')).forEach(function(fila){
+      var celdas = fila.querySelectorAll('th,td');
+      if(!celdas.length) return;
+      lineas.push(Array.prototype.slice.call(celdas).map(celdaATextoCSV).join(','));
+    });
+    // BOM UTF-8 al inicio: sin esto, Excel (sobre todo en Windows) puede mostrar mal los acentos
+    // y las "ñ" al abrir el CSV directamente con doble click.
+    return '﻿' + lineas.join('\r\n');
+  }
+  // Nombre de archivo legible: usa el título (h1-h4) más cercano hacia arriba en el documento,
+  // para que descargar varias tablas no termine en varios archivos "tabla.csv" indistinguibles.
+  function nombreArchivoParaTabla(table){
+    var titulo = '';
+    var el = table;
+    while(el && !titulo){
+      var prev = el.previousElementSibling;
+      while(prev){
+        if(/^H[1-4]$/.test(prev.tagName)){ titulo = prev.textContent; break; }
+        prev = prev.previousElementSibling;
+      }
+      el = el.parentElement;
+    }
+    var base = (titulo || table.id || 'tabla').trim()
+      .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    var hoy = new Date().toISOString().slice(0, 10);
+    return (base || 'tabla') + '_' + hoy + '.csv';
+  }
+  function descargarTablaComoCSV(table){
+    if(!table.querySelector('tbody tr')){
+      window.alert('Esta tabla todavía no tiene datos para descargar.');
+      return;
+    }
+    var csv = tablaATextoCSV(table);
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivoParaTabla(table);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+  function agregarBotonCSV(table){
+    if(table.dataset.csvListo) return;
+    table.dataset.csvListo = '1';
+    var wrap = document.createElement('div');
+    wrap.className = 'csv-download-wrap';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'csv-download-btn';
+    btn.textContent = '⬇ Descargar CSV';
+    btn.addEventListener('click', function(){ descargarTablaComoCSV(table); });
+    wrap.appendChild(btn);
+    if(table.parentNode) table.parentNode.insertBefore(wrap, table.nextSibling);
+  }
+
   function enhanceTable(table){
+    agregarBotonCSV(table);
     if(!table.id) return; // sin id no se puede guardar/restaurar el estado de forma confiable
     var hojas = calcularColumnasHoja(table);
     if(!hojas.length) return;
@@ -1940,5 +2026,4 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
-
 
