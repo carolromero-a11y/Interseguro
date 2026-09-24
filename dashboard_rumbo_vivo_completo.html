@@ -422,7 +422,11 @@
         <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
       </div>
-      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (tasa, prima y edad).</span>
+      <div class="dropdown-filter" data-tab="perfil-vista">
+        <button type="button" class="dropdown-filter-btn" data-role="vista-filter-btn" title="Solo oculta columnas de la vista; no cambia el filtro de Call center ni la columna Total.">Vista de columnas: <span data-role="vista-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="vista-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (tasa, prima y edad). "Vista de columnas" solo oculta columnas a la vista, sin afectar el Total.</span>
     </div>
     <section>
       <h2>Rango de tasa — Leads y % Participación</h2>
@@ -546,7 +550,11 @@
         <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
       </div>
-      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (fuente, subfuente y los cruces con tasa/prima).</span>
+      <div class="dropdown-filter" data-tab="fuente-vista">
+        <button type="button" class="dropdown-filter-btn" data-role="vista-filter-btn" title="Solo oculta columnas de la vista; no cambia el filtro de Call center ni la columna Total.">Vista de columnas: <span data-role="vista-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="vista-filter-panel"></div>
+      </div>
+      <span class="filter-hint">El filtro de call agrega el call center como columna, agrupando los meses debajo de cada uno. Aplica a todas las tablas de esta pestaña (fuente, subfuente y los cruces con tasa/prima). "Vista de columnas" solo oculta columnas a la vista, sin afectar el Total.</span>
     </div>
     <section>
       <h2>Leads y % Participación por fuente — todos los meses</h2>
@@ -689,6 +697,10 @@
       <div class="dropdown-filter" data-tab="ventas-call">
         <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="ventas-vista">
+        <button type="button" class="dropdown-filter-btn" data-role="vista-filter-btn" title="Solo oculta columnas de la vista; no cambia el filtro de Call center ni la columna Total.">Vista de columnas: <span data-role="vista-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="vista-filter-panel"></div>
       </div>
       <div class="dropdown-filter" data-tab="ventas-prima">
         <button type="button" class="dropdown-filter-btn" data-role="prima-filter-btn">Rango de prima venta: <span data-role="prima-filter-label">—</span> ▾</button>
@@ -861,6 +873,10 @@
       <div class="dropdown-filter" data-tab="tipificacion-call">
         <button type="button" class="dropdown-filter-btn" data-role="call-filter-btn">Call center: <span data-role="call-filter-label">—</span> ▾</button>
         <div class="dropdown-filter-panel" data-role="call-filter-panel"></div>
+      </div>
+      <div class="dropdown-filter" data-tab="tipificacion-vista">
+        <button type="button" class="dropdown-filter-btn" data-role="vista-filter-btn" title="Solo oculta columnas de la vista; no cambia el filtro de Call center ni la columna Total.">Vista de columnas: <span data-role="vista-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="vista-filter-panel"></div>
       </div>
       <div class="dropdown-filter" data-tab="tipif-fuente">
         <button type="button" class="dropdown-filter-btn" data-role="tipif-fuente-filter-btn">Fuente: <span data-role="tipif-fuente-filter-label">—</span> ▾</button>
@@ -2047,7 +2063,7 @@ function dimsOrdenadosTipifN2(corte, n1){
 // agrupadora) x mes (sub-columna) -- mismo diseño que Vida. Cada grupo nivel1 arranca colapsado.
 // valueFn(agg, denom, nivel) recibe agg={dniCount,qllamadas} y denom=el total de su nivel
 // inmediato superior (nivel2 -> total de su nivel1, "Subtotal nivel1" -> total general).
-function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
+function buildTipifTriTable(tableId, corte, buckets, cols, valueFn, bucketsVisibles){
   const rows = filasTipifFiltradas(corte);
   const n1s = dimsOrdenadosTipifN1(corte);
   function sumarAggTipif(parts){
@@ -2093,7 +2109,7 @@ function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
     cacheGeneral.set(key, res);
     return res;
   }
-  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
   gruposMostrar.forEach(b => {
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
@@ -2133,6 +2149,7 @@ function buildTipifTriTable(tableId, corte, buckets, cols, valueFn){
 function renderTablaTipificacion(corte){
   construirDropdownFuenteTipif(); construirDropdownSubfuenteTipif();
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['tipificacion'] && callFiltroTab['tipificacion'].has(b));
+  const bucketsVisibles = vistaColumnasTab['tipificacion'];
   if(!buckets.length || !(DATA.tipificaciones||[]).length) return;
   const cols = mesesVisiblesV('tipificacion');
   buildTipifTriTable('tableTipifCantidadMatrix', corte, buckets, cols, (a, denom, nivel) => {
@@ -2141,7 +2158,7 @@ function renderTablaTipificacion(corte){
       return a.dniCount.toLocaleString()+' (<strong>'+pctFmt((a.dniCount/denom.dniCount)*100)+'</strong>)';
     }
     return a.dniCount.toLocaleString();
-  });
+  }, bucketsVisibles);
 }
 
 function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte){
@@ -2446,6 +2463,78 @@ function actualizarLabelCall(tab){
 }
 CALL_FILTRO_TABS.forEach(t => construirDropdownCall(t));
 
+// ---------- VISTA DE COLUMNAS (ocultar columnas de call center SOLO a la vista, set. 2026) ----------
+// A pedido explicito del usuario: poder ocultar de la vista un call center (o "Total") en las
+// tablas que lo desagregan como columna, SIN afectar el filtro real de "Call center" de arriba ni
+// la columna "Total" -- el Total sigue sumando siempre lo que este tildado en "Call center", este
+// o no oculto en este desplegable nuevo. Mecanismo aparte de callFiltroTab, con el mismo patron
+// de desplegable de checkboxes por pestaña, y se recuerda entre visitas (localStorage) igual que
+// el orden/ancho de columnas.
+const VISTA_COLUMNAS_STORAGE_PREFIX = 'vistaColumnasCall_v1::rumbo::';
+// Mismas pestañas que CALL_FILTRO_TABS, EXCEPTO "ventasprima": esa tabla (Prima cotizada lead vs.
+// prima final de venta) no desagrega el call center como columna (ver callFiltroDefault arriba),
+// así que no tiene sentido ofrecerle un control de "qué columna de call ocultar".
+const VISTA_COLUMNAS_TABS = ['perfil','fuente','ventas','tipificacion'];
+function leerVistaColumnasGuardada(tab){
+  try {
+    const raw = window.localStorage.getItem(VISTA_COLUMNAS_STORAGE_PREFIX + tab);
+    if(!raw) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) && arr.length ? new Set(arr) : null;
+  } catch(e) { return null; }
+}
+function guardarVistaColumnas(tab){
+  try { window.localStorage.setItem(VISTA_COLUMNAS_STORAGE_PREFIX + tab, JSON.stringify(Array.from(vistaColumnasTab[tab]))); } catch(e) {}
+}
+let vistaColumnasTab = {};
+VISTA_COLUMNAS_TABS.forEach(t => {
+  vistaColumnasTab[t] = leerVistaColumnasGuardada(t) || new Set(CALL_FILTER_BUCKETS.concat(['Total']));
+});
+function construirDropdownVista(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'-vista"]');
+  if(!wrap) return;
+  const btn = wrap.querySelector('[data-role="vista-filter-btn"]');
+  const panel = wrap.querySelector('[data-role="vista-filter-panel"]');
+  if(!btn || !panel) return;
+  if(!panel.dataset.filled){
+    const opciones = CALL_FILTER_BUCKETS.concat(['Total']);
+    panel.innerHTML = opciones.map(b =>
+      '<label><input type="checkbox" value="'+b+'"'+(vistaColumnasTab[tab].has(b)?' checked':'')+'> '+b+'</label>'
+    ).join('') + '<div class="df-actions"><button type="button" data-act="todos">Todos</button></div>';
+    panel.dataset.filled = '1';
+    panel.addEventListener('click', e => e.stopPropagation());
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) vistaColumnasTab[tab].add(cb.value); else vistaColumnasTab[tab].delete(cb.value);
+        guardarVistaColumnas(tab);
+        actualizarLabelVista(tab); render(desdeActual, corteActual);
+      });
+    });
+    panel.querySelector('[data-act="todos"]').addEventListener('click', () => {
+      vistaColumnasTab[tab] = new Set(opciones);
+      panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+      guardarVistaColumnas(tab);
+      actualizarLabelVista(tab); render(desdeActual, corteActual);
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.dropdown-filter-panel.open').forEach(p => { if(p!==panel) p.classList.remove('open'); });
+      panel.classList.toggle('open');
+    });
+  }
+  actualizarLabelVista(tab);
+}
+function actualizarLabelVista(tab){
+  const wrap = document.querySelector('.dropdown-filter[data-tab="'+tab+'-vista"]');
+  if(!wrap) return;
+  const label = wrap.querySelector('[data-role="vista-filter-label"]');
+  if(!label) return;
+  const set = vistaColumnasTab[tab];
+  const totalOpciones = CALL_FILTER_BUCKETS.length + 1;
+  label.textContent = set.size === totalOpciones ? 'Todas' : (Array.from(set).join(', ') || 'ninguna');
+}
+VISTA_COLUMNAS_TABS.forEach(t => construirDropdownVista(t));
+
 // Suma generica de "celdas" (objetos con campos numericos, ej. {l, conv, v, vMismoMes}) -- se
 // usa para armar la columna "Total" (Interno+Biznes+Otros) sin tener que saber de antemano que
 // campos trae cada tabla.
@@ -2472,8 +2561,19 @@ function agregarTotalAMapaBuckets(mapa, buckets, cols){
 // desplegable) -- se calcula solo sumando cellFn de los buckets reales, sin que el llamador
 // tenga que hacer nada especial (salvo, si su valueFn usa un mapa externo de totales para armar
 // un %, agregarle tambien la clave "Total|<mes>" con agregarTotalAMapaBuckets()).
-function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn){
-  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+// Filtra qué grupos de columna (call center + "Total") se RENDERIZAN en pantalla, segun lo
+// tildado en el desplegable "Vista de columnas" -- separado a proposito del calculo de "Total"
+// (que sigue sumando TODO lo tildado en el filtro real "Call center", este o no oculto aca). Si
+// bucketsVisibles no viene (undefined, llamador viejo) o deja la lista vacia (usuario destildo
+// todo sin querer), se muestran todos los grupos -- asi nunca se oculta una tabla entera sola.
+function filtrarGruposVisibles(buckets, bucketsVisibles){
+  const gruposTodos = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  if(!bucketsVisibles) return gruposTodos;
+  const filtrados = gruposTodos.filter(b => bucketsVisibles.has(b));
+  return filtrados.length ? filtrados : gruposTodos;
+}
+function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn, bucketsVisibles){
+  const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   function cellFnConTotal(d, b, m){
     if(b === 'Total') return sumarCeldas(buckets.map(bb => cellFn(d,bb,m)));
     return cellFn(d,b,m);
@@ -2503,6 +2603,7 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
 function renderCallFiltroPerfil(corte){
   const nota = document.getElementById('notaCallOtrosPerfil');
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['perfil'].has(b));
+  const bucketsVisibles = vistaColumnasTab['perfil'];
   if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
   if(!buckets.length) return;
   const cols = mesesVisiblesV('perfil');
@@ -2536,12 +2637,12 @@ function renderCallFiltroPerfil(corte){
       const total = totalLeadsPorBucketMes[b+'|'+m];
       const part = total>0 ? (a.l/total)*100 : 0;
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-    });
-    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
-    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+    }, bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles);
   }
 
   renderGrupo('Tasa', 'Tasa', ORDEN_TASA, 'leads_cross_tasa_call', 'sales_cross_tasa_call');
@@ -2556,6 +2657,7 @@ function renderCallFiltroPerfil(corte){
 function renderCallFiltroFuenteBasico(corte){
   const nota = document.getElementById('notaCallOtrosFuente');
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['fuente'].has(b));
+  const bucketsVisibles = vistaColumnasTab['fuente'];
   if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
   if(!buckets.length) return;
   const cols = mesesVisiblesV('fuente');
@@ -2588,12 +2690,12 @@ function renderCallFiltroFuenteBasico(corte){
       const total = totalLeadsPorBucketMes[b+'|'+m];
       const part = total>0 ? (a.l/total)*100 : 0;
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-    });
-    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–');
-    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'));
-    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–');
+    }, bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles);
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles);
   }
 
   renderGrupo('Fuente', 'Fuente', 'leads_cross_fuente_call', 'sales_cross_fuente_call');
@@ -2745,7 +2847,7 @@ function nestedGroupRowHtml(tableId, idx, label, colspan, colapsado){
 // 4to campo (r[5]) antes de sumar ventas (que pasa de r[5] a r[6]). Si no se pasa (llamado desde
 // algun lugar que todavia use un arreglo "tri" de 3 dimensiones), se comporta exactamente igual
 // que antes.
-function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, corte, mesesSel, primasLead){
+function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, corte, mesesSel, primasLead, bucketsVisibles){
   const rowsAll = DATA[triKey]||[];
   const rows = rowsAll.filter(r => ventasEnRangoDiaYMes(r, corte, mesesSel));
   function celda(d1, d2, bucket, m){
@@ -2756,7 +2858,7 @@ function buildCallNestedSubfilas(tableId, dim1s, dim2s, triKey, buckets, cols, c
   function totalDim1BucketMes(d1, bucket, m){
     return dim2s.reduce((s,d2)=>s+celda(d1,d2,bucket,m),0);
   }
-  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   let head1 = '<tr><th rowspan="2"></th>', head2 = '<tr>';
   gruposMostrar.forEach(b => {
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
@@ -2819,6 +2921,7 @@ function renderVentasTab(corte){
   const mesesSel = new Set(cols);
 
   const buckets = CALL_FILTER_BUCKETS.filter(b => callFiltroTab['ventas'].has(b));
+  const bucketsVisibles = vistaColumnasTab['ventas'];
   const nota = document.getElementById('notaCallOtrosVentas');
   if(nota) nota.style.display = buckets.includes('Otros') ? 'block' : 'none';
   if(!buckets.length) return;
@@ -2856,21 +2959,21 @@ function renderVentasTab(corte){
   // elige solo 2 rangos de prima venta, solo esos 2 aparecen como fila, igual que antes.
   const totRango = totalesPorBucketMes('sales_tri_prima_rangoprimalead_call', primas);
   buildCallNestedTable('tableVentasRangoPrimaMatrix', 'Rango de prima venta', primas, buckets, cols,
-    (d,b,m) => aggCelda('sales_tri_prima_rangoprimalead_call', d, b, m), valueConPct(totRango));
+    (d,b,m) => aggCelda('sales_tri_prima_rangoprimalead_call', d, b, m), valueConPct(totRango), bucketsVisibles);
 
   const dimsFuente = dimsOrdenadosVentas('sales_by_fuente', corte, mesesSel);
-  buildCallNestedSubfilas('tableVentasFuenteMatrix', dimsFuente, primas, 'sales_quad_fuente_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead);
+  buildCallNestedSubfilas('tableVentasFuenteMatrix', dimsFuente, primas, 'sales_quad_fuente_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead, bucketsVisibles);
 
   const dimsSubfuente = dimsOrdenadosVentas('sales_by_subfuente', corte, mesesSel);
-  buildCallNestedSubfilas('tableVentasSubfuenteMatrix', dimsSubfuente, primas, 'sales_quad_subfuente_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead);
+  buildCallNestedSubfilas('tableVentasSubfuenteMatrix', dimsSubfuente, primas, 'sales_quad_subfuente_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead, bucketsVisibles);
 
   const dimsCampana = dimsOrdenadosCampanaTri('sales_quad_campana_rangoprimalead_call', buckets, primas, corte, mesesSel, primasLead);
-  buildCallNestedSubfilas('tableVentasCampanaMatrix', dimsCampana, primas, 'sales_quad_campana_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead);
+  buildCallNestedSubfilas('tableVentasCampanaMatrix', dimsCampana, primas, 'sales_quad_campana_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead, bucketsVisibles);
 
   // Tasa y edad van en orden fijo (son rangos ordinales, no dimensiones libres como fuente o
   // campaña), igual que el Cotizador de Vida.
-  buildCallNestedSubfilas('tableVentasTasaMatrix', ORDEN_TASA, primas, 'sales_quad_tasa_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead);
-  buildCallNestedSubfilas('tableVentasEdadMatrix', ORDEN_EDAD_VENTAS, primas, 'sales_quad_edad_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead);
+  buildCallNestedSubfilas('tableVentasTasaMatrix', ORDEN_TASA, primas, 'sales_quad_tasa_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead, bucketsVisibles);
+  buildCallNestedSubfilas('tableVentasEdadMatrix', ORDEN_EDAD_VENTAS, primas, 'sales_quad_edad_rangoprimalead_call', buckets, cols, corte, mesesSel, primasLead, bucketsVisibles);
 }
 
 
@@ -2885,6 +2988,9 @@ function pctFmt(v){
 // pestaña tambien las afecte, igual que ya afecta a las 6 tablas basicas de Fuente/Subfuente.
 function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsTriKey, salesTriKey, dim2Order, buckets, corte, tabFiltro){
   const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
+  // "Vista de columnas" es por pestaña -- esta función ya recibe tabFiltro, así que se busca acá
+  // mismo en vez de agregar otro parámetro (mismo Set que usan las demás tablas de esa pestaña).
+  const bucketsVisibles = tabFiltro ? vistaColumnasTab[tabFiltro] : null;
   const leadsRows = DATA[leadsTriKey]||[]; // [mes,dia,dim1,dim2,callRaw,leads,convertidos]
   const salesRows = DATA[salesTriKey]||[]; // [mes,dia,dim1,dim2,callRaw,ventas,mismoMes,mesAnt]
 
@@ -2916,7 +3022,7 @@ function renderNestedCrossConCall(prefixLeads, prefixVentas, prefixEfect, leadsT
     };
   }
 
-  const gruposMostrar = buckets.length > 1 ? buckets.concat(['Total']) : buckets;
+  const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   // Igual que en el original: la base de % de cada dim1+call+mes suma TODAS las filas de esa
   // combinacion (sin restringir a los dim2 que se terminan mostrando como sub-fila), para que el
   // % de participacion sea correcto aunque exista algun dim2 fuera de dim2Order.
