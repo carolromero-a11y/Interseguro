@@ -439,9 +439,18 @@
 
   <!-- ===== TAB: VINTAGE ===== -->
   <div class="tabpanel" id="tab-vintage">
-    <div class="dropdown-filter" data-tab="vintage">
-      <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
-      <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+    <div class="filter-bar">
+      <div class="dropdown-filter" data-tab="vintage">
+        <button type="button" class="dropdown-filter-btn" data-role="month-filter-btn">Meses: <span data-role="month-filter-label">—</span> ▾</button>
+        <div class="dropdown-filter-panel" data-role="month-filter-panel"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label for="vintageSubfuenteSelect" style="font-size:13px;color:var(--text-3);font-weight:600;">Sub fuente:</label>
+        <select id="vintageSubfuenteSelect" title="Selección única. Filtra las 5 tablas de esta pestaña por sub fuente de campaña." style="font-family:inherit;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid #D8D4C8;background:#fff;color:#1D3A5F;font-weight:600;cursor:pointer;">
+          <option value="Todas">Todas</option>
+        </select>
+      </div>
+      <span class="filter-hint">Por defecto, "Todas" muestra el total de siempre. Elegir una sub fuente específica filtra las 5 tablas de esta pestaña a solo esa sub fuente.</span>
     </div>
     <div class="grid-2">
       <section>
@@ -469,6 +478,11 @@
       <p class="sub">Calculado con "Fecha de cotización" y "Fecha de venta" de la hoja Ventas.</p>
       <div class="table-wrap"><table class="data-table" id="tableDiasConversion"></table></div>
       <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
+    </section>
+    <section>
+      <h2>Días a la venta por campaña</h2>
+      <p class="sub">Filas: campaña (UTM) de origen de la venta, top 15 por volumen + "Otros". Columnas: cuánto tardó esa venta desde el lead. Usa los mismos filtros de Meses y Sub fuente de arriba.</p>
+      <div class="table-wrap"><table class="data-table" id="tableDiasCampana"></table></div>
     </section>
   </div>
 
@@ -544,8 +558,12 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','leads_by_rango_monto','sales_by_rango_monto',
       'leads_by_edad','sales_by_edad','ventas_dni','dias_gestion_calendario','sales_vintage',
-      'dias_matriz','dias_suma_dia','campanas'];
-    const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes'];
+      'dias_matriz','dias_suma_dia','campanas',
+      // NUEVO (setiembre 2026): desplegable "Sub fuente" y tabla nueva "Días a la venta por
+      // campaña" de "Antigüedad del lead" (mismo patrón que Vida/Rumbo, sin call).
+      'sales_vintage_subfuente','leads_daily_subfuente','dias_matriz_subfuente','dias_suma_dia_subfuente',
+      'dias_matriz_campana_subfuente'];
+    const CLAVES_OBJETO = ['leads_total_mes','multi_dist','dias_mediana_mes','dias_mediana_mes_subfuente'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
     document.getElementById('loadingOverlay').style.display = 'none';
@@ -749,6 +767,8 @@ function renderTab(key, corte){
   } else if(key === 'vintage'){
     intentar('renderVintageTable', () => renderVintageTable(corte));
     intentar('renderDiasConversion', () => renderDiasConversion(corte));
+    intentar('renderSubfuenteFiltroVintage', () => renderSubfuenteFiltroVintage(corte));
+    intentar('renderDiasCampana', () => renderDiasCampana(corte));
   }
 }
 // Vuelve a calcular la pestaña "key" SOLO si quedó pendiente (por un filtro aplicado mientras
@@ -1450,6 +1470,144 @@ function actualizarLabelCampana(){
   label.textContent = n+' seleccionadas';
 }
 construirDropdownCampana();
+
+// NUEVO (setiembre 2026): desplegable "Sub fuente" de "Antigüedad del lead" -- mismo patrón que
+// Vida/Rumbo (ver dashboard_vida_vivo_completo.html), sin call center porque Inversión Segura no
+// tiene ese concepto. "vintageSubfuenteFiltro" se declara ACA, justo antes del llamado a
+// construirSelectSubfuenteVintage() que la usa -- si quedara declarada más abajo en este mismo
+// bloque de código (como pasó una vez en Vida/Rumbo y rompió el dashboard entero, ver el fix de
+// setiembre 2026 en ese archivo), este llamado rompería con "Cannot access
+// 'vintageSubfuenteFiltro' before initialization" antes de llegar siquiera a esa línea.
+let vintageSubfuenteFiltro = 'Todas';
+// Construye el desplegable con el universo COMPLETO de sub fuentes (todo el histórico, sin
+// filtrar por corte/meses), ordenado por volumen de leads -- mismo criterio que Vida/Rumbo.
+function construirSelectSubfuenteVintage(){
+  const sel = document.getElementById('vintageSubfuenteSelect');
+  if(!sel) return;
+  const totales = {};
+  (DATA.leads_by_subfuente||[]).forEach(r => { totales[r[2]] = (totales[r[2]]||0) + r[3]; });
+  let subfuentes = Object.keys(totales).sort((a,b)=> totales[b]-totales[a]);
+  subfuentes = pushCatchAllLast(subfuentes);
+  sel.innerHTML = '<option value="Todas">Todas</option>' + subfuentes.map(s => '<option value="'+s.replace(/"/g,'&quot;')+'">'+s+'</option>').join('');
+  sel.value = vintageSubfuenteFiltro;
+}
+construirSelectSubfuenteVintage();
+// Igual patrón que renderCallFiltroVintage() de Vida/Rumbo (intercambia temporalmente DATA por
+// las versiones filtradas por sub fuente y reutiliza renderVintageTable/renderDiasConversion),
+// pero acá solo hay sub fuente (sin call).
+function renderSubfuenteFiltroVintage(corte){
+  if(vintageSubfuenteFiltro === 'Todas') return; // sin filtro, ya quedó bien dibujado arriba
+  const subf = vintageSubfuenteFiltro;
+  const pasaSub = s => s === subf;
+
+  // sales_vintage_subfuente: [mes,dia,mesLead,subfuente,ventas]
+  const svMap = {};
+  (DATA.sales_vintage_subfuente||[]).forEach(r => {
+    if(!pasaSub(r[3])) return;
+    const key = r[0]+'|'+r[1]+'|'+r[2];
+    svMap[key] = svMap[key] || [r[0],r[1],r[2],0];
+    svMap[key][3] += r[4];
+  });
+  const svFiltrado = Object.values(svMap);
+
+  // dias_matriz_subfuente: [mes,dia,bin,subfuente,n]
+  const dmMap = {};
+  (DATA.dias_matriz_subfuente||[]).forEach(r => {
+    if(!pasaSub(r[3])) return;
+    const key = r[0]+'|'+r[1]+'|'+r[2];
+    dmMap[key] = dmMap[key] || [r[0],r[1],r[2],0];
+    dmMap[key][3] += r[4];
+  });
+  const dmFiltrado = Object.values(dmMap);
+
+  // leads_daily_subfuente: [mes,dia,subfuente,leads,convertidos]
+  const ldMap = {};
+  (DATA.leads_daily_subfuente||[]).forEach(r => {
+    if(!pasaSub(r[2])) return;
+    const key = r[0]+'|'+r[1];
+    ldMap[key] = ldMap[key] || { mes:r[0], dia:r[1], leads:0, convertidos:0 };
+    ldMap[key].leads += r[3]; ldMap[key].convertidos += r[4];
+  });
+
+  // dias_suma_dia_subfuente: [mes,dia,subfuente,suma,n]
+  const sdMap = {};
+  (DATA.dias_suma_dia_subfuente||[]).forEach(r => {
+    if(!pasaSub(r[2])) return;
+    const key = r[0]+'|'+r[1];
+    sdMap[key] = sdMap[key] || [r[0],r[1],0,0];
+    sdMap[key][2] += r[3]; sdMap[key][3] += r[4];
+  });
+  const sdFiltrado = Object.values(sdMap);
+
+  const medianaFiltrada = {};
+  Object.keys(DATA.dias_mediana_mes_subfuente||{}).forEach(m => { medianaFiltrada[m] = (DATA.dias_mediana_mes_subfuente[m]||{})[subf] ?? null; });
+
+  const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes, origSD = DATA.dias_suma_dia;
+  DATA.sales_vintage = svFiltrado;
+  DATA.dias_matriz = dmFiltrado;
+  DATA.leads_daily = Object.values(ldMap);
+  DATA.dias_mediana_mes = medianaFiltrada;
+  DATA.dias_suma_dia = sdFiltrado;
+  try {
+    renderVintageTable(corte);
+    renderDiasConversion(corte);
+  } finally {
+    DATA.sales_vintage = origSV;
+    DATA.dias_matriz = origDM;
+    DATA.leads_daily = origLD;
+    DATA.dias_mediana_mes = origMed;
+    DATA.dias_suma_dia = origSD;
+  }
+}
+// Tabla nueva "Días a la venta por campaña" -- mismo patrón que Vida/Rumbo, sin call. Lee directo
+// el cruce dias_matriz_campana_subfuente y filtra por sub fuente/meses/corte ella misma.
+function renderDiasCampana(corte){
+  const el = document.getElementById('tableDiasCampana');
+  if(!el) return;
+  const subf = vintageSubfuenteFiltro;
+  const pasaSub = s => subf === 'Todas' || s === subf;
+  const mesesOk = new Set(mesesVisiblesV('vintage'));
+  const binsCampana = ['Mismo día','1 día','2-30 días','31 a más'];
+  const totales = {};
+  (DATA.dias_matriz_campana_subfuente||[]).forEach(r => {
+    const mes=r[0], dia=r[1], bin=r[2], subfuente=r[3], campana=r[4], n=r[5];
+    if(!mesesOk.has(mes)) return;
+    if(dia > corte || dia < desdeActual) return;
+    if(!pasaSub(subfuente)) return;
+    totales[campana] = totales[campana] || { total:0 };
+    totales[campana][bin] = (totales[campana][bin]||0) + n;
+    totales[campana].total += n;
+  });
+  const filas = Object.keys(totales).map(c => Object.assign({campana:c}, totales[c]));
+  filas.sort((a,b) => b.total - a.total);
+  const top = filas.slice(0,15);
+  const resto = filas.slice(15);
+  if(resto.length){
+    const otros = { campana:'Otros', total:0 };
+    binsCampana.forEach(b => otros[b]=0);
+    resto.forEach(f => { binsCampana.forEach(b => otros[b] += (f[b]||0)); otros.total += f.total; });
+    top.push(otros);
+  }
+  let html = '<thead><tr><th>Campaña</th>' + binsCampana.map(b=>'<th>'+b+'</th>').join('') + '<th>Total</th></tr></thead><tbody>';
+  const totCols = {}; binsCampana.forEach(b=>totCols[b]=0); let totGeneral=0;
+  top.forEach(f => {
+    const nombre = f.campana === '(Sin campaña)' ? 'Sin campaña' : f.campana;
+    html += '<tr><td title="'+nombre.replace(/"/g,'&quot;')+'">'+nombre+'</td>'
+      + binsCampana.map(b => { const v=f[b]||0; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('')
+      + '<td style="font-weight:600;">'+f.total.toLocaleString()+'</td></tr>';
+    binsCampana.forEach(b => totCols[b] += (f[b]||0));
+    totGeneral += f.total;
+  });
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>'
+    + binsCampana.map(b=>'<td>'+(totCols[b]?totCols[b].toLocaleString():'–')+'</td>').join('')
+    + '<td>'+(totGeneral?totGeneral.toLocaleString():'–')+'</td></tr>';
+  html += '</tbody>';
+  el.innerHTML = html;
+}
+document.getElementById('vintageSubfuenteSelect').addEventListener('change', e => {
+  vintageSubfuenteFiltro = e.target.value;
+  render(desdeActual, corteActual);
+});
 
 function filasCampanaCombinadas(meses){
   const acc = {};
