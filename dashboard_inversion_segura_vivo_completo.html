@@ -759,8 +759,8 @@ function renderTab(key, corte){
     intentar('renderPolizasCliente', () => renderPolizasCliente(corte));
     intentar('renderInsights', () => renderInsights(corte));
   } else if(key === 'fuente'){
-    intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente', null, true));
-    intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], null, corte, 'fuente', null, true));
+    intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], null, corte, 'fuente', null, true, true));
+    intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], null, corte, 'fuente', null, true, true));
     intentar('renderCampanaTable', () => renderCampanaTable());
   } else if(key === 'ventas'){
     intentar('renderMatrixSet Monto', () => renderMatrixSet('Monto', 'leads_by_rango_monto', 'sales_by_rango_monto', [], [], ['10,000-34,999','35,000-59,999','60,000-84,999','85,000-109,999','110,000 a más','Sin dato'], corte, 'ventasmonto', filtroMonedaVentas));
@@ -954,6 +954,17 @@ function pushCatchAllLast(arr){
   const catchall = arr.filter(d => esCatchAll(d));
   return normales.concat(catchall);
 }
+// Suma genérica de objetos "agg" {l,conv,v,vMismoMes,vColchon} (mismo patrón que sumarCeldas en
+// Vida/Rumbo), usada para la columna "Total" por fila de las tablas de Fuente/Subfuente.
+function sumarAgg(objs){
+  const out = {};
+  objs.forEach(o => {
+    Object.keys(o||{}).forEach(k => {
+      if(typeof o[k] === 'number') out[k] = (out[k]||0) + o[k];
+    });
+  });
+  return out;
+}
 function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder, corte, monedaFiltro){
   const leadsRowsAll = DATA[leadsKey] || [];
   let salesRowsAll = DATA[salesKey] || [];
@@ -985,20 +996,35 @@ function buildDimMatrices(prefix, leadsKey, salesKey, excludeSubstr, customOrder
         v: ssub.reduce((s,r)=>s+r[3],0), vMismoMes: ssub.reduce((s,r)=>s+r[5],0), vColchon: ssub.reduce((s,r)=>s+r[6],0) };
     });
   });
-  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride, colsOverride){
+  // rowTotalFn (opcional, 7mo argumento): agrega una columna "Total" a la derecha de cada fila,
+  // sumando esa fila a través de todos los meses visibles (cols), y también en la fila "Total" si
+  // totalFn está presente (la esquina inferior derecha, el gran total de toda la tabla). Mismo
+  // patrón que la columna/fila "Total" de buildCallNestedTable en Vida/Rumbo -- acá no hay call
+  // center, así que solo se suma a través de los meses.
+  function build(tableId, valueFn, rowFilter, totalFn, rowOrderOverride, colsOverride, rowTotalFn){
     let rowDims = rowOrderOverride ? rowOrderOverride : dims;
     if(rowFilter) rowDims = rowDims.filter(rowFilter);
     const cols = colsOverride && colsOverride.length ? colsOverride : mesesV;
-    let html = '<thead><tr><th>' + prefix + '</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + '</tr></thead><tbody>';
+    let html = '<thead><tr><th>' + prefix + '</th>' + cols.map(labelAbr).map(l=>'<th>'+l+'</th>').join('') + (rowTotalFn?'<th class="div-left">Total</th>':'') + '</tr></thead><tbody>';
     rowDims.forEach(d => {
       html += '<tr><td>'+d+'</td>' + cols.map(m => {
         const res = valueFn(agg[d][m], m, d);
         if(res && typeof res === 'object') return '<td class="'+(res.cls||'')+'">'+res.text+'</td>';
         return '<td>'+res+'</td>';
-      }).join('') + '</tr>';
+      }).join('');
+      if(rowTotalFn){
+        const filaTotal = sumarAgg(cols.map(m => agg[d][m]));
+        html += '<td class="div-left" style="font-weight:600;">'+rowTotalFn(filaTotal, d)+'</td>';
+      }
+      html += '</tr>';
     });
     if(totalFn){
-      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('') + '</tr>';
+      html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>' + cols.map(m => '<td>'+totalFn(rowDims,m)+'</td>').join('');
+      if(rowTotalFn){
+        const granTotal = sumarAgg(rowDims.flatMap(d => cols.map(m => agg[d][m])));
+        html += '<td class="div-left">'+rowTotalFn(granTotal, 'Total')+'</td>';
+      }
+      html += '</tr>';
     }
     html += '</tbody>';
     const el = document.getElementById(tableId); if(el) el.innerHTML = html;
@@ -1026,9 +1052,24 @@ function efectCellColored(agg_d, m, mesesArr, esRelevante){
   if(relChange <= -0.15) return {text: efect, cls:'down'};
   return efect;
 }
-function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, customOrder, corte, tabFiltro, monedaFiltro, full){
+// conTotalPorFila (opcional, 11vo argumento): agrega la columna "Total" a la derecha de cada
+// fila en las 6 tablas (Leads/Ventas/MismoMes/Colchón/%Colchón/Efectividad), y además le agrega
+// fila "Total" al final a %Colchón y Efectividad (que hasta ahora no la tenían) para que las 6
+// tablas queden parejas -- a pedido explícito, mismo tratamiento que Vida/Rumbo en la pestaña
+// "Por fuente y subfuente". Solo se pasa true desde ahí (ver llamadas a renderMatrixSet más
+// abajo); Monto sigue sin este agregado porque no se pidió para esa pestaña.
+function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFromEfect, customOrder, corte, tabFiltro, monedaFiltro, full, conTotalPorFila){
   const M = buildDimMatrices(idPrefix, leadsKey, salesKey, excludeSubstr, customOrder, corte, monedaFiltro);
   const cols = tabFiltro ? mesesVisiblesV(tabFiltro) : mesesV;
+  // Total general de leads (todas las filas x todos los meses visibles), usado solo para el % de
+  // participación de la columna "Total" por fila -- cada fila se compara contra el total de TODA
+  // la tabla, no de un mes puntual (a diferencia de M.totalLeadsPorMes, que es por mes).
+  const grandTotalLeads = conTotalPorFila ? cols.reduce((s,m)=>s+M.totalLeadsPorMes[m],0) : 0;
+  const rowTotalLeads = conTotalPorFila ? (agg) => {
+    if(agg.l===0) return '–';
+    const part = grandTotalLeads>0 ? (agg.l/grandTotalLeads)*100 : 0;
+    return agg.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+  } : undefined;
   M.build('table'+idPrefix+'LeadsMatrix', (v,m) => {
     if(v.l===0) return '–';
     const part = M.totalLeadsPorMes[m]>0 ? (v.l/M.totalLeadsPorMes[m])*100 : 0;
@@ -1036,11 +1077,11 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
   }, null, (rowDims, m) => {
     const total = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
     return total>0 ? total.toLocaleString() + ' (<strong>100%</strong>)' : '–';
-  }, null, cols);
+  }, null, cols, rowTotalLeads);
   M.build('table'+idPrefix+'VentasMatrix', (v) => v.v>0 ? v.v.toLocaleString() : '–', null, (rowDims, m) => {
     const total = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
     return total>0 ? total.toLocaleString() : '–';
-  }, null, cols);
+  }, null, cols, conTotalPorFila ? ((agg) => agg.v>0 ? agg.v.toLocaleString() : '–') : undefined);
   // Ventas con lead del mismo mes / Venta Colchón (lead de mes anterior) / % Participación
   // Colchón -- mismo patrón que Vida y Rumbo (renderMatrixSet, misma función). Solo se pide
   // cuando "full" es true (por ahora, Fuente y Subfuente) para no tocar Monto/Edad, que no
@@ -1049,12 +1090,16 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
     M.build('table'+idPrefix+'MismoMesMatrix', (v) => v.vMismoMes>0 ? v.vMismoMes.toLocaleString() : '–', null, (rowDims, m) => {
       const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vMismoMes,0);
       return total>0 ? total.toLocaleString() : '–';
-    }, null, cols);
+    }, null, cols, conTotalPorFila ? ((agg) => agg.vMismoMes>0 ? agg.vMismoMes.toLocaleString() : '–') : undefined);
     M.build('table'+idPrefix+'ColchonMatrix', (v) => v.vColchon>0 ? v.vColchon.toLocaleString() : '–', null, (rowDims, m) => {
       const total = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
       return total>0 ? total.toLocaleString() : '–';
-    }, null, cols);
-    M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'), null, null, null, cols);
+    }, null, cols, conTotalPorFila ? ((agg) => agg.vColchon>0 ? agg.vColchon.toLocaleString() : '–') : undefined);
+    M.build('table'+idPrefix+'ColchonPartMatrix', (v) => v.v>0 && v.vColchon>0 ? (Math.round((v.vColchon/v.v)*1000)/10)+'%' : (v.v>0?'0%':'–'), null, conTotalPorFila ? ((rowDims, m) => {
+      const v = rowDims.reduce((s,d)=>s+M.agg[d][m].v,0);
+      const vC = rowDims.reduce((s,d)=>s+M.agg[d][m].vColchon,0);
+      return v>0 && vC>0 ? (Math.round((vC/v)*1000)/10)+'%' : (v>0?'0%':'–');
+    }) : null, null, cols, conTotalPorFila ? ((agg) => agg.v>0 && agg.vColchon>0 ? (Math.round((agg.vColchon/agg.v)*1000)/10)+'%' : (agg.v>0?'0%':'–')) : undefined);
   }
   const efectFilter = excludeFromEfect ? (d => !excludeFromEfect.some(ex => d.includes(ex))) : null;
   const dimsParaEfect = efectFilter ? M.dims.filter(efectFilter) : M.dims;
@@ -1064,7 +1109,11 @@ function renderMatrixSet(idPrefix, leadsKey, salesKey, excludeSubstr, excludeFro
     relevancia[d] = (parts.length ? parts.reduce((a,b)=>a+b,0)/parts.length : 0) >= 0.08;
   });
   const ordenEfect = ordenarPorEfectividad(dimsParaEfect, M.agg);
-  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, relevancia[d]), null, null, ordenEfect, cols);
+  M.build('table'+idPrefix+'EfectMatrix', (v,m,d) => efectCellColored(M.agg[d], m, mesesV, relevancia[d]), null, conTotalPorFila ? ((rowDims, m) => {
+    const l = rowDims.reduce((s,d)=>s+M.agg[d][m].l,0);
+    const vm = rowDims.reduce((s,d)=>s+M.agg[d][m].vMismoMes,0);
+    return l>0 ? pctFmt((vm/l)*100) : '–';
+  }) : null, ordenEfect, cols, conTotalPorFila ? ((agg) => agg.l>0 ? pctFmt((agg.vMismoMes/agg.l)*100) : '–') : undefined);
   return M;
 }
 // renderAllMatrixSets(corte) ya no existe como función única: sus 3 llamadas a renderMatrixSet
@@ -2255,5 +2304,3 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
-
-
