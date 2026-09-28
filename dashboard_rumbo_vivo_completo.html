@@ -3313,6 +3313,16 @@ function actualizarLabelCampana(){
   if(n===1){ const nom = Array.from(campanaFiltroSeleccion)[0]; label.textContent = nom.length>30 ? nom.slice(0,30)+'…' : nom; return; }
   label.textContent = n+' seleccionadas';
 }
+// vintageCallFiltro/vintageSubfuenteFiltro se declaran ACA (antes de este llamado) y no donde
+// estaban antes (más abajo, junto a medianaFiltradaVintage) porque construirSelectSubfuenteVintage()
+// se ejecuta ACA ABAJO, de una sola vez, ni bien termina de cargar la data -- si el "let" de
+// vintageSubfuenteFiltro quedara declarado más abajo en este mismo bloque de código, este llamado
+// (que lee esa variable dentro de construirSelectSubfuenteVintage) rompía con un error de "Cannot
+// access 'vintageSubfuenteFiltro' before initialization" ANTES de llegar siquiera a esa línea --
+// y como este error no tenía try/catch acá, cortaba en seco TODO el resto de initDashboard(),
+// dejando el dashboard entero en blanco (bug detectado en vivo, setiembre 2026).
+let vintageCallFiltro = 'Ambos';
+let vintageSubfuenteFiltro = 'Todas';
 construirDropdownCampana();
 construirSelectSubfuenteVintage();
 
@@ -3506,8 +3516,8 @@ function renderDiasConversion(corte){
 // Las medianas de días SÍ necesitan datos precomputados aparte para cada combinación (call solo /
 // subfuente sola / call+subfuente) -- a diferencia de sumas y conteos, una mediana no se puede
 // "sumar" a partir de otras medianas ya calculadas.
-let vintageCallFiltro = 'Ambos';
-let vintageSubfuenteFiltro = 'Todas';
+// vintageCallFiltro/vintageSubfuenteFiltro ahora se declaran más arriba (justo antes del llamado
+// a construirSelectSubfuenteVintage()) -- ver comentario ahí. Acá abajo se siguen usando igual.
 function medianaFiltradaVintage(bucket, subfuente){
   if(bucket === 'Ambos' && subfuente === 'Todas') return DATA.dias_mediana_mes;
   const out = {};
