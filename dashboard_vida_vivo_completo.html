@@ -774,6 +774,11 @@
       <p class="note">Mediana de días por mes: <span id="medianasDias"></span></p>
       <p class="note" id="notaCallOtrosVintage">La mediana de días por call (Interno/Biznes) siempre combina Vida Cash + Endoso, sin importar el filtro de producto de arriba.</p>
     </section>
+    <section>
+      <h2>Días a la venta por campaña</h2>
+      <p class="sub">Filas: campaña (UTM) de origen de la venta, top 15 por volumen + "Otros". Columnas: cuánto tardó esa venta desde el lead. Usa los mismos filtros de Meses, Call center y Sub fuente de arriba.</p>
+      <div class="table-wrap"><table class="data-table" id="tableDiasCampana"></table></div>
+    </section>
   </div>
 
   <!-- ===== TAB: CALIDAD DE LEAD Y PNA/PP ===== -->
@@ -970,6 +975,10 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // solo-call de arriba.
   ['sales_vintage_call_subfuente',5], ['dias_matriz_call_subfuente',5],
   ['dias_suma_dia_call_subfuente',4], ['leads_by_call_subfuente',4],
+  // NUEVO (setiembre 2026): tabla "Días a la venta por campaña" de "Antigüedad del lead" -- mismo
+  // patrón de arriba, con la campaña como llave extra además de call y subfuente. [mes, dia,
+  // bin(grueso), call, subfuente, campaña, n, producto] -- 6 columnas de llave.
+  ['dias_matriz_campana_call_subfuente',6],
   // Etiqueta / propensión ajustada (DetalleEvaluacion, solo Vida): mismo patrón que el resto --
   // leads_by_etiqueta es un aggLeadsPorDim normal (3 columnas de llave); los cruces de 3
   // dimensiones (etiqueta, propensión, call) son igual forma que sales_tri_fuente_rangoprima_call
@@ -1118,7 +1127,7 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily','sales_daily_producto','leads_daily_producto',
       'cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage','sales_vintage_call',
-      'sales_vintage_call_subfuente','dias_matriz_call_subfuente','dias_suma_dia_call_subfuente','leads_by_call_subfuente',
+      'sales_vintage_call_subfuente','dias_matriz_call_subfuente','dias_suma_dia_call_subfuente','leads_by_call_subfuente','dias_matriz_campana_call_subfuente',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
       'leads_by_clics','sales_by_clics','dias_matriz','dias_matriz_call','dias_suma_dia','dias_suma_dia_call','ventas_dni','dias_gestion_calendario',
       'leads_cross_producto_call','sales_cross_producto_call','leads_by_tasa','sales_by_tasa','leads_by_prima',
@@ -1903,6 +1912,7 @@ function renderTab(key, corte){
     intentar('renderVintageTable', () => renderVintageTable(corte));
     intentar('renderDiasConversion', () => renderDiasConversion(corte));
     intentar('renderCallFiltroVintage', () => renderCallFiltroVintage(corte));
+    intentar('renderDiasCampana', () => renderDiasCampana(corte));
   } else if(key === 'calidad'){
     intentar('renderMatrixSet TipoLead', () => renderMatrixSet('TipoLead', 'leads_by_tipolead', 'sales_by_tipolead', [], [], corte, 'calidad', true));
     intentar('renderMatrixSet Clics', () => renderMatrixSet('Clics', 'leads_by_clics', 'sales_by_clics', [], [], corte, 'calidad', true));
@@ -2624,6 +2634,56 @@ function renderCallFiltroVintage(corte){
     DATA.dias_mediana_mes = origMed;
     DATA.dias_suma_dia = origSD;
   }
+}
+// NUEVO (setiembre 2026): tabla "Días a la venta por campaña". A diferencia de renderCallFiltro
+// Vintage() de arriba (que reutiliza renderVintageTable/renderDiasConversion intercambiando
+// temporalmente DATA), esta tabla es nueva -- lee directo el cruce combinado dias_matriz_campana_
+// call_subfuente y filtra ella misma por call/subfuente/meses/corte, sin necesitar el swap de
+// DATA. Filas: campaña (top 15 por volumen de ventas + "Otros" con el resto). Columnas: bin
+// GRUESO de días (Mismo día / 1 día / 2-30 días / 31 a más -- ver binDiasCoarse en el .gs).
+function renderDiasCampana(corte){
+  const el = document.getElementById('tableDiasCampana');
+  if(!el) return;
+  const bucket = vintageCallFiltro, subf = vintageSubfuenteFiltro;
+  const pasaCall = call => bucket === 'Ambos' || callBucket(call) === bucket;
+  const pasaSub = s => subf === 'Todas' || s === subf;
+  const mesesOk = new Set(mesesVisiblesV('vintage'));
+  const binsCampana = ['Mismo día','1 día','2-30 días','31 a más'];
+  const totales = {}; // campaña -> { total, [bin]: n }
+  (DATA.dias_matriz_campana_call_subfuente||[]).forEach(r => {
+    const mes=r[0], dia=r[1], bin=r[2], call=r[3], subfuente=r[4], campana=r[5], n=r[6];
+    if(!mesesOk.has(mes)) return;
+    if(dia > corte || dia < desdeActual) return;
+    if(!pasaCall(call) || !pasaSub(subfuente)) return;
+    totales[campana] = totales[campana] || { total:0 };
+    totales[campana][bin] = (totales[campana][bin]||0) + n;
+    totales[campana].total += n;
+  });
+  const filas = Object.keys(totales).map(c => Object.assign({campana:c}, totales[c]));
+  filas.sort((a,b) => b.total - a.total);
+  const top = filas.slice(0,15);
+  const resto = filas.slice(15);
+  if(resto.length){
+    const otros = { campana:'Otros', total:0 };
+    binsCampana.forEach(b => otros[b]=0);
+    resto.forEach(f => { binsCampana.forEach(b => otros[b] += (f[b]||0)); otros.total += f.total; });
+    top.push(otros);
+  }
+  let html = '<thead><tr><th>Campaña</th>' + binsCampana.map(b=>'<th>'+b+'</th>').join('') + '<th>Total</th></tr></thead><tbody>';
+  const totCols = {}; binsCampana.forEach(b=>totCols[b]=0); let totGeneral=0;
+  top.forEach(f => {
+    const nombre = f.campana === '(Sin campaña)' ? 'Sin campaña' : f.campana;
+    html += '<tr><td title="'+nombre.replace(/"/g,'&quot;')+'">'+nombre+'</td>'
+      + binsCampana.map(b => { const v=f[b]||0; return '<td>'+(v?v.toLocaleString():'–')+'</td>'; }).join('')
+      + '<td style="font-weight:600;">'+f.total.toLocaleString()+'</td></tr>';
+    binsCampana.forEach(b => totCols[b] += (f[b]||0));
+    totGeneral += f.total;
+  });
+  html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>'
+    + binsCampana.map(b=>'<td>'+(totCols[b]?totCols[b].toLocaleString():'–')+'</td>').join('')
+    + '<td>'+(totGeneral?totGeneral.toLocaleString():'–')+'</td></tr>';
+  html += '</tbody>';
+  el.innerHTML = html;
 }
 document.getElementById('vintageCallSelect').addEventListener('change', e => {
   vintageCallFiltro = e.target.value;
