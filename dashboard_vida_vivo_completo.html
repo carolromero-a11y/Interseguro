@@ -734,7 +734,13 @@
           <option value="Biznes">Biznes</option>
         </select>
       </div>
-      <span class="filter-hint">Por defecto, últimos 3 meses con datos (filtra la columna de mes de venta). "Ambos" en el call center muestra el total de siempre (incluye también A365, Inbound, Sin call, WhatsApp, etc.); "Interno"/"Biznes" filtran las 5 tablas a solo ese call center. Ambos filtros aplican a las 5 tablas de esta pestaña.</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label for="vintageSubfuenteSelect" style="font-size:13px;color:var(--text-3);font-weight:600;">Sub fuente:</label>
+        <select id="vintageSubfuenteSelect" title="Selección única. Se combina con el filtro de Call center: si ambos están en un valor específico, las tablas muestran solo lo que cumple los dos a la vez." style="font-family:inherit;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid #D8D4C8;background:#fff;color:#1D3A5F;font-weight:600;cursor:pointer;">
+          <option value="Todas">Todas</option>
+        </select>
+      </div>
+      <span class="filter-hint">Por defecto, últimos 3 meses con datos (filtra la columna de mes de venta). "Ambos" en el call center y "Todas" en sub fuente muestran el total de siempre (incluye también A365, Inbound, Sin call, WhatsApp, etc.); elegir un call y/o una sub fuente específicos filtra las 5 tablas a solo eso (si eliges los dos a la vez, se combinan). Todos los filtros de esta barra aplican a las 5 tablas de esta pestaña.</span>
     </div>
     <div class="grid-2">
       <section>
@@ -957,6 +963,13 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // conversión (llegada agosto 2026) -- mismo patrón que dias_matriz/dias_matriz_call de arriba,
   // solo que acá se suman 2 columnas de valor (suma de días + cantidad) en vez de 1.
   ['dias_suma_dia',2], ['dias_suma_dia_call',3],
+  // NUEVO (setiembre 2026): mismas 4 tuplas de arriba (sales_vintage_call, dias_matriz_call,
+  // dias_suma_dia_call, leads_by_call), pero con la sub fuente TAMBIÉN como llave extra (call Y
+  // subfuente juntos) -- soporte del desplegable nuevo "Sub fuente" de "Antigüedad del lead",
+  // que se combina (AND) con el de Call center. Un campo más de llave que sus equivalentes
+  // solo-call de arriba.
+  ['sales_vintage_call_subfuente',5], ['dias_matriz_call_subfuente',5],
+  ['dias_suma_dia_call_subfuente',4], ['leads_by_call_subfuente',4],
   // Etiqueta / propensión ajustada (DetalleEvaluacion, solo Vida): mismo patrón que el resto --
   // leads_by_etiqueta es un aggLeadsPorDim normal (3 columnas de llave); los cruces de 3
   // dimensiones (etiqueta, propensión, call) son igual forma que sales_tri_fuente_rangoprima_call
@@ -1105,6 +1118,7 @@ fetch(OUTPUT_URL)
     const CLAVES_ARRAY = ['sales_daily','leads_daily','sales_daily_producto','leads_daily_producto',
       'cohort','leads_by_call','sales_by_call',
       'leads_by_fuente','sales_by_fuente','leads_by_subfuente','sales_by_subfuente','sales_vintage','sales_vintage_call',
+      'sales_vintage_call_subfuente','dias_matriz_call_subfuente','dias_suma_dia_call_subfuente','leads_by_call_subfuente',
       'leads_by_tipolead','sales_by_tipolead','campanas','leads_by_subproducto','sales_by_subproducto','canal_mes',
       'leads_by_clics','sales_by_clics','dias_matriz','dias_matriz_call','dias_suma_dia','dias_suma_dia_call','ventas_dni','dias_gestion_calendario',
       'leads_cross_producto_call','sales_cross_producto_call','leads_by_tasa','sales_by_tasa','leads_by_prima',
@@ -1116,7 +1130,7 @@ fetch(OUTPUT_URL)
       'sales_tri_fuente_rangoprima_call','sales_tri_subfuente_rangoprima_call','sales_tri_clics_rangoprima_call',
       'sales_tri_campana_rangoprima_call','sales_tri_edad_rangoprima_call','metas','metas_diarias',
       'leads_by_etiqueta','leads_tri_etiqueta_propension_call','sales_tri_etiqueta_propension_call','tipificaciones'];
-    const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto','dias_mediana_mes_call'];
+    const CLAVES_OBJETO = ['leads_total_mes','leads_total_mes_producto','multi_dist','dias_mediana_mes','dias_mediana_mes_producto','dias_mediana_mes_call','dias_mediana_mes_subfuente','dias_mediana_mes_call_subfuente'];
     CLAVES_ARRAY.forEach(k => { if (!Array.isArray(DATA[k])) { if (DATA[k] !== undefined) console.warn('Tabla "'+k+'" no llego bien formada, se usa vacia.'); DATA[k] = []; } });
     CLAVES_OBJETO.forEach(k => { if (typeof DATA[k] !== 'object' || DATA[k] === null || Array.isArray(DATA[k])) { DATA[k] = DATA[k] || {}; } });
     // Refuerzo del lado del dashboard: el .gs ya normaliza "N/A" -> "Sin dato" en el origen
@@ -2381,6 +2395,7 @@ function actualizarLabelCampana(){
   label.textContent = n+' seleccionadas';
 }
 construirDropdownCampana();
+construirSelectSubfuenteVintage();
 
 const mesEsLabel = {};
 mesesL.forEach((m,i) => mesEsLabel[m] = labelsL[i]);
@@ -2483,51 +2498,111 @@ function renderDiasConversion(corte){
   document.getElementById('medianasDias').textContent = medTxt + ' (mediana de mes completo, referencial)';
 }
 
-// Filtro de call center (Interno / Biznes / Ambos) de la pestaña "Antigüedad del lead" --
-// selección única (no checkboxes como Producto/Fuente/Ventas): "Ambos" es el total de siempre,
-// sin filtrar (ya lo dibujaron renderVintageTable/renderDiasConversion arriba, así que no hace
-// falta hacer nada). "Interno"/"Biznes" recalculan las MISMAS 5 tablas (mismo formato, solo
-// columnas de mes, sin agregar el call center como columna) pero con los datos ya recortados a
-// ese call center -- para no duplicar la lógica de armado de tablas, se intercambia
-// temporalmente `DATA.sales_vintage`/`dias_matriz`/`leads_daily`/`dias_mediana_mes` por una
-// version filtrada (usando sales_vintage_call/dias_matriz_call/leads_by_call/
-// dias_mediana_mes_call del .gs, que traen el call center -- ya vienen colapsados por el filtro
-// de producto Vida Cash/Endoso, igual que sales_vintage/dias_matriz/leads_by_call normales) y se
-// vuelven a llamar renderVintageTable/renderDiasConversion tal cual -- mismo patrón que usa Vida
-// para su filtro de producto (conDatosSinFiltro), solo que acá el intercambio es a la inversa
-// (de "todo" a "filtrado"). sales_vintage/dias_matriz/leads_daily/dias_mediana_mes ORIGINALES no
-// se tocan.
+// Filtros de la pestaña "Antigüedad del lead" -- 2 desplegables de selección única (no checkboxes
+// como Producto/Fuente/Ventas): "Call center" (Interno/Biznes/Ambos, ya existía) y "Sub fuente"
+// (NUEVO, setiembre 2026), que se COMBINAN (AND) entre sí cuando los dos están en un valor
+// distinto de su default -- si eliges Call=Interno y Sub fuente=X, las 5 tablas muestran solo lo
+// que cumple los dos a la vez. Con ambos en su default ("Ambos"/"Todas") no hace falta hacer
+// nada (ya lo dibujaron renderVintageTable/renderDiasConversion arriba, sin filtrar).
+//
+// Para poder combinar los 2 filtros sin duplicar la lógica de armado de tablas, todo se recalcula
+// desde UN SOLO cruce call×subfuente que ya trae las 2 dimensiones juntas (sales_vintage_call_
+// subfuente / dias_matriz_call_subfuente / dias_suma_dia_call_subfuente / leads_by_call_
+// subfuente del .gs -- ya vienen colapsados por el filtro de producto Vida Cash/Endoso, igual que
+// el resto de estas tuplas): se filtra por call (si no es "Ambos") y/o por subfuente (si no es
+// "Todas"), sumando (marginalizando) sobre la dimensión que quede sin filtrar -- así, si solo se
+// eligió un call center (subfuente en "Todas"), el resultado es matemáticamente idéntico al que
+// daba el filtro viejo de call-solo. sales_vintage/dias_matriz/leads_daily/dias_mediana_mes
+// ORIGINALES no se tocan, se restauran siempre al final (con try/finally).
+//
+// Las medianas de días SÍ necesitan datos precomputados aparte para cada combinación (call solo /
+// subfuente sola / call+subfuente) -- a diferencia de sumas y conteos, una mediana no se puede
+// "sumar" a partir de otras medianas ya calculadas.
 let vintageCallFiltro = 'Ambos';
-function medianaPorBucketVintage(bucket){
+let vintageSubfuenteFiltro = 'Todas';
+function medianaFiltradaVintage(bucket, subfuente){
+  if(bucket === 'Ambos' && subfuente === 'Todas') return DATA.dias_mediana_mes;
   const out = {};
-  Object.keys(DATA.dias_mediana_mes_call||{}).forEach(m => { out[m] = (DATA.dias_mediana_mes_call[m]||{})[bucket] ?? null; });
+  if(bucket !== 'Ambos' && subfuente === 'Todas'){
+    Object.keys(DATA.dias_mediana_mes_call||{}).forEach(m => { out[m] = (DATA.dias_mediana_mes_call[m]||{})[bucket] ?? null; });
+    return out;
+  }
+  if(bucket === 'Ambos' && subfuente !== 'Todas'){
+    Object.keys(DATA.dias_mediana_mes_subfuente||{}).forEach(m => { out[m] = (DATA.dias_mediana_mes_subfuente[m]||{})[subfuente] ?? null; });
+    return out;
+  }
+  Object.keys(DATA.dias_mediana_mes_call_subfuente||{}).forEach(m => {
+    out[m] = ((DATA.dias_mediana_mes_call_subfuente[m]||{})[bucket]||{})[subfuente] ?? null;
+  });
   return out;
+}
+// Construye el desplegable "Sub fuente" con el universo COMPLETO de sub fuentes (todo el
+// histórico, sin filtrar por corte/desde-hasta, para que la lista de opciones no cambie según el
+// rango de fechas elegido arriba), ordenado por volumen de leads -- mismo criterio que
+// dimsOrdenados(). Se llama una sola vez, después de cargar DATA.
+function construirSelectSubfuenteVintage(){
+  const sel = document.getElementById('vintageSubfuenteSelect');
+  if(!sel) return;
+  const totales = {};
+  (DATA.leads_by_subfuente||[]).forEach(r => { totales[r[2]] = (totales[r[2]]||0) + r[3]; });
+  let subfuentes = Object.keys(totales).sort((a,b)=> totales[b]-totales[a]);
+  subfuentes = pushCatchAllLast(subfuentes);
+  sel.innerHTML = '<option value="Todas">Todas</option>' + subfuentes.map(s => '<option value="'+s.replace(/"/g,'&quot;')+'">'+s+'</option>').join('');
+  sel.value = vintageSubfuenteFiltro;
 }
 function renderCallFiltroVintage(corte){
   const nota = document.getElementById('notaCallOtrosVintage');
   if(nota) nota.style.display = vintageCallFiltro === 'Ambos' ? 'none' : 'block';
-  if(vintageCallFiltro === 'Ambos') return; // ya quedó bien dibujado arriba, sin filtrar
-  const bucket = vintageCallFiltro;
-  const svFiltrado = (DATA.sales_vintage_call||[]).filter(r => callBucket(r[3])===bucket).map(r => [r[0],r[1],r[2],r[4]]);
-  const dmFiltrado = (DATA.dias_matriz_call||[]).filter(r => callBucket(r[3])===bucket).map(r => [r[0],r[1],r[2],r[4]]);
+  if(vintageCallFiltro === 'Ambos' && vintageSubfuenteFiltro === 'Todas') return; // sin filtro, ya quedó bien dibujado arriba
+
+  const bucket = vintageCallFiltro, subf = vintageSubfuenteFiltro;
+  const pasaCall = call => bucket === 'Ambos' || callBucket(call) === bucket;
+  const pasaSub = s => subf === 'Todas' || s === subf;
+
+  // sales_vintage_call_subfuente: [mes,dia,mesLead,call,subfuente,ventas(,producto)]
+  const svMap = {};
+  (DATA.sales_vintage_call_subfuente||[]).forEach(r => {
+    if(!pasaCall(r[3]) || !pasaSub(r[4])) return;
+    const key = r[0]+'|'+r[1]+'|'+r[2];
+    svMap[key] = svMap[key] || [r[0],r[1],r[2],0];
+    svMap[key][3] += r[5];
+  });
+  const svFiltrado = Object.values(svMap);
+
+  // dias_matriz_call_subfuente: [mes,dia,bin,call,subfuente,n(,producto)]
+  const dmMap = {};
+  (DATA.dias_matriz_call_subfuente||[]).forEach(r => {
+    if(!pasaCall(r[3]) || !pasaSub(r[4])) return;
+    const key = r[0]+'|'+r[1]+'|'+r[2];
+    dmMap[key] = dmMap[key] || [r[0],r[1],r[2],0];
+    dmMap[key][3] += r[5];
+  });
+  const dmFiltrado = Object.values(dmMap);
+
+  // leads_by_call_subfuente: [mes,dia,call,subfuente,leads,convertidos(,producto)]
   const ldMap = {};
-  (DATA.leads_by_call||[]).filter(r => callBucket(r[2])===bucket).forEach(r => {
+  (DATA.leads_by_call_subfuente||[]).forEach(r => {
+    if(!pasaCall(r[2]) || !pasaSub(r[3])) return;
     const key = r[0]+'|'+r[1];
     ldMap[key] = ldMap[key] || { mes:r[0], dia:r[1], leads:0, convertidos:0 };
-    ldMap[key].leads += r[3]; ldMap[key].convertidos += r[4];
+    ldMap[key].leads += r[4]; ldMap[key].convertidos += r[5];
   });
 
-  // dias_suma_dia_call: [mes,dia,call,suma,n(,producto)] -- call en índice 2 (distinto de dias_matriz_call
-  // donde call está en índice 3), porque acá solo hay 2 columnas de valor (suma,n) en vez de 1 (n por bin).
-  // A esta altura CAMPOS_TUPLA_PRODUCTO ya coló DATA.dias_suma_dia_call por el filtro de producto vigente
-  // y le quitó el "producto" final, igual que a dias_matriz_call de arriba -- por eso solo se usan 5 campos.
-  const sdFiltrado = (DATA.dias_suma_dia_call||[]).filter(r => callBucket(r[2])===bucket).map(r => [r[0],r[1],r[3],r[4]]);
+  // dias_suma_dia_call_subfuente: [mes,dia,call,subfuente,suma,n(,producto)]
+  const sdMap = {};
+  (DATA.dias_suma_dia_call_subfuente||[]).forEach(r => {
+    if(!pasaCall(r[2]) || !pasaSub(r[3])) return;
+    const key = r[0]+'|'+r[1];
+    sdMap[key] = sdMap[key] || [r[0],r[1],0,0];
+    sdMap[key][2] += r[4]; sdMap[key][3] += r[5];
+  });
+  const sdFiltrado = Object.values(sdMap);
 
   const origSV = DATA.sales_vintage, origDM = DATA.dias_matriz, origLD = DATA.leads_daily, origMed = DATA.dias_mediana_mes, origSD = DATA.dias_suma_dia;
   DATA.sales_vintage = svFiltrado;
   DATA.dias_matriz = dmFiltrado;
   DATA.leads_daily = Object.values(ldMap);
-  DATA.dias_mediana_mes = medianaPorBucketVintage(bucket);
+  DATA.dias_mediana_mes = medianaFiltradaVintage(bucket, subf);
   DATA.dias_suma_dia = sdFiltrado;
   try {
     renderVintageTable(corte);
@@ -2542,6 +2617,10 @@ function renderCallFiltroVintage(corte){
 }
 document.getElementById('vintageCallSelect').addEventListener('change', e => {
   vintageCallFiltro = e.target.value;
+  render(desdeActual, corteActual);
+});
+document.getElementById('vintageSubfuenteSelect').addEventListener('change', e => {
+  vintageSubfuenteFiltro = e.target.value;
   render(desdeActual, corteActual);
 });
 
