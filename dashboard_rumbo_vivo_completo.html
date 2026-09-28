@@ -2585,7 +2585,18 @@ function filtrarGruposVisibles(buckets, bucketsVisibles){
   const filtrados = gruposTodos.filter(b => bucketsVisibles.has(b));
   return filtrados.length ? filtrados : gruposTodos;
 }
-function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn, bucketsVisibles){
+// opts (opcional): { conTotales, rowTotalFn }. conTotales agrega una columna "Total" a la
+// derecha de cada fila (suma esa fila a través de los call center reales -- sin contar el grupo
+// sintético "Total" para no duplicar -- y de los meses visibles) y una fila "Total" al final que
+// suma todas las filas, columna por columna (reusando el mismo cellFnConTotal, así que la
+// columna "Total" de call center sigue funcionando igual dentro de esa fila). rowTotalFn formatea
+// la celda de la columna Total por fila; si no se pasa, se usa valueFn (funciona tal cual para
+// las tablas cuyo valueFn no depende de b/m, ej. Ventas/Colchón/Efectividad -- solo la tabla de
+// Leads con % de participación necesita un rowTotalFn propio, ver renderCallFiltroFuenteBasico).
+function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, valueFn, bucketsVisibles, opts){
+  opts = opts || {};
+  const conTotales = !!opts.conTotales;
+  const rowTotalFn = opts.rowTotalFn || valueFn;
   const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   function cellFnConTotal(d, b, m){
     if(b === 'Total') return sumarCeldas(buckets.map(bb => cellFn(d,bb,m)));
@@ -2596,13 +2607,28 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
     head1 += '<th colspan="'+cols.length+'" class="div-left">'+b+'</th>';
     head2 += cols.map((m,i) => '<th'+(i===0?' class="div-left"':'')+'>'+labelAbr(m)+'</th>').join('');
   });
+  if(conTotales) head1 += '<th rowspan="2" class="div-left">Total</th>';
   head1 += '</tr>'; head2 += '</tr>';
   let html = '<thead>'+head1+head2+'</thead><tbody>';
   dims.forEach(d => {
     html += '<tr><td>'+d+'</td>';
     gruposMostrar.forEach(b => { cols.forEach((m,i) => { html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(cellFnConTotal(d,b,m), d, b, m)+'</td>'; }); });
+    if(conTotales){
+      const filaTotal = sumarCeldas(buckets.flatMap(bb => cols.map(m => cellFn(d,bb,m))));
+      html += '<td class="div-left" style="font-weight:600;">'+rowTotalFn(filaTotal, d)+'</td>';
+    }
     html += '</tr>';
   });
+  if(conTotales){
+    html += '<tr style="font-weight:700;background:var(--bg);"><td>Total</td>';
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+      const celdaTotal = sumarCeldas(dims.map(d => cellFnConTotal(d,b,m)));
+      html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(celdaTotal, 'Total', b, m)+'</td>';
+    }); });
+    const granTotal = sumarCeldas(dims.flatMap(d => buckets.flatMap(bb => cols.map(m => cellFn(d,bb,m)))));
+    html += '<td class="div-left">'+rowTotalFn(granTotal, 'Total')+'</td>';
+    html += '</tr>';
+  }
   html += '</tbody>';
   const el = document.getElementById(tableId);
   if(el) el.innerHTML = html;
@@ -2697,18 +2723,30 @@ function renderCallFiltroFuenteBasico(corte){
       totalLeadsPorBucketMes[b+'|'+m] = dimsReales.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
     }); });
     agregarTotalAMapaBuckets(totalLeadsPorBucketMes, buckets, cols);
+    // Total general de leads (todas las filas x todos los call center reales x todos los meses
+    // visibles), usado solo para el % de participación de la columna "Total" por fila -- a
+    // diferencia de totalLeadsPorBucketMes (que es por bucket+mes, para las celdas normales),
+    // acá cada fila se compara contra el total de TODA la tabla, no de una columna puntual.
+    const grandTotalLeads = buckets.reduce((s,b) => s + cols.reduce((s2,m) => s2 + totalLeadsPorBucketMes[b+'|'+m], 0), 0);
 
+    // A pedido del usuario: solo esta pestaña (Fuente y subfuente) agrega la columna "Total" por
+    // fila y la fila "Total" al final de cada tabla (ver opts de buildCallNestedTable).
+    const totales = { conTotales: true };
     buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, (a,d,b,m) => {
       if(a.l===0) return '–';
       const total = totalLeadsPorBucketMes[b+'|'+m];
       const part = total>0 ? (a.l/total)*100 : 0;
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-    }, bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles);
+    }, bucketsVisibles, { conTotales: true, rowTotalFn: (a,d) => {
+      if(a.l===0) return '–';
+      const part = grandTotalLeads>0 ? (a.l/grandTotalLeads)*100 : 0;
+      return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+    } });
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dimsReales, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles, totales);
   }
 
   renderGrupo('Fuente', 'Fuente', 'leads_cross_fuente_call', 'sales_cross_fuente_call');
