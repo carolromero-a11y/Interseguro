@@ -4526,6 +4526,43 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
   const filasCall = Object.keys(porCall).sort((a,b)=>porCall[b].ventas-porCall[a].ventas)
     .map(c => `<tr><td>${c}</td><td>${porCall[c].ventas.toLocaleString()}</td><td>S/ ${abbrevNum(porCall[c].prima)}</td></tr>`).join('');
 
+  // Desgloses nuevos (a pedido explícito, para poder sacar un análisis puntual de un rango que
+  // cruza meses sin tener que dividirlo en 2 con el día de corte): Por Producto (Vida Cash/
+  // Endoso, usa sales_daily_producto/leads_daily_producto -- SIEMPRE combinado, sin importar el
+  // filtro de producto de arriba, mismo criterio que ya usa Resumen) y Por Fuente/Subfuente (usa
+  // leads_by_fuente/sales_by_fuente/leads_by_subfuente/sales_by_subfuente, que SÍ respetan el
+  // filtro de producto de arriba, igual que el resto del dashboard).
+  function filaDim(nombre, d) {
+    const efect = d.leads>0 ? (d.ventas/d.leads*100) : 0;
+    return `<tr><td>${nombre}</td><td>${d.leads.toLocaleString()}</td><td>${d.ventas.toLocaleString()}</td><td>${pctFmt(efect)}</td></tr>`;
+  }
+  function aggPorDim(leadsArr, salesArr) {
+    const m = {};
+    (leadsArr||[]).filter(enRangoArr).forEach(r => {
+      const dim = r[2];
+      m[dim] = m[dim] || { leads: 0, ventas: 0 };
+      m[dim].leads += r[3];
+    });
+    (salesArr||[]).filter(enRangoArr).forEach(r => {
+      const dim = r[2];
+      m[dim] = m[dim] || { leads: 0, ventas: 0 };
+      m[dim].ventas += r[3];
+    });
+    return m;
+  }
+  const porFuente = aggPorDim(DATA.leads_by_fuente, DATA.sales_by_fuente);
+  const porSubfuente = aggPorDim(DATA.leads_by_subfuente, DATA.sales_by_subfuente);
+  const filasFuente = Object.keys(porFuente).sort((a,b)=>porFuente[b].leads-porFuente[a].leads).map(k=>filaDim(k, porFuente[k])).join('');
+  const filasSubfuente = Object.keys(porSubfuente).sort((a,b)=>porSubfuente[b].leads-porSubfuente[a].leads).map(k=>filaDim(k, porSubfuente[k])).join('');
+
+  const porProducto = { 'Vida Cash': { leads: 0, ventas: 0, pna: 0 }, 'Endoso': { leads: 0, ventas: 0, pna: 0 } };
+  (DATA.leads_daily_producto||[]).filter(enRango).forEach(r => { if (porProducto[r.producto]) porProducto[r.producto].leads += r.leads; });
+  (DATA.sales_daily_producto||[]).filter(enRango).forEach(r => { if (porProducto[r.producto]) { porProducto[r.producto].ventas += r.ventas; porProducto[r.producto].pna += r.pna; } });
+  const filasProducto = ['Vida Cash','Endoso'].map(p => {
+    const d = porProducto[p]; const efect = d.leads>0 ? (d.ventas/d.leads*100) : 0;
+    return `<tr><td>${p}</td><td>${d.leads.toLocaleString()}</td><td>${d.ventas.toLocaleString()}</td><td>${pctFmt(efect)}</td><td>S/ ${abbrevNum(d.pna)}</td></tr>`;
+  }).join('');
+
   const fmtFecha = (v) => { const [y,m,d] = v.split('-'); return d+'/'+m+'/'+y; };
   document.getElementById('rangoResultado').innerHTML = `
     <section style="margin-top:8px;">
@@ -4537,6 +4574,18 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
         <div class="kpi"><p class="label">Efectividad</p><p class="value">${pctFmt(efect)}</p></div>
       </div>
       <div class="table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr><th>Call</th><th>Ventas</th><th>Prima</th></tr></thead><tbody>${filasCall || '<tr><td colspan="3">Sin ventas en este rango</td></tr>'}</tbody></table></div>
+      <h3 style="font-size:14px;margin:18px 0 6px;">Por Producto</h3>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Producto</th><th>Leads</th><th>Ventas</th><th>Efectividad</th><th>PNA</th></tr></thead><tbody>${filasProducto}</tbody></table></div>
+      <div class="grid-2" style="margin-top:18px;">
+        <div>
+          <h3 style="font-size:14px;margin:0 0 6px;">Por Fuente</h3>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Fuente</th><th>Leads</th><th>Ventas</th><th>Efectividad</th></tr></thead><tbody>${filasFuente || '<tr><td colspan="4">Sin datos en este rango</td></tr>'}</tbody></table></div>
+        </div>
+        <div>
+          <h3 style="font-size:14px;margin:0 0 6px;">Por Subfuente</h3>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Subfuente</th><th>Leads</th><th>Ventas</th><th>Efectividad</th></tr></thead><tbody>${filasSubfuente || '<tr><td colspan="4">Sin datos en este rango</td></tr>'}</tbody></table></div>
+        </div>
+      </div>
     </section>`;
   document.getElementById('rangoResultado').style.display = 'block';
 });
