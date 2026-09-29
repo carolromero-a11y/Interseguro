@@ -2597,6 +2597,13 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
   opts = opts || {};
   const conTotales = !!opts.conTotales;
   const rowTotalFn = opts.rowTotalFn || valueFn;
+  // A pedido explícito: si con los filtros/columnas que se están viendo una fila no tiene NINGÚN
+  // dato (todas sus celdas salen "–"), se oculta esa fila por completo -- pero solo visualmente:
+  // "dims" sigue completo para el cálculo de la fila/columna Total (si aplica), así que los
+  // totales no cambian, la fila solo deja de dibujarse. Activo por default en esta función
+  // compartida (Tasa/Prima/Edad, Fuente/Subfuente, Rango de prima venta); se puede desactivar
+  // pasando opts.ocultarFilasVacias:false si alguna tabla futura lo necesitara.
+  const ocultarVacias = opts.ocultarFilasVacias !== false;
   const gruposMostrar = filtrarGruposVisibles(buckets, bucketsVisibles);
   function cellFnConTotal(d, b, m){
     if(b === 'Total') return sumarCeldas(buckets.map(bb => cellFn(d,bb,m)));
@@ -2611,8 +2618,13 @@ function buildCallNestedTable(tableId, rowLabel, dims, buckets, cols, cellFn, va
   head1 += '</tr>'; head2 += '</tr>';
   let html = '<thead>'+head1+head2+'</thead><tbody>';
   dims.forEach(d => {
+    const celdas = [];
+    gruposMostrar.forEach(b => { cols.forEach((m,i) => {
+      celdas.push({ cls: (i===0?' class="div-left"':''), txt: valueFn(cellFnConTotal(d,b,m), d, b, m) });
+    }); });
+    if(ocultarVacias && celdas.every(c => c.txt === '–')) return;
     html += '<tr><td>'+d+'</td>';
-    gruposMostrar.forEach(b => { cols.forEach((m,i) => { html += '<td'+(i===0?' class="div-left"':'')+'>'+valueFn(cellFnConTotal(d,b,m), d, b, m)+'</td>'; }); });
+    celdas.forEach(c => { html += '<td'+c.cls+'>'+c.txt+'</td>'; });
     if(conTotales){
       const filaTotal = sumarCeldas(buckets.flatMap(bb => cols.map(m => cellFn(d,bb,m))));
       html += '<td class="div-left" style="font-weight:600;">'+rowTotalFn(filaTotal, d)+'</td>';
@@ -2670,18 +2682,29 @@ function renderCallFiltroPerfil(corte){
       totalLeadsPorBucketMes[b+'|'+m] = dims.reduce((s,d)=>s+aggCelda(d,b,m).l,0);
     }); });
     agregarTotalAMapaBuckets(totalLeadsPorBucketMes, buckets, cols);
+    // Total general de leads (todas las filas x todos los call center reales x todos los meses
+    // visibles), usado solo para el % de participación de la columna "Total" por fila -- igual
+    // criterio que renderCallFiltroFuenteBasico ("Por fuente y subfuente").
+    const grandTotalLeads = buckets.reduce((s,b) => s + cols.reduce((s2,m) => s2 + totalLeadsPorBucketMes[b+'|'+m], 0), 0);
 
+    // A pedido del usuario: mismas fila/columna "Total" que ya tiene la pestaña "Por fuente y
+    // subfuente" (ver renderCallFiltroFuenteBasico) para las 18 tablas básicas de Tasa/Prima/Edad.
+    const totales = { conTotales: true };
     buildCallNestedTable('table'+idPrefix+'LeadsMatrix', rowLabel, dims, buckets, cols, aggCelda, (a,d,b,m) => {
       if(a.l===0) return '–';
       const total = totalLeadsPorBucketMes[b+'|'+m];
       const part = total>0 ? (a.l/total)*100 : 0;
       return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
-    }, bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles);
-    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles);
+    }, bucketsVisibles, { conTotales: true, rowTotalFn: (a,d) => {
+      if(a.l===0) return '–';
+      const part = grandTotalLeads>0 ? (a.l/grandTotalLeads)*100 : 0;
+      return a.l.toLocaleString() + ' (<strong>' + pctFmt(part) + '</strong>)';
+    } });
+    buildCallNestedTable('table'+idPrefix+'VentasMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 ? a.v.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'MismoMesMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vMismoMes>0 ? a.vMismoMes.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'ColchonMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.vColchon>0 ? a.vColchon.toLocaleString() : '–', bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'ColchonPartMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.v>0 && a.vColchon>0 ? (Math.round((a.vColchon/a.v)*1000)/10)+'%' : (a.v>0?'0%':'–'), bucketsVisibles, totales);
+    buildCallNestedTable('table'+idPrefix+'EfectMatrix', rowLabel, dims, buckets, cols, aggCelda, a => a.l>0 ? pctFmt((a.vMismoMes/a.l)*100) : '–', bucketsVisibles, totales);
   }
 
   renderGrupo('Tasa', 'Tasa', ORDEN_TASA, 'leads_cross_tasa_call', 'sales_cross_tasa_call');
