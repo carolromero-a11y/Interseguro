@@ -3446,10 +3446,14 @@ function renderEtiquetaPropensionFuente(corte){
   const dim1s = dimsOrdenadosEtiqueta(corte);
   const ordenPropension = dimsOrdenadosPropension(corte);
   const relevantes = propensionesPorEtiqueta(corte, ordenPropension);
-  // "flat": Sin dato, Bajo y No evaluable NUNCA tienen sub-filas (regla de negocio fija,
-  // no depende de qué datos existan) -- se muestran siempre como fila simple, sin flecha
-  // ni posibilidad de expandir. Solo Alto y Medio pueden mostrar sub-filas de propensión.
-  const ETIQUETAS_SIN_SUBFILAS = new Set(['Sin dato', 'Bajo', 'No evaluable']);
+  // "flat": Sin dato, Bajo, No evaluable y Propension no disponible NUNCA tienen sub-filas
+  // (regla de negocio fija, no depende de qué datos existan) -- se muestran siempre como fila
+  // simple, sin flecha ni posibilidad de expandir. Solo Alto y Medio pueden mostrar sub-filas de
+  // propensión. "Propension no disponible" es una categoría nueva de la columna "propension"
+  // (Ronda 39) que, igual que "Bajo"/"No evaluable", solo existe con propensión_ajustada vacía
+  // (confirmado con datos reales) -- se agrega acá para no mostrarla como grupo expandible con
+  // una única sub-fila "Sin dato" repitiendo el mismo número de la fila principal.
+  const ETIQUETAS_SIN_SUBFILAS = new Set(['Sin dato', 'Bajo', 'No evaluable', 'Propension no disponible']);
   const grupos = dim1s.map(d1 => {
     const flat = ETIQUETAS_SIN_SUBFILAS.has(d1);
     const rel = relevantes[d1] || [];
