@@ -1370,14 +1370,32 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
     const d = new Date(r[0] + '-' + String(r[1]).padStart(2,'0') + 'T12:00:00');
     return d >= desde && d <= hasta;
   }
-  const porFuente = {};
-  (DATA.sales_by_fuente||[]).filter(enRangoArr).forEach(r => {
-    porFuente[r[2]] = porFuente[r[2]] || { ventas: 0, pna: 0 };
-    porFuente[r[2]].ventas += r[3];
-    porFuente[r[2]].pna += r[4];
-  });
-  const filasFuente = Object.keys(porFuente).sort((a,b)=>porFuente[b].ventas-porFuente[a].ventas)
-    .map(a => `<tr><td>${a}</td><td>${porFuente[a].ventas.toLocaleString()}</td><td>S/ ${abbrevNum(porFuente[a].pna)}</td></tr>`).join('');
+  // Desglose Por Fuente/Subfuente (ampliado a pedido explícito: antes solo mostraba Ventas/PNA,
+  // ahora agrega Leads y Efectividad, y se agrega la tabla de Subfuente que no existía). Mismo
+  // formato de tupla que usa el resto del dashboard: leads_by_fuente/subfuente -> [mes, dia,
+  // dim, leads, convertidos]; sales_by_fuente/subfuente -> [mes, dia, dim, ventas, pna, ...].
+  function filaDim(nombre, d) {
+    const efect = d.leads>0 ? (d.ventas/d.leads*100) : 0;
+    return `<tr><td>${nombre}</td><td>${d.leads.toLocaleString()}</td><td>${d.ventas.toLocaleString()}</td><td>${pctFmt(efect)}</td></tr>`;
+  }
+  function aggPorDim(leadsArr, salesArr) {
+    const m = {};
+    (leadsArr||[]).filter(enRangoArr).forEach(r => {
+      const dim = r[2];
+      m[dim] = m[dim] || { leads: 0, ventas: 0 };
+      m[dim].leads += r[3];
+    });
+    (salesArr||[]).filter(enRangoArr).forEach(r => {
+      const dim = r[2];
+      m[dim] = m[dim] || { leads: 0, ventas: 0 };
+      m[dim].ventas += r[3];
+    });
+    return m;
+  }
+  const porFuente = aggPorDim(DATA.leads_by_fuente, DATA.sales_by_fuente);
+  const porSubfuente = aggPorDim(DATA.leads_by_subfuente, DATA.sales_by_subfuente);
+  const filasFuente = Object.keys(porFuente).sort((a,b)=>porFuente[b].leads-porFuente[a].leads).map(k=>filaDim(k, porFuente[k])).join('');
+  const filasSubfuente = Object.keys(porSubfuente).sort((a,b)=>porSubfuente[b].leads-porSubfuente[a].leads).map(k=>filaDim(k, porSubfuente[k])).join('');
 
   const fmtFecha = (v) => { const [y,m,d] = v.split('-'); return d+'/'+m+'/'+y; };
   document.getElementById('rangoResultado').innerHTML = `
@@ -1389,7 +1407,16 @@ document.getElementById('rangoBtn').addEventListener('click', () => {
         <div class="kpi"><p class="label">Leads</p><p class="value">${leads.toLocaleString()}</p></div>
         <div class="kpi"><p class="label">Efectividad</p><p class="value">${pctFmt(efect)}</p></div>
       </div>
-      <div class="table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr><th>Fuente</th><th>Ventas</th><th>PNA</th></tr></thead><tbody>${filasFuente || '<tr><td colspan="3">Sin ventas en este rango</td></tr>'}</tbody></table></div>
+      <div class="grid-2" style="margin-top:16px;">
+        <div>
+          <h3 style="font-size:14px;margin:0 0 6px;">Por Fuente</h3>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Fuente</th><th>Leads</th><th>Ventas</th><th>Efectividad</th></tr></thead><tbody>${filasFuente || '<tr><td colspan="4">Sin datos en este rango</td></tr>'}</tbody></table></div>
+        </div>
+        <div>
+          <h3 style="font-size:14px;margin:0 0 6px;">Por Subfuente</h3>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Subfuente</th><th>Leads</th><th>Ventas</th><th>Efectividad</th></tr></thead><tbody>${filasSubfuente || '<tr><td colspan="4">Sin datos en este rango</td></tr>'}</tbody></table></div>
+        </div>
+      </div>
     </section>`;
   document.getElementById('rangoResultado').style.display = 'block';
 });
@@ -2304,3 +2331,4 @@ render(1, corteDefault);
 </div>
 </body>
 </html>
+
