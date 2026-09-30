@@ -1044,13 +1044,12 @@ const CAMPOS_TUPLA_PRODUCTO = [
   // [mes, dia, nivel1, nivel2, nivel3, call, fuente, subfuente, dniCount, qllamadas, producto] --
   // 8 columnas de llave (mes..subfuente) antes de los 2 valores a sumar (dniCount, qllamadas).
   ['tipificaciones',8],
-  // ITP / efectividad cruzada (Ronda 65, setiembre 2026, a pedido explícito): mismo formato de 3
-  // columnas de llave que sales_by_subproducto/leads_by_subproducto de arriba -- la única
-  // diferencia es que el "producto" que viene pegado a cada fila es v._grupoCruzado (producto del
-  // LEAD de origen) en vez de v._grupo/l._subproducto (ver aggVentasPorDimGen en el .gs). Se
-  // recortan acá igual que cualquier otro campo, para que la pestaña "ITP" y el cuadro de metas en
-  // modo cruzado respeten el filtro de producto global de arriba.
-  ['sales_by_subproducto_cruzado',3], ['sales_itp_by_subproducto_cruzado',3], ['sales_by_call_cruzado',3]
+  // ITP (Ronda 65, setiembre 2026, a pedido explícito): mismo formato de 3 columnas de llave que
+  // sales_by_subproducto de arriba -- para la pestaña nueva "ITP" (ventas con flg_itp=1). Desde
+  // este cambio, v._grupo YA es la atribución por lead de origen (ver el .gs), así que no hace
+  // falta ningún campo "_cruzado" aparte -- sales_by_subproducto de arriba sirve tal cual para la
+  // tabla "Efectividad cruzada" de esa misma pestaña.
+  ['sales_itp_by_subproducto',3]
 ];
 
 // Aplica el filtro de producto sobre la variable global DATA (in-place). Se llama UNA vez,
@@ -1073,13 +1072,6 @@ function aplicarFiltroProducto(filtro){
     }
     if (Array.isArray(DATA.leads_daily_producto)) {
       DATA.leads_daily = colapsarObjetosPorProducto(DATA.leads_daily_producto, ['mes','dia'], ['leads','convertidos'], filtro);
-    }
-    // sales_daily_cruzado (Ronda 65, solo Vida): misma reconstrucción de arriba, pero desde
-    // sales_daily_producto_cruzado (producto = lead de origen, no SUB_PRODUCTO propio) -- para la
-    // fila "Total" del cuadro de metas en modo "efectividad cruzada" (ver conDatosCruzado más
-    // abajo). DATA.sales_daily de arriba NO se toca.
-    if (Array.isArray(DATA.sales_daily_producto_cruzado)) {
-      DATA.sales_daily_cruzado = colapsarObjetosPorProducto(DATA.sales_daily_producto_cruzado, ['mes','dia'], ['ventas','prima','mismoMes','pna'], filtro);
     }
     // campanas: el top-12 por mes NO se recalcula (queda igual que con "Ambos", a proposito,
     // para no cambiar que campañas aparecen) -- solo se reemplazan los conteos de leads/
@@ -1817,23 +1809,6 @@ function renderTab(key, corte){
     DATA = DATA_TODOS || DATA_FILTRADA;
     try { fn(); } finally { DATA = DATA_FILTRADA; }
   }
-  // conDatosCruzado(fn): Ronda 65 (setiembre 2026), a pedido explícito -- "efectividad cruzada"
-  // para el cuadro de metas cuando el filtro de producto (arriba) está en Vida Cash o Endoso. Las
-  // ventas de esa sección dejan de contarse por su propio SUB_PRODUCTO (sales_daily/sales_by_call,
-  // ya recortados por aplicarFiltroProducto con ese criterio) y pasan a contarse por el producto
-  // del LEAD que las originó (sales_daily_cruzado/sales_by_call_cruzado, mismo recorte pero con
-  // v._grupoCruzado) -- así una venta con el flag ITP que salió como "Vida Cash Plus" pero vino
-  // de un lead de Endoso cuenta para Endoso, y viceversa (confirmado con el usuario: "reemplaza"
-  // la efectividad/unidades que se veían antes, no se agrega aparte). Mismo truco de intercambio
-  // temporal que conDatosSinFiltro de arriba, pero canjeando sales_daily/sales_by_call por sus
-  // versiones "_cruzado" en vez de por DATA_TODOS -- así renderMetasResumen (que lee esos 2 campos
-  // por closure, sin parámetro) no necesita ningún cambio para soportar este modo.
-  function conDatosCruzado(fn){
-    const salesDailyOriginal = DATA.sales_daily, salesByCallOriginal = DATA.sales_by_call;
-    if (Array.isArray(DATA.sales_daily_cruzado)) DATA.sales_daily = DATA.sales_daily_cruzado;
-    if (Array.isArray(DATA.sales_by_call_cruzado)) DATA.sales_by_call = DATA.sales_by_call_cruzado;
-    try { fn(); } finally { DATA.sales_daily = salesDailyOriginal; DATA.sales_by_call = salesByCallOriginal; }
-  }
   if(key === 'resumen'){
     // Los KPIs y las 3 gráficas de arriba (Resumen) quedan con try/catch propio, igual que el
     // resto de secciones -- si algo falla aquí (ej. Chart.js sin cargar por un problema de red)
@@ -1972,20 +1947,19 @@ function renderTab(key, corte){
       intentar('renderMetasResumen', () => conDatosSinFiltro(() => renderMetasResumen(corte, ventasActual, ventasProy, 'Total (todos los canales)')));
       intentar('renderLeadsMeta', () => conDatosSinFiltro(() => renderLeadsMeta(corte, leadsActual, leadsProy, 'Total (todos los canales)')));
     } else {
-      // Leads: sin cambios (el denominador de la efectividad cruzada sigue siendo los leads de
-      // ESE producto, l._subproducto, tal como llegan -- no hay ambigüedad ahí, un lead tiene un
-      // solo producto de origen).
+      // Ronda 65 (setiembre 2026): DATA.sales_daily/DATA.leads_daily ya vienen recortados por
+      // aplicarFiltroProducto usando v._grupo/l._subproducto -- y desde este cambio, v._grupo YA
+      // es la atribución "cruzada" (producto del lead de origen, no el SUB_PRODUCTO propio de la
+      // venta -- ver el .gs) -- así que Unidades/PNA/Efectividad de este cuadro salen
+      // automáticamente con la efectividad cruzada/corregida, sin ningún truco extra acá (antes
+      // de este cambio, este bloque envolvía la llamada con un intercambio temporal de datos;
+      // ya no hace falta).
+      const ventasActualProd = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'ventas', corte) : 0;
       const leadsActualProd = mesActual ? aggMonth(DATA.leads_daily, mesActual, 'leads', corte) : 0;
       const leadsProyProd = Math.round(proyectarCierre('leads', leadsActualProd, corte));
+      const ventasProyProd = proyectarVentasPorEfectividad(ventasActualProd, leadsActualProd, leadsProyProd, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
       const metaKeyProd = METAS_TOTAL_KEY_POR_PRODUCTO[filtroProductoActual];
-      // Ventas: "efectividad cruzada" (ver conDatosCruzado arriba) -- reemplaza, para este cuadro
-      // de metas, el conteo de ventas por SUB_PRODUCTO propio por el conteo por producto del lead
-      // de origen (incluye ventas ITP que cruzan de un producto al otro).
-      intentar('renderMetasResumen', () => conDatosCruzado(() => {
-        const ventasActualProdCruzado = mesActual ? aggMonth(DATA.sales_daily, mesActual, 'ventas', corte) : 0;
-        const ventasProyProdCruzado = proyectarVentasPorEfectividad(ventasActualProdCruzado, leadsActualProd, leadsProyProd, corte, m => aggMonth(DATA.sales_daily, m, 'ventas', null));
-        renderMetasResumen(corte, ventasActualProdCruzado, ventasProyProdCruzado, metaKeyProd);
-      }));
+      intentar('renderMetasResumen', () => renderMetasResumen(corte, ventasActualProd, ventasProyProd, metaKeyProd));
       intentar('renderLeadsMeta', () => renderLeadsMeta(corte, leadsActualProd, leadsProyProd, metaKeyProd));
     }
   } else if(key === 'call'){
@@ -1996,12 +1970,13 @@ function renderTab(key, corte){
   } else if(key === 'itp'){
     // Ronda 65 (setiembre 2026): 2 llamadas a renderMatrixSet con el mismo leadsKey (producto del
     // lead) pero 2 salesKey distintos -- 'Itp' pinta las 6 tablas de ventas ITP (solo flg_itp=1,
-    // ver sales_itp_by_subproducto_cruzado en el .gs); 'ItpX' solo aporta la tabla de Efectividad
-    // cruzada (TODAS las ventas, no solo ITP, ver sales_by_subproducto_cruzado) -- soloBasico:true
-    // evita calcular de más Colchón/%Colchón para 'ItpX', cuyas tablas de Leads/Ventas/MismoMes no
+    // ver sales_itp_by_subproducto en el .gs); 'ItpX' solo aporta la tabla de "Efectividad
+    // cruzada" reusando DIRECTAMENTE sales_by_subproducto (TODAS las ventas -- desde este cambio
+    // ya viene atribuida por lead de origen, igual que en "Por producto") -- soloBasico:true evita
+    // calcular de más Colchón/%Colchón para 'ItpX', cuyas tablas de Leads/Ventas/MismoMes no
     // tienen contenedor en el HTML (M.build ya ignora en silencio un id que no existe).
-    intentar('renderMatrixSet Itp', () => renderMatrixSet('Itp', 'leads_by_subproducto', 'sales_itp_by_subproducto_cruzado', [], [], corte, 'itp'));
-    intentar('renderMatrixSet ItpX', () => renderMatrixSet('ItpX', 'leads_by_subproducto', 'sales_by_subproducto_cruzado', [], [], corte, 'itp', true));
+    intentar('renderMatrixSet Itp', () => renderMatrixSet('Itp', 'leads_by_subproducto', 'sales_itp_by_subproducto', [], [], corte, 'itp'));
+    intentar('renderMatrixSet ItpX', () => renderMatrixSet('ItpX', 'leads_by_subproducto', 'sales_by_subproducto', [], [], corte, 'itp', true));
   } else if(key === 'fuente'){
     intentar('renderMatrixSet Fuente', () => renderMatrixSet('Fuente', 'leads_by_fuente', 'sales_by_fuente', [], [], corte, 'fuente'));
     intentar('renderMatrixSet Subfuente', () => renderMatrixSet('Subfuente', 'leads_by_subfuente', 'sales_by_subfuente', [], [], corte, 'fuente'));
